@@ -6,6 +6,7 @@
 #include "Assets.h"
 #include "TArray.h"
 #include <algorithm>
+#include "FFrustum.h"
 
 class FCamera;
 class UPrimitiveComponent;
@@ -87,6 +88,14 @@ public:
 	enum { DEFAULT_RESERVE_MEM = 1024U };
 
 	FCamera* Camera = nullptr;
+	FFrustum Frustum;
+	bool bEnableFrustumCulling = false;
+	struct FCullingStats
+	{
+		uint32 Tested = 0;
+		uint32 Culled = 0;
+		uint32 Visible = 0;
+	} CullingStats;
 
 	TArray<FRenderInfo> RenderInfos; // 메시 패스
 	TArray<FRenderLineInfo> LineInfos; // 라인 패스

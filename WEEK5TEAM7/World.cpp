@@ -6,6 +6,8 @@
 #include "JsonUtil.h"
 #include "Console.h"
 #include "ObjectFactory.h"
+#include "ActorComponent.h"
+#include "FInstrumentor.h"
 
 UWorld::~UWorld()
 {
@@ -96,9 +98,38 @@ void UWorld::Tick(float deltaTime)
 
 void UWorld::Render(float deltaTime, FRenderCollector& outCollector)
 {
-	for (AActor* actor : mActors)
+	// 쿼드/라인 정보는 Render()가 그린 뒤 스스로 비운다. 월드 바깥(엔진 루프의 AABB 디버그 라인 등)에서도
+	// 채워지므로 여기서 Reset 하면 남의 것까지 날린다. 메시/픽킹 배열만 여기서 갈아끼운다.
+	outCollector.RenderInfos.Reset(DEFAULT_RESERVE_MEM);
+	outCollector.PickTargets.Reset(DEFAULT_RESERVE_MEM);
+
+	CollectVisible(outCollector);
+}
+
+void UWorld::CollectVisible(FRenderCollector& Collector)
+{
+	PROFILE_SCOPE("World/CollectVisible");
+	Collector.CullingStats = {};
+	// 현재는 선형 후보 탐색입니다. 평면 판정과 RenderInfo 생성은 그대로 재사용할 수 있습니다.
+	for (AActor* Actor : mActors)
 	{
-		actor->Render(outCollector);
+		for (UActorComponent* Component : Actor->GetComponents())
+		{
+			// 픽킹 대상은 렌더 가시성과 독립적으로 유지합니다.
+			Component->RegisterPickTarget(Collector);
+			FAABB Bounds;
+			if (Collector.bEnableFrustumCulling && Component->GetCullingBounds(Bounds))
+			{
+				++Collector.CullingStats.Tested;
+				if (Collector.Frustum.Classify(Bounds) == EFrustumResult::Outside)
+				{
+					++Collector.CullingStats.Culled;
+					continue;
+				}
+				++Collector.CullingStats.Visible;
+			}
+			Component->Render(Collector);
+		}
 	}
 }
 
