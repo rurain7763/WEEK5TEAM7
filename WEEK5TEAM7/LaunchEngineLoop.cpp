@@ -3,6 +3,7 @@
 // Visual Profiler
 #define ENABLE_VISUAL_PROFILING 1
 #include "FInstrumentor.h"
+#include "FTextBuilder.h"
 
 #include <windows.h>
 #include "Renderer.h"
@@ -180,12 +181,78 @@ void FEngineLoop::InitAssetManager()
 	// ScanDirectory로 파일 자동 스캔하여 uasset 등록하므로 아래 줄과 중복되어 삭제해도 되나,
 	// 참고하고 있는 곳이 있어서 ScanDirectory와 동일한 파일명 규칙으로 수정해 둠.
 
-	TSharedPtr<FFileAssetSource> FontAssetSource = MakeShared<FFileAssetSource>("Assets/Fonts/BMKkubulimTTF.ttf");
+	TSharedPtr<FFileAssetSource> FontAssetSource = MakeShared<FFileAssetSource>("Assets/Fonts/HMKMRHD.ttf");
 	mAssetManager->RegisterAsset(FGuid::NewGuid(), FName("TestFont"), FontLoader, FontAssetSource);
 
 	TSharedPtr<FFontAsset> TestFontAsset = mAssetManager->GetAssetAs<FFontAsset>(FName("TestFont"), true);
 	TSharedPtr<FFontAtlasAsset> FontAtlasAsset = MakeShared<FFontAtlasAsset>(FGuid::NewGuid(), FName("TestFontAtlas"), *renderer, TestFontAsset, 512, 512, 2, 2);
 	mAssetManager->RegisterAsset(FontAtlasAsset);
+}
+
+
+static void RenderPerformanceOverlay(FRenderCollector& RenderCollector, FFrameTimer* FrameTimer, float ViewportWidth, float ViewportHeight)
+{
+	TSharedPtr<FFontAtlasAsset> FontAtlasAsset = FAssetManager::Get().GetAssetAs<FFontAtlasAsset>(FName("TestFontAtlas"), true);
+
+	if (!FontAtlasAsset || !FontAtlasAsset->GetFontAtlas())
+	{
+		return;
+	}
+
+	const float TextScale = 0.5f;
+	FTextBuilder TextBuilder(FontAtlasAsset->GetFontAtlas(), TextScale);
+	TextBuilder.SetCoordinateSpace(ECoordinateSpace::Screen);
+
+	// 데이터 수집
+	int MonitorWidth = GetSystemMetrics(SM_CXSCREEN);
+	int MonitorHeight = GetSystemMetrics(SM_CYSCREEN);
+	int ViewWidth = static_cast<int>(ViewportWidth);
+	int ViewHeight = static_cast<int>(ViewportHeight);
+	float FPS = FrameTimer ? FrameTimer->GetFPS() : 0.0f;
+	float FrameTimeMs = FrameTimer ? (FrameTimer->GetDeltaTime() * 1000.0f) : 0.0f;
+	auto PickStat = FInstrumentor::Get().GetRealtimeStats("MousePicking");
+
+	std::wstring PerformanceText = std::format(
+		L"Resolution: {}x{} (Viewport: {}x{})\n"
+		L"FPS: {:.1f} ({:.2f} ms)\n"
+		L"Last Picking: {:.3f} ms\n"
+		L"Picking Count: {}\n"
+		L"Total Picking Time: {:.3f} ms",
+		MonitorWidth, MonitorHeight,
+		ViewWidth, ViewHeight,
+		FPS, FrameTimeMs,
+		PickStat.LastDurationMs,
+		PickStat.CallCount,
+		PickStat.TotalDurationMs
+	);
+
+	// 텍스트 전체의 픽셀 Width Height
+	float TextWidth = 0.0f;
+	float TextHeight = 0.0f;
+	TextBuilder.CalculateSize(PerformanceText, TextWidth, TextHeight);
+	// 화면 좌상단 마진(Margin)
+	const float MarginX = 20.0f;
+	const float MarginY = 30.0f;
+	FVector2 TextLocation = FVector2(TextWidth * 0.5f + MarginX, TextHeight * 0.5f + MarginY);
+
+	// 글자 단위로 2D Quad를 생성하여 RenderCollector에 추가
+	TextBuilder.Build(PerformanceText, TextWidth, TextHeight, [&](const FRect& TextRect, const FRect& SubUVRect)
+		{
+			if (TextRect.Width <= 0.0f || TextRect.Height <= 0.0f)
+			{
+				return;
+			}
+
+			FRenderQuad2DInfo Quad2DInfo;
+			Quad2DInfo.Position = FVector2(TextRect.X, TextRect.Y) + TextLocation;
+			Quad2DInfo.Size = { TextRect.Width, TextRect.Height };
+			Quad2DInfo.Color = FVector4(0.0f, 1.0f, 0.0f, 1.0f);
+			Quad2DInfo.TextureSRV = FontAtlasAsset->GetSRV();
+			Quad2DInfo.SubUV = FVector4(SubUVRect.X, SubUVRect.Y, SubUVRect.Width, SubUVRect.Height);
+			Quad2DInfo.BlendMode = ERenderBlendMode::Transparent;
+
+			RenderCollector.AddQuad2DInfo(Quad2DInfo);
+		});
 }
 
 void FEngineLoop::Tick(bool bPumpMessages)
@@ -293,10 +360,14 @@ void FEngineLoop::Tick(bool bPumpMessages)
 			// 드래그 중 마우스 피킹이 실행되어 선택된 액터가 풀리는 것 방지
 			bool bIsAssetDragging = (ImGui::GetDragDropPayload() != nullptr);
 			{
-				PROFILE_SCOPE("Viewport/Picking");
 				if (CurrentViewport->Client->IsActive() && Input.WasPressed(VK_LBUTTON) && !CurrentViewport->Client->mGizmo.IsDragging() && !CurrentViewport->Client->mGizmo.IsMouseOverHandle() && !bIsAssetDragging)
 				{
-					AActor* HitActor = CurrentViewport->Client->PerformMousePicking(CurrentViewport->Window->Rect, CurrentRatio, RenderCollector);
+					AActor* HitActor = nullptr;
+					{
+						PROFILE_SCOPE("MousePicking");
+						HitActor = CurrentViewport->Client->PerformMousePicking(CurrentViewport->Window->Rect, CurrentRatio, RenderCollector);
+					}
+
 					if (HitActor)
 					{
 						mSceneManager->SetSelectedActor(HitActor);
@@ -360,6 +431,10 @@ void FEngineLoop::Tick(bool bPumpMessages)
 				CurrentViewport->Viewport->Resize(*mGraphicsManager->GetRenderer(), ViewportRect.Width, ViewportRect.Height);
 				mGraphicsManager->Prepare(&CurrentViewport->Client->mCamera, ViewportRect.Width, ViewportRect.Height, *CurrentViewport->Viewport, CurrentViewport->Client->GetViewMode(), CurrentViewport->Client->GetViewportType());
 				mGraphicsManager->RenderHighLight(HighlightedComponents);
+				if (CurrentViewport->Client->IsActive() || !bIsSplit)
+				{
+					RenderPerformanceOverlay(RenderCollector, FrameTimer, ViewportRect.Width, ViewportRect.Height);
+				}
 				mGraphicsManager->Render();
 
 				CurrentViewport->Client->mGizmo.Render(SelectedActor, CurrentViewport->Client->mCamera.Transform.GetLocation(), CurrentViewport->Window->Rect, ViewProjection, CurrentViewport->Client->IsOrtho(), CurrentViewport->Client->GetCamera().mOrthoDistance);

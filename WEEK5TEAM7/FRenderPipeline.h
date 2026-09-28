@@ -37,6 +37,9 @@ public:
 	void SetSamplerState(uint32 Slot, D3D11_FILTER Filter, D3D11_TEXTURE_ADDRESS_MODE AddressU, D3D11_TEXTURE_ADDRESS_MODE AddressV);
 	void ClearSamplerState();
 
+	inline uint16 GetPipelineID() const { return PipelineID; }
+	inline uint32 GetStride() const { return Stride; }
+
 	template <typename T>
 	void AddConstantBuffer()
 	{
@@ -94,4 +97,7 @@ private:
 	TArray<ID3D11Buffer*> ConstantBuffers;
 	TArray<ID3D11ShaderResourceView*> ShaderResourceViews;
 	TArray<ID3D11SamplerState*> SamplerStates;
+
+	uint16 PipelineID = 0;
+	inline static uint16 NextPipelineID = 1;
 };

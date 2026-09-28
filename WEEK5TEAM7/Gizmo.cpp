@@ -5,6 +5,7 @@
 #include "WindowApplication.h"
 #include "EngineMathLibrary.h"
 #include "SceneManager.h"
+#include "FInstrumentor.h"
 #include <cmath>
 
 FGizmo::FGizmo(URenderer& InRenderer) 
@@ -186,6 +187,8 @@ void FGizmo::Tick(AActor* TargetActor, const FRect& ViewportRect, bool bViewport
 void FGizmo::Render(AActor* TargetActor, const FVector& CameraPosition, const FRect& ViewportRect, const FMatrix& ViewProjection, bool bIsOrtho, float OrthoDistance)
 {
     HandleScreenSegments.Empty();
+
+    PROFILE_SCOPE("Viewport/GraphicsMgr/RenderGizmo");
 
     if (!TargetActor) 
 	{ 
