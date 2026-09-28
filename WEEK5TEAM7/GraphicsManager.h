@@ -26,7 +26,6 @@ public:
 	FGraphicsManager(HWND hWindow);
 	~FGraphicsManager();
 
-	//void Prepare(const Camera* mCamera);
 	void Prepare(const FCamera* Camera,float viewportWidth, float viewportHeight, const FViewport& viewport, const EViewModeIndex InViewMode, const EViewportType InViewportType);
 
 	void RenderHighLight(const TArray<UPrimitiveComponent*>& Primitives);

@@ -11,6 +11,7 @@ FRenderPipeline::FRenderPipeline(ID3D11Device* InDevice, ID3D11DeviceContext* In
 	, SamplerStatePool(InSamplerStatePool)
 	, DepthStencilStatePool(InDepthStencilStatePool)
 	, BlendStatePool(InBlendStatePool)
+	, PipelineID(NextPipelineID++)
 {
 	FBlendStateKey Key{ ERenderBlendMode::Opaque, true };
 	BlendState = InBlendStatePool->GetOrCreateBlendState(Device, Key);
@@ -72,8 +73,7 @@ static D3D11_FILL_MODE GetFillModeForViewMode(EViewModeIndex ViewMode)
 	}
 }
 
-void FRenderPipeline::SetRasterRizerState(D3D11_CULL_MODE CullMode, int32 DepthBias,
-	std::initializer_list<EViewModeIndex> ViewModes)
+void FRenderPipeline::SetRasterRizerState(D3D11_CULL_MODE CullMode, int32 DepthBias, std::initializer_list<EViewModeIndex> ViewModes)
 {
 	for (int32 Index = 0; Index < ViewModeCount; ++Index)
 	{
@@ -178,10 +178,22 @@ void FRenderPipeline::SetShaderResource(uint32 Slot, Microsoft::WRL::ComPtr<ID3D
 		ShaderResourceViews.SetNum(Slot + 1);
 	}
 	ShaderResourceViews[Slot] = SRV.Get();
+
+	if (DeviceContext)
+	{
+		ID3D11ShaderResourceView* RawSRV = SRV.Get();
+		DeviceContext->PSSetShaderResources(Slot, 1, &RawSRV);
+	}
 }
 
 void FRenderPipeline::ClearShaderResource()
 {
+	if (DeviceContext && ShaderResourceViews.Num() > 0)
+	{
+		ID3D11ShaderResourceView* nullSRVs[16] = { nullptr };
+		uint32 Count = ShaderResourceViews.Num() < 16 ? ShaderResourceViews.Num() : 16;
+		DeviceContext->PSSetShaderResources(0, Count, nullSRVs);
+	}
 	ShaderResourceViews.Empty();
 }
 

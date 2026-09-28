@@ -58,8 +58,6 @@ public:
 	FVector2 GetUVOffset(int32 index) const { return mUVOffsets[index]; }
 	void SetUVOffset(int32 index, const FVector2& InUVOffset) { mUVOffsets[index] = InUVOffset; }
 
-	UStaticMesh* StaticMesh = nullptr;
-
 private:
 	FVector4 Color = FVector4(1.f, 1.f, 1.f, 1.f);
 	TSharedPtr<FStaticMeshAsset> mMeshAsset;

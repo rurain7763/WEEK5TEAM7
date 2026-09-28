@@ -143,15 +143,27 @@ void AActor::CreateEditorComponents()
 	AddComponent(Text3DComponent);
 }
 
-FTransform AActor::GetTransform() const
+const FTransform& AActor::GetTransform() const
 {
 	if (mRootComponent)
 	{
-		return mRootComponent->GetTransformMatrix();
+		return mRootComponent->GetTransform();
 	}
 	else
 	{
-		return FTransform();
+		throw std::runtime_error(std::format("{}: Actor has no root component", GetClass()->Name));
+	}
+}
+
+FTransform& AActor::GetTransform()
+{
+	if (mRootComponent)
+	{
+		return mRootComponent->GetTransform();
+	}
+	else
+	{
+		throw std::runtime_error(std::format("{}: Actor has no root component", GetClass()->Name));
 	}
 }
 

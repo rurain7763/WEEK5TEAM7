@@ -28,11 +28,10 @@ public:
 	FVector GetRelativeScale3D() const;
 	void SetRelativeScale3D(FVector scale);
 
-	FTransform GetTransformMatrix() const;
+	inline FTransform& GetTransform() { return mRelativeTransform; }
+	const FTransform& GetTransform() const { return mRelativeTransform; }
 
 private:
-	FVector mRelativeLocation;
-	FRotator mRelativeRotation;
-	FVector mRelativeScale3D;
+	FTransform mRelativeTransform;
 };
 

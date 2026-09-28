@@ -44,6 +44,9 @@ void FEditorViewportClient::SetViewportType(EViewportType InViewportType)
 
 	mViewportType = InViewportType;
 
+	FTransform& CameraTransform = mCamera.Transform;
+	FVector CameraLocation = CameraTransform.GetLocation();
+
 	switch (InViewportType)
 	{
 	case EViewportType::Top:
@@ -52,17 +55,17 @@ void FEditorViewportClient::SetViewportType(EViewportType InViewportType)
 			Rotate.x = FMath::RadiansToDegrees(Rotate.x);
 			Rotate.y = FMath::RadiansToDegrees(Rotate.y);
 			Rotate.z = FMath::RadiansToDegrees(Rotate.z);
-			mCamera.Transform.Rotation = FRotator(Rotate.x, Rotate.y, Rotate.z);
-			mCamera.Transform.Location.z = 0.0f;
+			CameraTransform.SetRotation(FRotator(Rotate.x, Rotate.y, Rotate.z));
+			CameraTransform.SetLocation(FVector(CameraLocation.x, CameraLocation.y, 0.0f));
 		}
 		break;
 	case EViewportType::Front:
-		mCamera.Transform.Rotation = FRotator(0.0f, 0.0f, 0.0f);
-		mCamera.Transform.Location.x = 0.0f;
+		CameraTransform.SetRotation(FRotator(0.0f, 0.0f, 0.0f));
+		CameraTransform.SetLocation(FVector(0.0f, CameraLocation.y, CameraLocation.z));
 		break;
 	case EViewportType::Side:
-		mCamera.Transform.Rotation = FRotator(0.0f, -90.0f, 0.0f);
-		mCamera.Transform.Location.y = 0.0f;
+		CameraTransform.SetRotation(FRotator(0.0f, -90.0f, 0.0f));
+		CameraTransform.SetLocation(FVector(CameraLocation.x, 0.0f, CameraLocation.z));
 		break;
 	case EViewportType::Perspective:
 		break;
@@ -122,6 +125,9 @@ void FEditorViewportClient::Update(float deltaTime, float perspectiveRatio, FRen
 	bool bAllowMouse = mbActive;
 	bool bAllowKeyboardInput = bAllowMouse && !ImGui::GetIO().WantCaptureKeyboard;
 
+	FTransform& CameraTransform = mCamera.Transform;
+	FVector CameraLocation = CameraTransform.GetLocation();
+
 	if (IsOrtho() && bAllowMouse)
 	{
 		if (Input.IsDown(VK_RBUTTON))
@@ -131,8 +137,10 @@ void FEditorViewportClient::Update(float deltaTime, float perspectiveRatio, FRen
 
 			float PanSpeed = mCamera.mOrthoDistance * 0.0015f;
 
-			mCamera.Transform.Location += -mCamera.GetRightVector() * (DeltaX * PanSpeed);
-			mCamera.Transform.Location += mCamera.GetUpVector() * (DeltaY * PanSpeed);
+			CameraLocation -= mCamera.GetRightVector() * (DeltaX * PanSpeed);
+			CameraLocation += mCamera.GetUpVector() * (DeltaY * PanSpeed);
+
+			CameraTransform.SetLocation(CameraLocation);
 		}
 
 		if (Input.MouseWheelDelta != 0)
@@ -171,7 +179,7 @@ void FEditorViewportClient::Update(float deltaTime, float perspectiveRatio, FRen
 	FVector MoveDir(0.f, 0.f, 0.f);
 	if (bAllowKeyboardInput)
 	{
-		const FMatrix R = FMatrix::Rotate(mCamera.Transform.Rotation);
+		const FMatrix R = FMatrix::Rotate(CameraTransform.GetRotation());
 		const FVector Forward = R.GetUnitAxis(EAxis::X);
 		const FVector Right = R.GetUnitAxis(EAxis::Y);
 
@@ -202,7 +210,7 @@ void FEditorViewportClient::Update(float deltaTime, float perspectiveRatio, FRen
 			}
 			else
 			{
-				mCamera.Transform.Location += mCamera.GetForwardVector() * 1.0f * Input.MouseWheelDelta;
+				CameraLocation += mCamera.GetForwardVector() * 1.0f * Input.MouseWheelDelta;
 			}
 		}
 		//입력이 있으면 마우스 휠은 카메라 이동속도 조절
@@ -225,7 +233,8 @@ void FEditorViewportClient::Update(float deltaTime, float perspectiveRatio, FRen
 		mCamera.Velocity = FVector(0.f);
 	}
 
-	mCamera.Transform.Location += mCamera.Velocity * deltaTime;
+	CameraLocation += mCamera.Velocity * deltaTime;
+	CameraTransform.SetLocation(CameraLocation);
 
 	if (bAllowKeyboardInput)
 	{
@@ -247,6 +256,10 @@ void FEditorViewportClient::Update(float deltaTime, float perspectiveRatio, FRen
 
 void FEditorViewportClient::DeprojectScreenToWorld(int32 MouseX, int32 MouseY, float ScreenW, float ScreenH, float NearZ, float FarZ, FVector& OutNearPoint, FVector& OutFarPoint)
 {
+	FTransform& CameraTransform = mCamera.Transform;
+	FVector CameraLocation = CameraTransform.GetLocation();
+	FRotator CameraRotation = CameraTransform.GetRotation();
+
 	// 1) 픽셀 -> NDC. 화면 Y 는 아래로 +, NDC Y 는 위로 + 라서 뒤집는다
 	const float ndcX = (2.0f * (MouseX + 0.5f) / ScreenW) - 1.0f;
 	const float ndcY = 1.0f - (2.0f * (MouseY + 0.5f) / ScreenH);
@@ -257,18 +270,22 @@ void FEditorViewportClient::DeprojectScreenToWorld(int32 MouseX, int32 MouseY, f
 	const float xScale = yScale / Aspect;
 
 	// 3) 카메라 기저로 월드 방향 합성. 전방 성분이 1 이므로 정규화하면 안 된다
-	const FMatrix R = FMatrix::Rotate(mCamera.Transform.Rotation);
+	const FMatrix R = FMatrix::Rotate(CameraRotation);
 	FVector V = R.GetUnitAxis(EAxis::X);                    // 전방 (성분 1)
 	V += R.GetUnitAxis(EAxis::Y) * (ndcX / xScale);         // 우측
 	V += R.GetUnitAxis(EAxis::Z) * (ndcY / yScale);         // 상방
 
 	// 4) 곱하면 그대로 각 평면 위의 점
-	OutNearPoint = mCamera.Transform.Location + V * NearZ;
-	OutFarPoint = mCamera.Transform.Location + V * FarZ;
+	OutNearPoint = CameraLocation + V * NearZ;
+	OutFarPoint = CameraLocation + V * FarZ;
 }
 
 void FEditorViewportClient::DeprojectScreenToWorldForOrtho(int32 MouseX, int32 MouseY, float ScreenW, float ScreenH, float NearZ, float FarZ, FVector& OutNearPoint, FVector& OutFarPoint)
 {
+	FTransform& CameraTransform = mCamera.Transform;
+	FVector CameraLocation = CameraTransform.GetLocation();
+	FRotator CameraRotation = CameraTransform.GetRotation();
+
 	// 1) 픽셀 -> NDC. 화면 Y 는 아래로 +, NDC Y 는 위로 + 라서 뒤집는다
 	const float ndcX = (2.0f * (MouseX + 0.5f) / ScreenW) - 1.0f;
 	const float ndcY = 1.0f - (2.0f * (MouseY + 0.5f) / ScreenH);
@@ -279,14 +296,14 @@ void FEditorViewportClient::DeprojectScreenToWorldForOrtho(int32 MouseX, int32 M
 	const float orthoHeight = mCamera.mOrthoHeight;
 	const float orthoWidth = orthoHeight * Aspect;
 
-	const FMatrix R = FMatrix::Rotate(mCamera.Transform.Rotation);
+	const FMatrix R = FMatrix::Rotate(CameraRotation);
 	const FVector Forward = R.GetUnitAxis(EAxis::X);
 	const FVector Right = R.GetUnitAxis(EAxis::Y);
 	const FVector Up = R.GetUnitAxis(EAxis::Z);
 
 	// 3) 원근과 결정적으로 다른 점: 방향이 아니라 시작점이 픽셀마다 달라진다.
 	//    모든 광선이 전방과 나란하고, 카메라 평면 위에서 평행이동한 자리에서 출발한다
-	const FVector RayOrigin = mCamera.Transform.Location
+	const FVector RayOrigin = CameraLocation
 		+ Right * (ndcX * orthoWidth * 0.5f)
 		+ Up * (ndcY * orthoHeight * 0.5f);
 

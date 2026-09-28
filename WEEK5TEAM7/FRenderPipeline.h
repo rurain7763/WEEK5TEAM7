@@ -37,6 +37,9 @@ public:
 	void SetSamplerState(uint32 Slot, D3D11_FILTER Filter, D3D11_TEXTURE_ADDRESS_MODE AddressU, D3D11_TEXTURE_ADDRESS_MODE AddressV);
 	void ClearSamplerState();
 
+	inline uint16 GetPipelineID() const { return PipelineID; }
+	inline uint32 GetStride() const { return Stride; }
+
 	template <typename T>
 	void AddConstantBuffer()
 	{
@@ -76,13 +79,14 @@ public:
 private:
 	friend class URenderer;
 
+	static constexpr int32 ViewModeCount = static_cast<int32>(EViewModeIndex::VMI_Max);
+
 	ID3D11Device* Device = nullptr;
 	ID3D11DeviceContext* DeviceContext = nullptr;
 	D3D11_PRIMITIVE_TOPOLOGY PrimitiveTopology = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
 	FSamplerStatePool* SamplerStatePool = nullptr;
 	FDepthStencilStatePool* DepthStencilStatePool = nullptr;
 	FBlendStatePool* BlendStatePool = nullptr;
-	static constexpr int32 ViewModeCount = static_cast<int32>(EViewModeIndex::VMI_Max);
 	ID3D11RasterizerState* RasterizerStates[ViewModeCount] = {};
 	ID3D11DepthStencilState* DepthStencilState = nullptr;
 	ID3D11InputLayout* InputLayout = nullptr;
@@ -93,4 +97,7 @@ private:
 	TArray<ID3D11Buffer*> ConstantBuffers;
 	TArray<ID3D11ShaderResourceView*> ShaderResourceViews;
 	TArray<ID3D11SamplerState*> SamplerStates;
+
+	uint16 PipelineID = 0;
+	inline static uint16 NextPipelineID = 1;
 };

@@ -1,13 +1,22 @@
-﻿#pragma once
+#pragma once
 
 #include "Transform.h"
 #include "Object.h"
 #include "FName.h"
 #include "Assets.h"
 #include "TArray.h"
+#include <algorithm>
 
 class FCamera;
 class UPrimitiveComponent;
+class FRenderPipeline;
+
+inline uint64 MakeRenderSortKey(uint16 pipelineID, uint32 materialID, uint32 meshID)
+{
+	return (static_cast<uint64>(pipelineID) << 48) |
+		((static_cast<uint64>(materialID) & 0x00FFFFFF) << 24) |
+		(static_cast<uint64>(meshID) & 0x00FFFFFF);
+}
 
 enum class ERenderBlendMode
 {
@@ -20,6 +29,8 @@ enum class ERenderBlendMode
 
 struct FRenderInfo
 {
+	uint64 SortKey = 0;
+	TSharedPtr<FRenderPipeline> Pipeline;
 	Microsoft::WRL::ComPtr<ID3D11Buffer> VertexBuffer;
 	uint32 VertexCount = 0;
 	Microsoft::WRL::ComPtr<ID3D11Buffer> IndexBuffer;
@@ -31,6 +42,11 @@ struct FRenderInfo
 	uint32 ObjectInternalIndex;
 	FVector4 Color = { 1.f, 1.f, 1.f, 1.f };
 	bool UseVertexColor = true;
+
+	bool operator<(const FRenderInfo& Other) const
+	{
+		return SortKey < Other.SortKey;
+	}
 };
 
 struct FRenderQuadInfo
@@ -72,8 +88,8 @@ public:
 
 	FCamera* Camera = nullptr;
 
-	TArray<FRenderInfo>     RenderInfos;   // 메시 패스
-	TArray<FRenderLineInfo> LineInfos;     // 라인 패스
+	TArray<FRenderInfo> RenderInfos; // 메시 패스
+	TArray<FRenderLineInfo> LineInfos; // 라인 패스
 	TArray<UPrimitiveComponent*> PickTargets;
 
 	inline void AddQuadInfo(const FRenderQuadInfo& QuadInfo)
@@ -100,15 +116,39 @@ public:
 		Quad2DInfos.Add(Quad2DInfo);
 	}
 
+	// Sort the RenderInfos based on Texture, VertexBuffer, and IndexBuffer to minimize state changes during rendering.
+	inline void Sort()
+	{
+		std::sort(RenderInfos.begin(), RenderInfos.end(), [](const FRenderInfo& A, const FRenderInfo& B) {
+			const auto TextureA = A.Texture ? A.Texture->GetSRV() : nullptr;
+			const auto TextureB = B.Texture ? B.Texture->GetSRV() : nullptr;
+
+			if (TextureA != TextureB)
+			{
+				return TextureA < TextureB;
+			}
+
+			const auto VBA = A.VertexBuffer.Get();
+			const auto VBB = B.VertexBuffer.Get();
+
+			if (VBA != VBB)
+			{
+				return VBA < VBB;
+			}
+
+			return A.IndexBuffer.Get() < B.IndexBuffer.Get();
+		});
+	}
+
 	inline void Clear()
 	{
-		RenderInfos.Empty();
-		LineInfos.Empty();
-		PickTargets.Empty();
-		OpaqueQuadInfos.Empty();
-		TransparentQuadInfos.Empty();
-		OverlayQuadInfos.Empty();
-		Quad2DInfos.Empty();
+		RenderInfos.Reset(DEFAULT_RESERVE_MEM);
+		LineInfos.Reset(DEFAULT_RESERVE_MEM);
+		PickTargets.Reset(DEFAULT_RESERVE_MEM);
+		OpaqueQuadInfos.Reset(DEFAULT_RESERVE_MEM);
+		TransparentQuadInfos.Reset(DEFAULT_RESERVE_MEM);
+		OverlayQuadInfos.Reset(DEFAULT_RESERVE_MEM);
+		Quad2DInfos.Reset(DEFAULT_RESERVE_MEM);
 	}
 
 	inline const TArray<FRenderQuadInfo>& GetOpaqueQuadInfos() const { return OpaqueQuadInfos; }
