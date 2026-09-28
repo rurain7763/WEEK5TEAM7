@@ -9,9 +9,9 @@ void USceneComponent::Initialize(FVector location, FRotator rotation, FVector sc
 {
 	UActorComponent::Initialize();
 
-	mRelativeLocation = location;
-	mRelativeRotation = rotation;
-	mRelativeScale3D = scale3D;
+	mRelativeTransform.SetLocation(location);
+	mRelativeTransform.SetRotation(rotation);
+	mRelativeTransform.SetScale(scale3D);
 }
 
 USceneComponent::~USceneComponent()
@@ -21,9 +21,9 @@ USceneComponent::~USceneComponent()
 void USceneComponent::SerializeClass(json::JSON& outJson) const
 {
 	UActorComponent::SerializeClass(outJson);
-	outJson["Properties"]["mRelativeLocation"] = JsonUtils::ToJson(mRelativeLocation);
-	outJson["Properties"]["mRelativeRotation"] = JsonUtils::ToJson(mRelativeRotation);
-	outJson["Properties"]["mRelativeScale3D"] = JsonUtils::ToJson(mRelativeScale3D);
+	outJson["Properties"]["mRelativeLocation"] = JsonUtils::ToJson(mRelativeTransform.GetLocation());
+	outJson["Properties"]["mRelativeRotation"] = JsonUtils::ToJson(mRelativeTransform.GetRotation());
+	outJson["Properties"]["mRelativeScale3D"] = JsonUtils::ToJson(mRelativeTransform.GetScale());
 }
 
 void USceneComponent::DeserializeClass(const json::JSON& inJson)
@@ -53,42 +53,37 @@ void USceneComponent::DeserializeClass(const json::JSON& inJson)
 		throw std::runtime_error(std::format("{}: mRelativeScale3D property requires an array of length 3", GetClass()->Name));
 	}
 
-	mRelativeLocation = JsonUtils::FromJson<FVector>(propertiesJson.at("mRelativeLocation"));
-	mRelativeRotation = JsonUtils::FromJson<FRotator>(propertiesJson.at("mRelativeRotation"));
-	mRelativeScale3D = JsonUtils::FromJson<FVector>(propertiesJson.at("mRelativeScale3D"));
+	mRelativeTransform.SetLocation(JsonUtils::FromJson<FVector>(propertiesJson.at("mRelativeLocation")));
+	mRelativeTransform.SetRotation(JsonUtils::FromJson<FRotator>(propertiesJson.at("mRelativeRotation")));
+	mRelativeTransform.SetScale(JsonUtils::FromJson<FVector>(propertiesJson.at("mRelativeScale3D")));
 }
 
 FVector USceneComponent::GetRelativeLocation() const
 {
-	return mRelativeLocation;
+	return mRelativeTransform.GetLocation();
 }
 
 void USceneComponent::SetRelativeLocation(FVector location)
 {
-	mRelativeLocation = location;
+	mRelativeTransform.SetLocation(location);
 }
 
 FRotator USceneComponent::GetRelativeRotation() const
 {
-	return mRelativeRotation;
+	return mRelativeTransform.GetRotation();
 }
 
 void USceneComponent::SetRelativeRotation(FRotator rotation)
 {
-	mRelativeRotation = rotation;
+	mRelativeTransform.SetRotation(rotation);
 }
 
 FVector USceneComponent::GetRelativeScale3D() const
 {
-	return mRelativeScale3D;
+	return mRelativeTransform.GetScale();
 }
 
 void USceneComponent::SetRelativeScale3D(FVector scale)
 {
-	mRelativeScale3D = scale;
-}
-
-FTransform USceneComponent::GetTransformMatrix() const
-{
-	return FTransform(mRelativeLocation, mRelativeRotation, mRelativeScale3D);
+	mRelativeTransform.SetScale(scale);
 }

@@ -11,27 +11,92 @@ constexpr float MIN_SCALE = 0.001f;
 
 struct FTransform
 {
+public:
 	FTransform(){ }
 	FTransform(FVector _Location, FRotator _Rotation, FVector _Scale) : Location(_Location), Rotation(_Rotation), Scale(_Scale)
 	{
 	}
+	
+	inline const FMatrix& MakeMatrix() const
+	{
+		EnsureUpdateTransformMatrix();
+
+		return mTransformMatrix;
+	}
+
+	const FMatrix& InverseMatrix() const
+	{
+		if (mbInverseTransformDirty)
+		{
+			EnsureUpdateTransformMatrix();
+			mInverseTransformMatrix = mTransformMatrix.AffineInverse();
+			mbInverseTransformDirty = false;
+		}
+
+		return mInverseTransformMatrix;
+	}
+
+	inline void SetLocation(const FVector& InLocation) 
+	{ 
+		if (Location == InLocation)
+		{
+			return;
+		}
+
+		Location = InLocation; 
+		mbTransformDirty = true; 
+		mbInverseTransformDirty = true; 
+	}
+
+	inline FVector GetLocation() const { return Location; }
+
+	inline void SetRotation(const FRotator& InRotation) 
+	{ 
+		if (Rotation == InRotation)
+		{
+			return;
+		}
+
+		Rotation = InRotation; 
+		mbTransformDirty = true; 
+		mbInverseTransformDirty = true; 
+	}
+
+	inline FRotator GetRotation() const { return Rotation; }
+	
+	inline void SetScale(const FVector& InScale)
+	{ 
+		if (Scale == InScale)
+		{
+			return;
+		}
+
+		Scale = InScale; 
+		mbTransformDirty = true; 
+		mbInverseTransformDirty = true;
+	}
+
+	inline FVector GetScale() const { return Scale; }
+
+private:
+	void EnsureUpdateTransformMatrix() const
+	{
+		if (!mbTransformDirty)
+		{
+			return;
+		}
+		
+		mTransformMatrix = FMatrix::Scale(Scale) * FMatrix::Rotate(Rotation) * FMatrix::Translation(Location);
+		mbTransformDirty = false;
+	}
+
+private:
 	FVector Location = FVector(0);
 	FRotator Rotation = FRotator(0, 0, 0);
 	FVector Scale = FVector(1);
 
-	FMatrix MakeMatrix() const
-	{
-		return  FMatrix::Scale(Scale) * FMatrix::Rotate(Rotation) * FMatrix::Translation(Location);
-	}
-
-	FMatrix InverseMatrix() const
-	{
-		assert(Scale.x == 0.f || Scale.y == 0.f || Scale.z == 0.f);
-
-		return {
-			FMatrix::Translation(FVector(-Location.x, -Location.y, -Location.z))
-			* FMatrix::Rotate(Rotation).Transpose()
-			* FMatrix::Scale(FVector(1.0f / Scale.x, 1.0f / Scale.y, 1.0f / Scale.z))
-		};
-	}
+	mutable bool mbTransformDirty = true;
+	mutable FMatrix mTransformMatrix;
+	mutable bool mbInverseTransformDirty = true;
+	mutable FMatrix mInverseTransformMatrix;
 };

@@ -109,6 +109,16 @@ typedef struct FVector
 		return v[Index];
 	}
 
+	bool operator==(const FVector& Other) const
+	{
+		return x == Other.x && y == Other.y && z == Other.z;
+	}
+
+	bool operator!=(const FVector& Other) const
+	{
+		return !(*this == Other);
+	}
+
 	//내적
     inline static float dot(const FVector& A, const FVector& B)
     {

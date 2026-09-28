@@ -219,7 +219,7 @@ void URenderer::Release()
 
 void URenderer::SwapBuffer()
 {
-	SwapChain->Present(1, 0);
+	SwapChain->Present(0, 0);
 }
 
 void URenderer::Prepare(const FMatrix& ViewProjectionMatrix)
@@ -227,12 +227,8 @@ void URenderer::Prepare(const FMatrix& ViewProjectionMatrix)
 	DeviceContext->ClearRenderTargetView(FrameBufferRTV, ClearColor);
 	DeviceContext->ClearDepthStencilView(DepthStencilView, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
 
-	DeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-
-	DeviceContext->RSSetViewports(1, &ViewportInfo);
-
 	DeviceContext->OMSetRenderTargets(1, &FrameBufferRTV, DepthStencilView);
-	DeviceContext->OMSetBlendState(nullptr, nullptr, 0xffffffff);
+	DeviceContext->RSSetViewports(1, &ViewportInfo);
 
 	FCameraConstants CameraConstants;
 	CameraConstants.ViewProjectionMatrix = ViewProjectionMatrix;
@@ -241,7 +237,6 @@ void URenderer::Prepare(const FMatrix& ViewProjectionMatrix)
 	LinePipeline->UpdateConstantBuffer(0, CameraConstants);
 	PrimitivePipeline->UpdateConstantBuffer(1, ViewProjectionMatrix);
 	QuadPipeline->UpdateConstantBuffer(1, ViewProjectionMatrix);
-
 }
 
 TSharedPtr<FIndexBuffer> URenderer::CreateIndexBuffer(const uint32* Indices, UINT Count, D3D11_USAGE Usage)
@@ -371,51 +366,149 @@ TSharedPtr<FDepthStencil> URenderer::CreateDepthStencil(uint32 Width, uint32 Hei
 	return DepthStencil;
 }
 
-void URenderer::BindPipeline(const TSharedPtr<FRenderPipeline>& Pipeline, uint32 StencilRef) const
+void URenderer::BindPipeline(const TSharedPtr<FRenderPipeline>& Pipeline, uint32 StencilRef)
 {
 	// RSSetState는 드로우 직전마다 갈아치워지므로 뷰 모드 선택은 여기서 해야 한다.
 	// 이 모드를 지원하지 않는 파이프라인(2D/기즈모)은 Lit 상태로 폴백된다.
-	DeviceContext->RSSetState(Pipeline->GetRasterizerState(ViewModeIndex));
-	DeviceContext->OMSetDepthStencilState(Pipeline->DepthStencilState, StencilRef);
-	DeviceContext->OMSetBlendState(Pipeline->BlendState, nullptr, 0xffffffff);
-	DeviceContext->IASetPrimitiveTopology(Pipeline->PrimitiveTopology);
-	DeviceContext->IASetInputLayout(Pipeline->InputLayout);
-	DeviceContext->VSSetShader(Pipeline->VertexShader, nullptr, 0);
-	DeviceContext->PSSetShader(Pipeline->PixelShader, nullptr, 0);
-	
-	if (Pipeline->ConstantBuffers.Num())
+	ID3D11RasterizerState* NewRasterizerState = Pipeline->GetRasterizerState(ViewModeIndex);
+	if (CurrentRasterizerState != NewRasterizerState)
 	{
-		DeviceContext->VSSetConstantBuffers(0, Pipeline->ConstantBuffers.Num(), &Pipeline->ConstantBuffers[0]);
-		DeviceContext->PSSetConstantBuffers(0, Pipeline->ConstantBuffers.Num(), &Pipeline->ConstantBuffers[0]);
-	}
-	else
-	{
-		ID3D11Buffer* nullCB = nullptr;
-		DeviceContext->VSSetConstantBuffers(0, 1, &nullCB);
-		DeviceContext->PSSetConstantBuffers(0, 1, &nullCB);
+		DeviceContext->RSSetState(NewRasterizerState);
+		CurrentRasterizerState = NewRasterizerState;
 	}
 
-	if (Pipeline->ShaderResourceViews.Num())
+	if (CurrentDepthStencilState != Pipeline->DepthStencilState || CurrentStencilRef != StencilRef)
 	{
-		DeviceContext->VSSetShaderResources(0, Pipeline->ShaderResourceViews.Num(), &Pipeline->ShaderResourceViews[0]);
-		DeviceContext->PSSetShaderResources(0, Pipeline->ShaderResourceViews.Num(), &Pipeline->ShaderResourceViews[0]);
-	}
-	else
-	{
-		ID3D11ShaderResourceView* nullSRV = nullptr;
-		DeviceContext->VSSetShaderResources(0, 1, &nullSRV);
-		DeviceContext->PSSetShaderResources(0, 1, &nullSRV);
+		DeviceContext->OMSetDepthStencilState(Pipeline->DepthStencilState, StencilRef);
+		CurrentDepthStencilState = Pipeline->DepthStencilState;
+		CurrentStencilRef = StencilRef;
 	}
 
-	if (Pipeline->SamplerStates.Num())
+	if (CurrentBlendState != Pipeline->BlendState)
 	{
-		DeviceContext->PSSetSamplers(0, Pipeline->SamplerStates.Num(), &Pipeline->SamplerStates[0]);
+		DeviceContext->OMSetBlendState(Pipeline->BlendState, nullptr, 0xffffffff);
+		CurrentBlendState = Pipeline->BlendState;
 	}
-	else
+
+	if (CurrentPrimitiveTopology != Pipeline->PrimitiveTopology)
 	{
-		ID3D11SamplerState* nullSampler = nullptr;
-		DeviceContext->PSSetSamplers(0, 1, &nullSampler);
+		DeviceContext->IASetPrimitiveTopology(Pipeline->PrimitiveTopology);
+		CurrentPrimitiveTopology = Pipeline->PrimitiveTopology;
 	}
+
+	if (CurrentInputLayout != Pipeline->InputLayout)
+	{
+		DeviceContext->IASetInputLayout(Pipeline->InputLayout);
+		CurrentInputLayout = Pipeline->InputLayout;
+	}
+
+	if (CurrentVertexShader != Pipeline->VertexShader)
+	{
+		DeviceContext->VSSetShader(Pipeline->VertexShader, nullptr, 0);
+		CurrentVertexShader = Pipeline->VertexShader;
+	}
+
+	if (CurrentPixelShader != Pipeline->PixelShader)
+	{
+		DeviceContext->PSSetShader(Pipeline->PixelShader, nullptr, 0);
+		CurrentPixelShader = Pipeline->PixelShader;
+	}
+
+	const int32 NewCBCount = Pipeline->ConstantBuffers.Num();
+
+	bool bShouldSetCBs = NewCBCount > CurrentCBCount;
+	for (int32 i = 0; !bShouldSetCBs && i < CurrentCBCount; i++)
+	{
+		if (i >= NewCBCount || CurrentCBs[i] != Pipeline->ConstantBuffers[i])
+		{
+			bShouldSetCBs = true;
+		}
+	}
+
+	if (bShouldSetCBs)
+	{
+		const int32 BindCount = FPlatformMath::Max(NewCBCount, CurrentCBCount);
+
+		for (int32 i = 0; i < BindCount; ++i)
+		{
+			CurrentCBs[i] = i < NewCBCount ? Pipeline->ConstantBuffers[i] : nullptr;
+		}
+
+		DeviceContext->VSSetConstantBuffers(0, BindCount, CurrentCBs);
+		DeviceContext->PSSetConstantBuffers(0, BindCount, CurrentCBs);
+
+		CurrentCBCount = NewCBCount;
+	}
+
+	const int32 NewSRVCount = Pipeline->ShaderResourceViews.Num();
+
+	bool bShouldSetSRVs = NewSRVCount > CurrentSRVCount;
+	for (int32 i = 0; !bShouldSetSRVs && i < CurrentSRVCount; i++)
+	{
+		if (i >= NewSRVCount || CurrentSRVs[i] != Pipeline->ShaderResourceViews[i])
+		{
+			bShouldSetSRVs = true;
+		}
+	}
+
+	if (bShouldSetSRVs)
+	{
+		const int32 BindCount = FPlatformMath::Max(NewSRVCount, CurrentSRVCount);
+		for (int32 i = 0; i < BindCount; ++i)
+		{
+			CurrentSRVs[i] = i < NewSRVCount ? Pipeline->ShaderResourceViews[i] : nullptr;
+		}
+
+		DeviceContext->VSSetShaderResources(0, BindCount, CurrentSRVs);
+		DeviceContext->PSSetShaderResources(0, BindCount, CurrentSRVs);
+		CurrentSRVCount = NewSRVCount;
+	}
+
+	const int32 NewSamplerCount = Pipeline->SamplerStates.Num();
+
+	bool bShouldSetSamplers = NewSamplerCount > CurrentSamplerStateCount;
+	for (int32 i = 0; !bShouldSetSamplers && i < CurrentSamplerStateCount; i++)
+	{
+		if (i >= NewSamplerCount || CurrentSamplerStates[i] != Pipeline->SamplerStates[i])
+		{
+			bShouldSetSamplers = true;
+		}
+	}
+
+	if (bShouldSetSamplers)
+	{
+		const int32 BindCount = FPlatformMath::Max(NewSamplerCount, CurrentSamplerStateCount);
+		for (int32 i = 0; i < BindCount; ++i)
+		{
+			CurrentSamplerStates[i] = i < NewSamplerCount ? Pipeline->SamplerStates[i] : nullptr;
+		}
+		DeviceContext->PSSetSamplers(0, BindCount, CurrentSamplerStates);
+		CurrentSamplerStateCount = NewSamplerCount;
+	}
+}
+
+void URenderer::BindVertexBuffer(ID3D11Buffer* VertexBuffer, UINT Stride)
+{
+	if (CurrentVertexBuffer == VertexBuffer && CurrentVertexStride == Stride)
+	{
+		return;
+	}
+
+	UINT Offset = 0;
+	DeviceContext->IASetVertexBuffers(0, 1, &VertexBuffer, &Stride, &Offset);
+	CurrentVertexBuffer = VertexBuffer;
+	CurrentVertexStride = Stride;
+}
+
+void URenderer::BindIndexBuffer(ID3D11Buffer* IndexBuffer)
+{
+	if (CurrentIndexBuffer == IndexBuffer)
+	{
+		return;
+	}
+
+	DeviceContext->IASetIndexBuffer(IndexBuffer, DXGI_FORMAT_R32_UINT, 0);
+	CurrentIndexBuffer = IndexBuffer;
 }
 
 void URenderer::BindFrameBuffer()
@@ -458,32 +551,28 @@ void URenderer::BindRenderTarget(const TSharedPtr<FRenderTarget2D>& RenderTarget
 	BindedDepthStencil = DepthStencil;
 }
 
-void URenderer::Render(const TSharedPtr<FRenderPipeline>& Pipeline, UINT NumVertices) const
+void URenderer::Render(const TSharedPtr<FRenderPipeline>& Pipeline, UINT NumVertices)
 {
 	BindPipeline(Pipeline);
+	BindVertexBuffer(nullptr, 0);
 
-	UINT Offset = 0;
-	ID3D11Buffer* NullVB = nullptr;
-	UINT Stride = 0;
-	DeviceContext->IASetVertexBuffers(0, 1, &NullVB, &Stride, &Offset);
 	DeviceContext->Draw(NumVertices, 0);
 	++DrawCallCount;
 }
 
-void URenderer::RenderLines(const TArray<FRenderLineInfo>& Lines) const
+void URenderer::RenderLines(const TArray<FRenderLineInfo>& Lines)
 {
 	uint32 Remaining = Lines.Num();
 	const FRenderLineInfo* Offset = Lines.Data();
 
 	BindPipeline(LinePipeline);
+	BindVertexBuffer(nullptr, 0);
 
 	while (Remaining > 0)
 	{
 		uint32 BatchSize = FGenericPlatformMath::Min(Remaining, MaxLineInstances);
 		LineStructuredBuffer->UpdateBuffer(Offset, BatchSize);
 
-		UINT OffsetIndex = 0;
-		DeviceContext->IASetVertexBuffers(0, 0, NULL, NULL, &OffsetIndex);
 		DeviceContext->DrawInstanced(6, BatchSize, 0, 0);
 		++DrawCallCount;
 
@@ -492,7 +581,7 @@ void URenderer::RenderLines(const TArray<FRenderLineInfo>& Lines) const
 	}
 }
 
-void URenderer::RenderQuad(const FRenderQuadInfo& Info) const
+void URenderer::RenderQuad(const FRenderQuadInfo& Info)
 {
 	QuadPipeline->SetShaderResource(0, Info.TextureSRV);
 	
@@ -510,28 +599,24 @@ void URenderer::RenderQuad(const FRenderQuadInfo& Info) const
 	QuadPipeline->SetDepthStencilState(Info.EnableDepthTest, Info.EnableDepthWrite);
 
 	BindPipeline(QuadPipeline);
+	BindVertexBuffer(nullptr, 0);
 
 	QuadPipeline->UpdateConstantBuffer(0, FQuadConstants{ Info.Model, Info.Color, Info.SubUV, Info.TextureSRV ? 1 : 0, TextureFormat == DXGI_FORMAT_R8_UNORM });
 
-	UINT Offset = 0;
-	ID3D11Buffer* NullVB = nullptr;
-	UINT Stride = 0;
-	DeviceContext->IASetVertexBuffers(0, 1, &NullVB, &Stride, &Offset);
 	DeviceContext->Draw(6, 0);
 	++DrawCallCount;
 }
 
-void URenderer::RenderPrimitive(const TSharedPtr<FRenderPipeline>& Pipeline, Microsoft::WRL::ComPtr<ID3D11Buffer> Buffer, UINT NumVertices) const
+void URenderer::RenderPrimitive(const TSharedPtr<FRenderPipeline>& Pipeline, Microsoft::WRL::ComPtr<ID3D11Buffer> Buffer, UINT NumVertices)
 {
 	BindPipeline(Pipeline);
+	BindVertexBuffer(Buffer.Get(), Pipeline->Stride);
 
-	UINT Offset = 0;
-	DeviceContext->IASetVertexBuffers(0, 1, Buffer.GetAddressOf(), &Pipeline->Stride, &Offset);
 	DeviceContext->Draw(NumVertices, 0);
 	++DrawCallCount;
 }
 
-void URenderer::RenderPrimitive(Microsoft::WRL::ComPtr<ID3D11Buffer> Buffer, UINT NumVertices, const FMatrix& Model) const
+void URenderer::RenderPrimitive(Microsoft::WRL::ComPtr<ID3D11Buffer> Buffer, UINT NumVertices, const FMatrix& Model)
 {
 	FConstants Constants;
 	Constants.Matrix = Model;
@@ -545,7 +630,7 @@ void URenderer::RenderPrimitive(Microsoft::WRL::ComPtr<ID3D11Buffer> Buffer, UIN
 	RenderPrimitive(PrimitivePipeline, Buffer, NumVertices);
 }
 
-void URenderer::RenderPrimitive(Microsoft::WRL::ComPtr<ID3D11Buffer> Buffer, UINT NumVertices, const FMatrix& Model, const FVector4& Color) const
+void URenderer::RenderPrimitive(Microsoft::WRL::ComPtr<ID3D11Buffer> Buffer, UINT NumVertices, const FMatrix& Model, const FVector4& Color)
 {
 	FConstants Constants;
 	Constants.Matrix = Model;
@@ -559,7 +644,7 @@ void URenderer::RenderPrimitive(Microsoft::WRL::ComPtr<ID3D11Buffer> Buffer, UIN
 	RenderPrimitive(PrimitivePipeline, Buffer, NumVertices);
 }
 
-void URenderer::RenderPrimitiveIndexed(const FRenderInfo& RenderInfo, uint32 StencilRef) const
+void URenderer::RenderPrimitiveIndexed(const FRenderInfo& RenderInfo, uint32 StencilRef)
 {
 	FConstants Constants;
 	Constants.Matrix = RenderInfo.Model;
@@ -573,26 +658,36 @@ void URenderer::RenderPrimitiveIndexed(const FRenderInfo& RenderInfo, uint32 Ste
 	RenderPrimitiveIndexed(PrimitivePipeline, RenderInfo, StencilRef);
 }
 
-void URenderer::RenderPrimitiveIndexed(const TSharedPtr<FRenderPipeline>& Pipeline, const FRenderInfo& RenderInfo, uint32 StencilRef) const
+void URenderer::DrawIndexed(UINT IndexCount, UINT StartIndex) const
 {
-	BindPipeline(Pipeline, StencilRef);
-
-	UINT Offset = 0;
-	DeviceContext->IASetVertexBuffers(0, 1, RenderInfo.VertexBuffer.GetAddressOf(), &Pipeline->Stride, &Offset);
-
-	if (RenderInfo.IndexBuffer)
-	{
-		DeviceContext->IASetIndexBuffer(RenderInfo.IndexBuffer.Get(), DXGI_FORMAT_R32_UINT, 0);
-		DeviceContext->DrawIndexed(RenderInfo.IndexCount, RenderInfo.StartIndex, 0);
-	}
-	else
-	{
-		DeviceContext->Draw(RenderInfo.VertexCount, 0);
-	}
+	DeviceContext->DrawIndexed(IndexCount, StartIndex, 0);
 	++DrawCallCount;
 }
 
-void URenderer::RenderQuad2D(const FRenderQuad2DInfo& Info) const
+void URenderer::Draw(UINT VertexCount) const
+{
+	DeviceContext->Draw(VertexCount, 0);
+	++DrawCallCount;
+}
+
+void URenderer::RenderPrimitiveIndexed(const TSharedPtr<FRenderPipeline>& Pipeline, const FRenderInfo& RenderInfo, uint32 StencilRef)
+{
+	BindPipeline(Pipeline, StencilRef);
+
+	BindVertexBuffer(RenderInfo.VertexBuffer.Get(), Pipeline->Stride);
+
+	if (RenderInfo.IndexBuffer)
+	{
+		BindIndexBuffer(RenderInfo.IndexBuffer.Get());
+		DrawIndexed(RenderInfo.IndexCount, RenderInfo.StartIndex);
+	}
+	else
+	{
+		Draw(RenderInfo.VertexCount);
+	}
+}
+
+void URenderer::RenderQuad2D(const FRenderQuad2DInfo& Info)
 {
 	Quad2DPipeline->SetShaderResource(0, Info.TextureSRV);
 
@@ -608,94 +703,77 @@ void URenderer::RenderQuad2D(const FRenderQuad2DInfo& Info) const
 	Quad2DPipeline->UpdateConstantBuffer(0, FQuad2DConstants{ Projection2D, Info.Color, Info.Position, Info.Size, Info.SubUV, Info.Rotation, Info.TextureSRV ? 1 : 0, TextureFormat == DXGI_FORMAT_R8_UNORM });
 
 	BindPipeline(Quad2DPipeline);
+	BindVertexBuffer(nullptr, 0);
 
-	UINT Offset = 0;
-	ID3D11Buffer* NullVB = nullptr;
-	UINT Stride = 0;
-	DeviceContext->IASetVertexBuffers(0, 1, &NullVB, &Stride, &Offset);
 	DeviceContext->Draw(6, 0);
 }
 
-void URenderer::RenderLine2D(const FVector2& Start, const FVector2& End, const FVector4& Color, float Thickness) const
+void URenderer::RenderLine2D(const FVector2& Start, const FVector2& End, const FVector4& Color, float Thickness)
 {
 	Line2DPipeline->UpdateConstantBuffer(0, FLine2DConstants{ Projection2D, Color, Start, End, Thickness });
 
 	BindPipeline(Line2DPipeline);
+	BindVertexBuffer(nullptr, 0);
 
-	UINT Offset = 0;
-	ID3D11Buffer* NullVB = nullptr;
-	UINT Stride = 0;
-	DeviceContext->IASetVertexBuffers(0, 1, &NullVB, &Stride, &Offset);
 	DeviceContext->Draw(6, 0);
 	++DrawCallCount;
 }
 
-void URenderer::RenderCircle2D(const FVector2& Center, const FVector4& Color, float Radius) const
+void URenderer::RenderCircle2D(const FVector2& Center, const FVector4& Color, float Radius)
 {
 	Circle2DPipeline->UpdateConstantBuffer(0, FCircle2DConstants{ Projection2D, Color, Center, Radius });
 
 	BindPipeline(Circle2DPipeline);
+	BindVertexBuffer(nullptr, 0);
 
-	UINT Offset = 0;
-	ID3D11Buffer* NullVB = nullptr;
-	UINT Stride = 0;
-	DeviceContext->IASetVertexBuffers(0, 1, &NullVB, &Stride, &Offset);
 	DeviceContext->Draw(6, 0);
 	DrawCallCount++;
 }
 
-void URenderer::RenderTriangle2D(const FVector2& Center, const FVector4& Color, float Size, float Rotation) const
+void URenderer::RenderTriangle2D(const FVector2& Center, const FVector4& Color, float Size, float Rotation)
 {
 	Triangle2DPipeline->UpdateConstantBuffer(0, FTriangle2DConstants{ Projection2D, Color, Center, Size, Rotation - PI * 0.5f });
 
 	BindPipeline(Triangle2DPipeline);
+	BindVertexBuffer(nullptr, 0);
 
-	UINT Offset = 0;
-	ID3D11Buffer* NullVB = nullptr;
-	UINT Stride = 0;
-	DeviceContext->IASetVertexBuffers(0, 1, &NullVB, &Stride, &Offset);
 	DeviceContext->Draw(3, 0);
 	++DrawCallCount;
 }
 
-void URenderer::RenderWorldAxis(const FMatrix& View, const FMatrix& Projection, const FVector4& Color, const FVector& Axis, float Thickness) const
+void URenderer::RenderWorldAxis(const FMatrix& View, const FMatrix& Projection, const FVector4& Color, const FVector& Axis, float Thickness)
 {
 	// Use the scene viewport currently bound, which may differ from the window size.
 	D3D11_VIEWPORT Viewport = {};
 	UINT ViewportCount = 1;
 	DeviceContext->RSGetViewports(&ViewportCount, &Viewport);
-	WorldAxisPipeline->UpdateConstantBuffer(0, FWorldAxisConstants{
-		View, Projection, Color, Axis, Thickness, FVector2(Viewport.Width, Viewport.Height) });
+	WorldAxisPipeline->UpdateConstantBuffer(0, FWorldAxisConstants{ View, Projection, Color, Axis, Thickness, FVector2(Viewport.Width, Viewport.Height) });
 
 	BindPipeline(WorldAxisPipeline);
+	BindVertexBuffer(nullptr, 0);
 
-	UINT Offset = 0;
-	ID3D11Buffer* NullVB = nullptr;
-	UINT Stride = 0;
-	DeviceContext->IASetVertexBuffers(0, 1, &NullVB, &Stride, &Offset);
 	DeviceContext->Draw(6, 0);
 	++DrawCallCount;
 }
 
-void URenderer::RenderWorldGrid(const FMatrix& ViewProjection, const FVector& CameraLocation, float GridGap) const
+void URenderer::RenderWorldGrid(const FMatrix& ViewProjection, const FVector& CameraLocation, float GridGap)
 {
 	WorldGridPipeline->UpdateConstantBuffer(0, FWorldGridConstants{ ViewProjection, CameraLocation, GridGap });
 
 	BindPipeline(WorldGridPipeline);
+	BindVertexBuffer(nullptr, 0);
 
-	UINT Offset = 0;
-	ID3D11Buffer* NullVB = nullptr;
-	UINT Stride = 0;
-	DeviceContext->IASetVertexBuffers(0, 1, &NullVB, &Stride, &Offset);
 	DeviceContext->Draw(6, 0);
 	++DrawCallCount;
 }
 
-void URenderer::ClearAllShaderResources() const
+void URenderer::ClearAllShaderResources()
 {
 	ID3D11ShaderResourceView* nullSRVs[D3D11_COMMONSHADER_INPUT_RESOURCE_SLOT_COUNT] = {};
 	DeviceContext->VSSetShaderResources(0, D3D11_COMMONSHADER_INPUT_RESOURCE_SLOT_COUNT, nullSRVs);
 	DeviceContext->PSSetShaderResources(0, D3D11_COMMONSHADER_INPUT_RESOURCE_SLOT_COUNT, nullSRVs);
+
+	CurrentSRVCount = 0;
 }
 
 //=============================================
