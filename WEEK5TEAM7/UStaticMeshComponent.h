@@ -64,4 +64,8 @@ private:
 	TArray<TSharedPtr<FMaterialAsset>> mMaterialAssets;
 	TSharedPtr<FTexture2DAsset> mTextureAsset;
 	TArray<FVector2> mUVOffsets;
+
+	mutable FAABB mCachedWorldAABB;
+	mutable uint32 mCachedTransformVersion = 0;
+	mutable bool mbAABBDirty = true;
 };
