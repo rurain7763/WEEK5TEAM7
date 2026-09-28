@@ -395,7 +395,6 @@ struct FStructuredBuffer
 class URenderer
 {
 public:
-	//create
 	void Create(HWND hWindow);
 	void Release();
 

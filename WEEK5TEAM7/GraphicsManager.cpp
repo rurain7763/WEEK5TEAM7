@@ -212,7 +212,6 @@ void FGraphicsManager::Render()
 		mRenderer->RenderLines(mRenderCollector.LineInfos);
 	}
 
-
 	{
 		PROFILE_SCOPE("Viewport/GraphicsRender/sort");
 		std::sort(mRenderCollector.RenderInfos.begin(), mRenderCollector.RenderInfos.end());
@@ -254,8 +253,6 @@ void FGraphicsManager::Render()
 
 		// 오브젝트 고유 상수버퍼 갱신
 		{
-			PROFILE_SCOPE("Viewport/GraphicsRender/UpdateConstant");
-
 			FConstants Constants{};
 			Constants.Matrix = RenderInfo.Model;
 			Constants.Color = RenderInfo.Color;
@@ -288,6 +285,7 @@ void FGraphicsManager::Render()
 			{
 				GridWorldMatrix = FMatrix::RotateX(90);
 			}
+
 			// Match the grid's world-space half-width of 0.001.
 			mRenderer->RenderWorldAxis(mViewMatrix, mProjectionMatrix, FVector4(0.f, 0.f, 1.f, 1.f), FVector3(0.f, 0.f, 1.f), 0.002f);
 			mRenderer->RenderWorldGrid(GridWorldMatrix * mViewUnifiedProjectionMatrix, mCameraLocation, GridGap);

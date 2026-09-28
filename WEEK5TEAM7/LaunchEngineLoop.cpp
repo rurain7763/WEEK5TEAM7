@@ -192,6 +192,8 @@ void FEngineLoop::InitAssetManager()
 
 static void RenderPerformanceOverlay(FRenderCollector& RenderCollector, FFrameTimer* FrameTimer, float ViewportWidth, float ViewportHeight)
 {
+	PROFILE_FUNCTION();
+
 	TSharedPtr<FFontAtlasAsset> FontAtlasAsset = FAssetManager::Get().GetAssetAs<FFontAtlasAsset>(FName("TestFontAtlas"), true);
 
 	if (!FontAtlasAsset || !FontAtlasAsset->GetFontAtlas())
