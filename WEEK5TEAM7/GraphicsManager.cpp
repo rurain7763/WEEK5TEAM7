@@ -224,6 +224,8 @@ void FGraphicsManager::Render()
 	mMeshPipeline->SetSamplerState(0, D3D11_FILTER_MIN_MAG_MIP_LINEAR, D3D11_TEXTURE_ADDRESS_WRAP, D3D11_TEXTURE_ADDRESS_WRAP);
 
 	TSharedPtr<FRenderPipeline> LastPipeline = nullptr;
+	TSharedPtr<FTexture2DAsset> LastTexture = nullptr;
+	bool bFirst = true;
 
 	for (const FRenderInfo& RenderInfo : mRenderCollector.RenderInfos)
 	{
@@ -236,13 +238,18 @@ void FGraphicsManager::Render()
 			LastPipeline = ActivePipeline;
 		}
 
-		if (RenderInfo.Texture)
+		if (bFirst || RenderInfo.Texture != LastTexture || ActivePipeline != LastPipeline)
 		{
-			ActivePipeline->SetShaderResource(0, RenderInfo.Texture->GetSRV());
-		}
-		else
-		{
-			ActivePipeline->ClearShaderResource();
+			if (RenderInfo.Texture)
+			{
+				ActivePipeline->SetShaderResource(0, RenderInfo.Texture->GetSRV());
+			}
+			else
+			{
+				ActivePipeline->ClearShaderResource();
+			}
+			LastTexture = RenderInfo.Texture;
+			bFirst = false;
 		}
 
 		// 오브젝트 고유 상수버퍼 갱신
@@ -261,42 +268,45 @@ void FGraphicsManager::Render()
 
 		mRenderer->RenderPrimitiveIndexed(ActivePipeline, RenderInfo);
 	}
-
-	for (const FRenderQuadInfo& QuadInfo : mRenderCollector.GetOpaqueQuadInfos())
 	{
-		mRenderer->RenderQuad(QuadInfo);
-	}
+		PROFILE_SCOPE("Viewport/GraphicsRender/RenderQuad");
 
-	if (FShowFlags::Get().IsEnabled(EShowFlag::Grid))
-	{
-		FMatrix GridWorldMatrix = FMatrix::Identity;
-
-		if (mViewportType == EViewportType::Front)
+		for (const FRenderQuadInfo& QuadInfo : mRenderCollector.GetOpaqueQuadInfos())
 		{
-			GridWorldMatrix = FMatrix::RotateY(90);
+			mRenderer->RenderQuad(QuadInfo);
 		}
-		else if (mViewportType == EViewportType::Side)
+
+		if (FShowFlags::Get().IsEnabled(EShowFlag::Grid))
 		{
-			GridWorldMatrix = FMatrix::RotateX(90);
+			FMatrix GridWorldMatrix = FMatrix::Identity;
+
+			if (mViewportType == EViewportType::Front)
+			{
+				GridWorldMatrix = FMatrix::RotateY(90);
+			}
+			else if (mViewportType == EViewportType::Side)
+			{
+				GridWorldMatrix = FMatrix::RotateX(90);
+			}
+			// Match the grid's world-space half-width of 0.001.
+			mRenderer->RenderWorldAxis(mViewMatrix, mProjectionMatrix, FVector4(0.f, 0.f, 1.f, 1.f), FVector3(0.f, 0.f, 1.f), 0.002f);
+			mRenderer->RenderWorldGrid(GridWorldMatrix * mViewUnifiedProjectionMatrix, mCameraLocation, GridGap);
 		}
-		// Match the grid's world-space half-width of 0.001.
-		mRenderer->RenderWorldAxis(mViewMatrix, mProjectionMatrix, FVector4(0.f, 0.f, 1.f, 1.f), FVector3(0.f, 0.f, 1.f), 0.002f);
-		mRenderer->RenderWorldGrid(GridWorldMatrix * mViewUnifiedProjectionMatrix, mCameraLocation, GridGap);
-	}
 
-	for (const FRenderQuadInfo& QuadInfo : mRenderCollector.GetTransparentQuadInfos())
-	{
-		mRenderer->RenderQuad(QuadInfo);
-	}
+		for (const FRenderQuadInfo& QuadInfo : mRenderCollector.GetTransparentQuadInfos())
+		{
+			mRenderer->RenderQuad(QuadInfo);
+		}
 
-	for (const FRenderQuadInfo& QuadInfo : mRenderCollector.GetOverlayQuadInfos())
-	{
-		mRenderer->RenderQuad(QuadInfo);
-	}
+		for (const FRenderQuadInfo& QuadInfo : mRenderCollector.GetOverlayQuadInfos())
+		{
+			mRenderer->RenderQuad(QuadInfo);
+		}
 
-	for (const FRenderQuad2DInfo& Quad2DInfo : mRenderCollector.GetQuad2DInfos())
-	{
-		mRenderer->RenderQuad2D(Quad2DInfo);
+		for (const FRenderQuad2DInfo& Quad2DInfo : mRenderCollector.GetQuad2DInfos())
+		{
+			mRenderer->RenderQuad2D(Quad2DInfo);
+		}
 	}
 }
 
