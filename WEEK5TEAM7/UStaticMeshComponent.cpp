@@ -1,4 +1,4 @@
-#include "UStaticMeshComponent.h"
+﻿#include "UStaticMeshComponent.h"
 #include "FAssetManager.h"
 #include "RenderInfo.h"
 #include "ShowFlags.h"
@@ -113,7 +113,13 @@ void UStaticMeshComponent::Render(FRenderCollector& RenderCollector)
 
         TSharedPtr<FMaterialAsset> Material = mMaterialAssets[SectionIndex];
 
+        uint16 PipelineID = Material ? Material->GetPipelineID() : 1;
+        uint32 MaterialID = Material ? Material->GetMaterialID() : 0;
+        uint32 MeshID = mMeshAsset ? mMeshAsset->GetMeshID() : 0;
+
         FRenderInfo RenderInfo;
+        RenderInfo.SortKey = MakeRenderSortKey(PipelineID, MaterialID, MeshID);
+        RenderInfo.Pipeline = Material ? Material->GetPipeline() : nullptr;
         RenderInfo.VertexBuffer = mMeshAsset->GetVertexBuffer();
         RenderInfo.IndexBuffer = mMeshAsset->GetIndexBuffer();
         RenderInfo.StartIndex = Section.FirstIndex;

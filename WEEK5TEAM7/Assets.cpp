@@ -111,6 +111,7 @@ FStaticMeshAsset::FStaticMeshAsset(const FGuid& InAssetID, const FName& InAssetN
 	, Vertices(InBuildData.Vertices)
 	, Indices(InBuildData.Indices)
 	, Sections(InBuildData.Sections)
+	, MeshID(NextMeshID++)
 {
 	for (const FVertex& Source : InBuildData.Vertices)
 	{
@@ -425,5 +426,10 @@ TSharedPtr<FAsset> FMaterialAssetLoader::LoadAsset(const FGuid& AssetID, const F
 void FMaterialAssetLoader::UnloadAsset(TSharedPtr<FAsset> Asset)
 {
 	// NOTE: Nothing to do for now
+}
+
+uint16 FMaterialAsset::GetPipelineID() const
+{
+	return Pipeline ? Pipeline->GetPipelineID() : 1;
 }
 

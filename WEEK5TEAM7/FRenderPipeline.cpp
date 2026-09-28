@@ -11,6 +11,7 @@ FRenderPipeline::FRenderPipeline(ID3D11Device* InDevice, ID3D11DeviceContext* In
 	, SamplerStatePool(InSamplerStatePool)
 	, DepthStencilStatePool(InDepthStencilStatePool)
 	, BlendStatePool(InBlendStatePool)
+	, PipelineID(NextPipelineID++)
 {
 	FBlendStateKey Key{ ERenderBlendMode::Opaque, true };
 	BlendState = InBlendStatePool->GetOrCreateBlendState(Device, Key);
@@ -177,10 +178,22 @@ void FRenderPipeline::SetShaderResource(uint32 Slot, Microsoft::WRL::ComPtr<ID3D
 		ShaderResourceViews.SetNum(Slot + 1);
 	}
 	ShaderResourceViews[Slot] = SRV.Get();
+
+	if (DeviceContext)
+	{
+		ID3D11ShaderResourceView* RawSRV = SRV.Get();
+		DeviceContext->PSSetShaderResources(Slot, 1, &RawSRV);
+	}
 }
 
 void FRenderPipeline::ClearShaderResource()
 {
+	if (DeviceContext && ShaderResourceViews.Num() > 0)
+	{
+		ID3D11ShaderResourceView* nullSRVs[16] = { nullptr };
+		uint32 Count = ShaderResourceViews.Num() < 16 ? ShaderResourceViews.Num() : 16;
+		DeviceContext->PSSetShaderResources(0, Count, nullSRVs);
+	}
 	ShaderResourceViews.Empty();
 }
 
