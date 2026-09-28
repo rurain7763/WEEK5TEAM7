@@ -26,6 +26,13 @@ struct FInstrumentationSession
 	FString Name;
 };
 
+struct FRealtimeStats
+{
+	float LastDurationMs = 0.0f;
+	uint32 CallCount = 0;
+	float TotalDurationMs = 0.0f;
+};
+
 class FInstrumentor
 {
 public:
@@ -90,6 +97,19 @@ public:
 		return instance;
 	}
 
+	void UpdateRealtimeStats(const std::string& name, float durationMs)
+	{
+		auto& stat = RealtimeStatsMap[name];
+		stat.LastDurationMs = durationMs;
+		stat.CallCount++;
+		stat.TotalDurationMs += durationMs;
+	}
+
+	FRealtimeStats GetRealtimeStats(const std::string& name)
+	{
+		return RealtimeStatsMap[name];
+	}
+
 private:
 	FInstrumentor()
 		: CurrentSession(nullptr)
@@ -127,6 +147,7 @@ private:
 private:
 	FInstrumentationSession* CurrentSession;
 	std::ofstream OutputStream;
+	std::unordered_map<std::string, FRealtimeStats> RealtimeStatsMap;
 };
 
 class FInstrumentationTimer
@@ -152,6 +173,9 @@ public:
 		auto endTimepoint = std::chrono::steady_clock::now();
 		auto highResStart = FloatingPointMicroseconds{ StartTimepoint.time_since_epoch() };
 		auto elapsedTime = std::chrono::time_point_cast<std::chrono::microseconds>(endTimepoint).time_since_epoch() - std::chrono::time_point_cast<std::chrono::microseconds>(StartTimepoint).time_since_epoch();
+
+		float elapsedMs = elapsedTime.count() * 0.001f;
+		FInstrumentor::Get().UpdateRealtimeStats(Name, elapsedMs);
 
 		FInstrumentor::Get().WriteProfile({ Name, highResStart, elapsedTime, std::this_thread::get_id() });
 
