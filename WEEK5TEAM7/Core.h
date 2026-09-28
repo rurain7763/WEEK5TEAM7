@@ -9,6 +9,12 @@
 #include <Windows.h>
 #endif
 
+#if defined(_MSC_VER)
+#define FUNC_SIG __FUNCSIG__
+#else
+#define FUNC_SIG "FUNC_SIG unknown!"
+#endif
+
 typedef char int8;
 typedef unsigned char uint8;
 typedef short int16;

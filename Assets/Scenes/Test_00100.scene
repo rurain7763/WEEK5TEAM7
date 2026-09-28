@@ -1,0 +1,2419 @@
+{
+  "Version" : 0,
+  "NextUUID" : 100004,
+  "PerspectiveCamera" : {
+    "Location" : [-28.107929, -27.869390, 25.837776],
+    "Rotation" : [0.000000, 0.926283, 0.770000],
+    "FOV" : 60.000000,
+    "Near" : 0.100000,
+    "Far" : 100.000000
+  },
+  "World" : {
+    "ClassName" : "UWorld",
+    "Properties" : {
+      "UUID" : 50003,
+      "mActors" : [
+        {
+          "ClassName" : "AActor",
+          "Properties" : {
+            "UUID" : 72224,
+            "mRootComponentUUID" : 3,
+            "mComponents" : [
+              {
+                "ClassName" : "UStaticMeshComponent",
+                "Properties" : {
+                  "UUID" : 3,
+                  "mRelativeLocation" : [-25.000000, -25.000000, 0.000000],
+                  "mRelativeRotation" : [0.000000, 0.000000, 0.000000],
+                  "mRelativeScale3D" : [1.000000, 1.000000, 1.000000],
+                  "ObjStaticMeshAsset" : {
+                    "A" : -170443363,
+                    "B" : 1082828327,
+                    "C" : 1251154865,
+                    "D" : -2060564276
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "ClassName" : "AActor",
+          "Properties" : {
+            "UUID" : 83335,
+            "mRootComponentUUID" : 4,
+            "mComponents" : [
+              {
+                "ClassName" : "UStaticMeshComponent",
+                "Properties" : {
+                  "UUID" : 4,
+                  "mRelativeLocation" : [-25.000000, -24.000000, 0.000000],
+                  "mRelativeRotation" : [0.000000, 0.000000, 0.000000],
+                  "mRelativeScale3D" : [1.000000, 1.000000, 1.000000],
+                  "ObjStaticMeshAsset" : {
+                    "A" : -845900634,
+                    "B" : 1179277642,
+                    "C" : 223949459,
+                    "D" : 307463510
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "ClassName" : "AActor",
+          "Properties" : {
+            "UUID" : 94446,
+            "mRootComponentUUID" : 5,
+            "mComponents" : [
+              {
+                "ClassName" : "UStaticMeshComponent",
+                "Properties" : {
+                  "UUID" : 5,
+                  "mRelativeLocation" : [-25.000000, -23.000000, 0.000000],
+                  "mRelativeRotation" : [0.000000, 0.000000, 0.000000],
+                  "mRelativeScale3D" : [1.000000, 1.000000, 1.000000],
+                  "ObjStaticMeshAsset" : {
+                    "A" : -170443363,
+                    "B" : 1082828327,
+                    "C" : 1251154865,
+                    "D" : -2060564276
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "ClassName" : "AActor",
+          "Properties" : {
+            "UUID" : 95560,
+            "mRootComponentUUID" : 6,
+            "mComponents" : [
+              {
+                "ClassName" : "UStaticMeshComponent",
+                "Properties" : {
+                  "UUID" : 6,
+                  "mRelativeLocation" : [-25.000000, -22.000000, 0.000000],
+                  "mRelativeRotation" : [0.000000, 0.000000, 0.000000],
+                  "mRelativeScale3D" : [1.000000, 1.000000, 1.000000],
+                  "ObjStaticMeshAsset" : {
+                    "A" : -845900634,
+                    "B" : 1179277642,
+                    "C" : 223949459,
+                    "D" : 307463510
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "ClassName" : "AActor",
+          "Properties" : {
+            "UUID" : 96671,
+            "mRootComponentUUID" : 7,
+            "mComponents" : [
+              {
+                "ClassName" : "UStaticMeshComponent",
+                "Properties" : {
+                  "UUID" : 7,
+                  "mRelativeLocation" : [-25.000000, -21.000000, 0.000000],
+                  "mRelativeRotation" : [0.000000, 0.000000, 0.000000],
+                  "mRelativeScale3D" : [1.000000, 1.000000, 1.000000],
+                  "ObjStaticMeshAsset" : {
+                    "A" : -170443363,
+                    "B" : 1082828327,
+                    "C" : 1251154865,
+                    "D" : -2060564276
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "ClassName" : "AActor",
+          "Properties" : {
+            "UUID" : 97782,
+            "mRootComponentUUID" : 8,
+            "mComponents" : [
+              {
+                "ClassName" : "UStaticMeshComponent",
+                "Properties" : {
+                  "UUID" : 8,
+                  "mRelativeLocation" : [-25.000000, -20.000000, 0.000000],
+                  "mRelativeRotation" : [0.000000, 0.000000, 0.000000],
+                  "mRelativeScale3D" : [1.000000, 1.000000, 1.000000],
+                  "ObjStaticMeshAsset" : {
+                    "A" : -845900634,
+                    "B" : 1179277642,
+                    "C" : 223949459,
+                    "D" : 307463510
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "ClassName" : "AActor",
+          "Properties" : {
+            "UUID" : 98893,
+            "mRootComponentUUID" : 9,
+            "mComponents" : [
+              {
+                "ClassName" : "UStaticMeshComponent",
+                "Properties" : {
+                  "UUID" : 9,
+                  "mRelativeLocation" : [-25.000000, -19.000000, 0.000000],
+                  "mRelativeRotation" : [0.000000, 0.000000, 0.000000],
+                  "mRelativeScale3D" : [1.000000, 1.000000, 1.000000],
+                  "ObjStaticMeshAsset" : {
+                    "A" : -170443363,
+                    "B" : 1082828327,
+                    "C" : 1251154865,
+                    "D" : -2060564276
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "ClassName" : "AActor",
+          "Properties" : {
+            "UUID" : 50004,
+            "mRootComponentUUID" : 10,
+            "mComponents" : [
+              {
+                "ClassName" : "UStaticMeshComponent",
+                "Properties" : {
+                  "UUID" : 10,
+                  "mRelativeLocation" : [-25.000000, -18.000000, 0.000000],
+                  "mRelativeRotation" : [0.000000, 0.000000, 0.000000],
+                  "mRelativeScale3D" : [1.000000, 1.000000, 1.000000],
+                  "ObjStaticMeshAsset" : {
+                    "A" : -845900634,
+                    "B" : 1179277642,
+                    "C" : 223949459,
+                    "D" : 307463510
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "ClassName" : "AActor",
+          "Properties" : {
+            "UUID" : 51115,
+            "mRootComponentUUID" : 11,
+            "mComponents" : [
+              {
+                "ClassName" : "UStaticMeshComponent",
+                "Properties" : {
+                  "UUID" : 11,
+                  "mRelativeLocation" : [-25.000000, -17.000000, 0.000000],
+                  "mRelativeRotation" : [0.000000, 0.000000, 0.000000],
+                  "mRelativeScale3D" : [1.000000, 1.000000, 1.000000],
+                  "ObjStaticMeshAsset" : {
+                    "A" : -170443363,
+                    "B" : 1082828327,
+                    "C" : 1251154865,
+                    "D" : -2060564276
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "ClassName" : "AActor",
+          "Properties" : {
+            "UUID" : 52226,
+            "mRootComponentUUID" : 12,
+            "mComponents" : [
+              {
+                "ClassName" : "UStaticMeshComponent",
+                "Properties" : {
+                  "UUID" : 12,
+                  "mRelativeLocation" : [-25.000000, -16.000000, 0.000000],
+                  "mRelativeRotation" : [0.000000, 0.000000, 0.000000],
+                  "mRelativeScale3D" : [1.000000, 1.000000, 1.000000],
+                  "ObjStaticMeshAsset" : {
+                    "A" : -845900634,
+                    "B" : 1179277642,
+                    "C" : 223949459,
+                    "D" : 307463510
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "ClassName" : "AActor",
+          "Properties" : {
+            "UUID" : 53337,
+            "mRootComponentUUID" : 13,
+            "mComponents" : [
+              {
+                "ClassName" : "UStaticMeshComponent",
+                "Properties" : {
+                  "UUID" : 13,
+                  "mRelativeLocation" : [-25.000000, -15.000000, 0.000000],
+                  "mRelativeRotation" : [0.000000, 0.000000, 0.000000],
+                  "mRelativeScale3D" : [1.000000, 1.000000, 1.000000],
+                  "ObjStaticMeshAsset" : {
+                    "A" : -170443363,
+                    "B" : 1082828327,
+                    "C" : 1251154865,
+                    "D" : -2060564276
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "ClassName" : "AActor",
+          "Properties" : {
+            "UUID" : 54448,
+            "mRootComponentUUID" : 14,
+            "mComponents" : [
+              {
+                "ClassName" : "UStaticMeshComponent",
+                "Properties" : {
+                  "UUID" : 14,
+                  "mRelativeLocation" : [-25.000000, -14.000000, 0.000000],
+                  "mRelativeRotation" : [0.000000, 0.000000, 0.000000],
+                  "mRelativeScale3D" : [1.000000, 1.000000, 1.000000],
+                  "ObjStaticMeshAsset" : {
+                    "A" : -845900634,
+                    "B" : 1179277642,
+                    "C" : 223949459,
+                    "D" : 307463510
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "ClassName" : "AActor",
+          "Properties" : {
+            "UUID" : 55559,
+            "mRootComponentUUID" : 15,
+            "mComponents" : [
+              {
+                "ClassName" : "UStaticMeshComponent",
+                "Properties" : {
+                  "UUID" : 15,
+                  "mRelativeLocation" : [-25.000000, -13.000000, 0.000000],
+                  "mRelativeRotation" : [0.000000, 0.000000, 0.000000],
+                  "mRelativeScale3D" : [1.000000, 1.000000, 1.000000],
+                  "ObjStaticMeshAsset" : {
+                    "A" : -170443363,
+                    "B" : 1082828327,
+                    "C" : 1251154865,
+                    "D" : -2060564276
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "ClassName" : "AActor",
+          "Properties" : {
+            "UUID" : 56670,
+            "mRootComponentUUID" : 16,
+            "mComponents" : [
+              {
+                "ClassName" : "UStaticMeshComponent",
+                "Properties" : {
+                  "UUID" : 16,
+                  "mRelativeLocation" : [-25.000000, -12.000000, 0.000000],
+                  "mRelativeRotation" : [0.000000, 0.000000, 0.000000],
+                  "mRelativeScale3D" : [1.000000, 1.000000, 1.000000],
+                  "ObjStaticMeshAsset" : {
+                    "A" : -845900634,
+                    "B" : 1179277642,
+                    "C" : 223949459,
+                    "D" : 307463510
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "ClassName" : "AActor",
+          "Properties" : {
+            "UUID" : 57781,
+            "mRootComponentUUID" : 17,
+            "mComponents" : [
+              {
+                "ClassName" : "UStaticMeshComponent",
+                "Properties" : {
+                  "UUID" : 17,
+                  "mRelativeLocation" : [-25.000000, -11.000000, 0.000000],
+                  "mRelativeRotation" : [0.000000, 0.000000, 0.000000],
+                  "mRelativeScale3D" : [1.000000, 1.000000, 1.000000],
+                  "ObjStaticMeshAsset" : {
+                    "A" : -170443363,
+                    "B" : 1082828327,
+                    "C" : 1251154865,
+                    "D" : -2060564276
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "ClassName" : "AActor",
+          "Properties" : {
+            "UUID" : 58892,
+            "mRootComponentUUID" : 18,
+            "mComponents" : [
+              {
+                "ClassName" : "UStaticMeshComponent",
+                "Properties" : {
+                  "UUID" : 18,
+                  "mRelativeLocation" : [-25.000000, -10.000000, 0.000000],
+                  "mRelativeRotation" : [0.000000, 0.000000, 0.000000],
+                  "mRelativeScale3D" : [1.000000, 1.000000, 1.000000],
+                  "ObjStaticMeshAsset" : {
+                    "A" : -845900634,
+                    "B" : 1179277642,
+                    "C" : 223949459,
+                    "D" : 307463510
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "ClassName" : "AActor",
+          "Properties" : {
+            "UUID" : 60003,
+            "mRootComponentUUID" : 19,
+            "mComponents" : [
+              {
+                "ClassName" : "UStaticMeshComponent",
+                "Properties" : {
+                  "UUID" : 19,
+                  "mRelativeLocation" : [-25.000000, -9.000000, 0.000000],
+                  "mRelativeRotation" : [0.000000, 0.000000, 0.000000],
+                  "mRelativeScale3D" : [1.000000, 1.000000, 1.000000],
+                  "ObjStaticMeshAsset" : {
+                    "A" : -170443363,
+                    "B" : 1082828327,
+                    "C" : 1251154865,
+                    "D" : -2060564276
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "ClassName" : "AActor",
+          "Properties" : {
+            "UUID" : 61114,
+            "mRootComponentUUID" : 20,
+            "mComponents" : [
+              {
+                "ClassName" : "UStaticMeshComponent",
+                "Properties" : {
+                  "UUID" : 20,
+                  "mRelativeLocation" : [-25.000000, -8.000000, 0.000000],
+                  "mRelativeRotation" : [0.000000, 0.000000, 0.000000],
+                  "mRelativeScale3D" : [1.000000, 1.000000, 1.000000],
+                  "ObjStaticMeshAsset" : {
+                    "A" : -845900634,
+                    "B" : 1179277642,
+                    "C" : 223949459,
+                    "D" : 307463510
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "ClassName" : "AActor",
+          "Properties" : {
+            "UUID" : 62225,
+            "mRootComponentUUID" : 21,
+            "mComponents" : [
+              {
+                "ClassName" : "UStaticMeshComponent",
+                "Properties" : {
+                  "UUID" : 21,
+                  "mRelativeLocation" : [-25.000000, -7.000000, 0.000000],
+                  "mRelativeRotation" : [0.000000, 0.000000, 0.000000],
+                  "mRelativeScale3D" : [1.000000, 1.000000, 1.000000],
+                  "ObjStaticMeshAsset" : {
+                    "A" : -170443363,
+                    "B" : 1082828327,
+                    "C" : 1251154865,
+                    "D" : -2060564276
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "ClassName" : "AActor",
+          "Properties" : {
+            "UUID" : 63336,
+            "mRootComponentUUID" : 22,
+            "mComponents" : [
+              {
+                "ClassName" : "UStaticMeshComponent",
+                "Properties" : {
+                  "UUID" : 22,
+                  "mRelativeLocation" : [-25.000000, -6.000000, 0.000000],
+                  "mRelativeRotation" : [0.000000, 0.000000, 0.000000],
+                  "mRelativeScale3D" : [1.000000, 1.000000, 1.000000],
+                  "ObjStaticMeshAsset" : {
+                    "A" : -845900634,
+                    "B" : 1179277642,
+                    "C" : 223949459,
+                    "D" : 307463510
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "ClassName" : "AActor",
+          "Properties" : {
+            "UUID" : 64447,
+            "mRootComponentUUID" : 23,
+            "mComponents" : [
+              {
+                "ClassName" : "UStaticMeshComponent",
+                "Properties" : {
+                  "UUID" : 23,
+                  "mRelativeLocation" : [-25.000000, -5.000000, 0.000000],
+                  "mRelativeRotation" : [0.000000, 0.000000, 0.000000],
+                  "mRelativeScale3D" : [1.000000, 1.000000, 1.000000],
+                  "ObjStaticMeshAsset" : {
+                    "A" : -170443363,
+                    "B" : 1082828327,
+                    "C" : 1251154865,
+                    "D" : -2060564276
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "ClassName" : "AActor",
+          "Properties" : {
+            "UUID" : 65558,
+            "mRootComponentUUID" : 24,
+            "mComponents" : [
+              {
+                "ClassName" : "UStaticMeshComponent",
+                "Properties" : {
+                  "UUID" : 24,
+                  "mRelativeLocation" : [-25.000000, -4.000000, 0.000000],
+                  "mRelativeRotation" : [0.000000, 0.000000, 0.000000],
+                  "mRelativeScale3D" : [1.000000, 1.000000, 1.000000],
+                  "ObjStaticMeshAsset" : {
+                    "A" : -845900634,
+                    "B" : 1179277642,
+                    "C" : 223949459,
+                    "D" : 307463510
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "ClassName" : "AActor",
+          "Properties" : {
+            "UUID" : 66669,
+            "mRootComponentUUID" : 25,
+            "mComponents" : [
+              {
+                "ClassName" : "UStaticMeshComponent",
+                "Properties" : {
+                  "UUID" : 25,
+                  "mRelativeLocation" : [-25.000000, -3.000000, 0.000000],
+                  "mRelativeRotation" : [0.000000, 0.000000, 0.000000],
+                  "mRelativeScale3D" : [1.000000, 1.000000, 1.000000],
+                  "ObjStaticMeshAsset" : {
+                    "A" : -170443363,
+                    "B" : 1082828327,
+                    "C" : 1251154865,
+                    "D" : -2060564276
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "ClassName" : "AActor",
+          "Properties" : {
+            "UUID" : 67780,
+            "mRootComponentUUID" : 26,
+            "mComponents" : [
+              {
+                "ClassName" : "UStaticMeshComponent",
+                "Properties" : {
+                  "UUID" : 26,
+                  "mRelativeLocation" : [-25.000000, -2.000000, 0.000000],
+                  "mRelativeRotation" : [0.000000, 0.000000, 0.000000],
+                  "mRelativeScale3D" : [1.000000, 1.000000, 1.000000],
+                  "ObjStaticMeshAsset" : {
+                    "A" : -845900634,
+                    "B" : 1179277642,
+                    "C" : 223949459,
+                    "D" : 307463510
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "ClassName" : "AActor",
+          "Properties" : {
+            "UUID" : 68891,
+            "mRootComponentUUID" : 27,
+            "mComponents" : [
+              {
+                "ClassName" : "UStaticMeshComponent",
+                "Properties" : {
+                  "UUID" : 27,
+                  "mRelativeLocation" : [-25.000000, -1.000000, 0.000000],
+                  "mRelativeRotation" : [0.000000, 0.000000, 0.000000],
+                  "mRelativeScale3D" : [1.000000, 1.000000, 1.000000],
+                  "ObjStaticMeshAsset" : {
+                    "A" : -170443363,
+                    "B" : 1082828327,
+                    "C" : 1251154865,
+                    "D" : -2060564276
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "ClassName" : "AActor",
+          "Properties" : {
+            "UUID" : 70002,
+            "mRootComponentUUID" : 28,
+            "mComponents" : [
+              {
+                "ClassName" : "UStaticMeshComponent",
+                "Properties" : {
+                  "UUID" : 28,
+                  "mRelativeLocation" : [-25.000000, 0.000000, 0.000000],
+                  "mRelativeRotation" : [0.000000, 0.000000, 0.000000],
+                  "mRelativeScale3D" : [1.000000, 1.000000, 1.000000],
+                  "ObjStaticMeshAsset" : {
+                    "A" : -845900634,
+                    "B" : 1179277642,
+                    "C" : 223949459,
+                    "D" : 307463510
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "ClassName" : "AActor",
+          "Properties" : {
+            "UUID" : 71113,
+            "mRootComponentUUID" : 29,
+            "mComponents" : [
+              {
+                "ClassName" : "UStaticMeshComponent",
+                "Properties" : {
+                  "UUID" : 29,
+                  "mRelativeLocation" : [-25.000000, 1.000000, 0.000000],
+                  "mRelativeRotation" : [0.000000, 0.000000, 0.000000],
+                  "mRelativeScale3D" : [1.000000, 1.000000, 1.000000],
+                  "ObjStaticMeshAsset" : {
+                    "A" : -170443363,
+                    "B" : 1082828327,
+                    "C" : 1251154865,
+                    "D" : -2060564276
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "ClassName" : "AActor",
+          "Properties" : {
+            "UUID" : 72225,
+            "mRootComponentUUID" : 30,
+            "mComponents" : [
+              {
+                "ClassName" : "UStaticMeshComponent",
+                "Properties" : {
+                  "UUID" : 30,
+                  "mRelativeLocation" : [-25.000000, 2.000000, 0.000000],
+                  "mRelativeRotation" : [0.000000, 0.000000, 0.000000],
+                  "mRelativeScale3D" : [1.000000, 1.000000, 1.000000],
+                  "ObjStaticMeshAsset" : {
+                    "A" : -845900634,
+                    "B" : 1179277642,
+                    "C" : 223949459,
+                    "D" : 307463510
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "ClassName" : "AActor",
+          "Properties" : {
+            "UUID" : 73336,
+            "mRootComponentUUID" : 31,
+            "mComponents" : [
+              {
+                "ClassName" : "UStaticMeshComponent",
+                "Properties" : {
+                  "UUID" : 31,
+                  "mRelativeLocation" : [-25.000000, 3.000000, 0.000000],
+                  "mRelativeRotation" : [0.000000, 0.000000, 0.000000],
+                  "mRelativeScale3D" : [1.000000, 1.000000, 1.000000],
+                  "ObjStaticMeshAsset" : {
+                    "A" : -170443363,
+                    "B" : 1082828327,
+                    "C" : 1251154865,
+                    "D" : -2060564276
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "ClassName" : "AActor",
+          "Properties" : {
+            "UUID" : 74447,
+            "mRootComponentUUID" : 32,
+            "mComponents" : [
+              {
+                "ClassName" : "UStaticMeshComponent",
+                "Properties" : {
+                  "UUID" : 32,
+                  "mRelativeLocation" : [-25.000000, 4.000000, 0.000000],
+                  "mRelativeRotation" : [0.000000, 0.000000, 0.000000],
+                  "mRelativeScale3D" : [1.000000, 1.000000, 1.000000],
+                  "ObjStaticMeshAsset" : {
+                    "A" : -845900634,
+                    "B" : 1179277642,
+                    "C" : 223949459,
+                    "D" : 307463510
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "ClassName" : "AActor",
+          "Properties" : {
+            "UUID" : 75558,
+            "mRootComponentUUID" : 33,
+            "mComponents" : [
+              {
+                "ClassName" : "UStaticMeshComponent",
+                "Properties" : {
+                  "UUID" : 33,
+                  "mRelativeLocation" : [-25.000000, 5.000000, 0.000000],
+                  "mRelativeRotation" : [0.000000, 0.000000, 0.000000],
+                  "mRelativeScale3D" : [1.000000, 1.000000, 1.000000],
+                  "ObjStaticMeshAsset" : {
+                    "A" : -170443363,
+                    "B" : 1082828327,
+                    "C" : 1251154865,
+                    "D" : -2060564276
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "ClassName" : "AActor",
+          "Properties" : {
+            "UUID" : 76669,
+            "mRootComponentUUID" : 34,
+            "mComponents" : [
+              {
+                "ClassName" : "UStaticMeshComponent",
+                "Properties" : {
+                  "UUID" : 34,
+                  "mRelativeLocation" : [-25.000000, 6.000000, 0.000000],
+                  "mRelativeRotation" : [0.000000, 0.000000, 0.000000],
+                  "mRelativeScale3D" : [1.000000, 1.000000, 1.000000],
+                  "ObjStaticMeshAsset" : {
+                    "A" : -845900634,
+                    "B" : 1179277642,
+                    "C" : 223949459,
+                    "D" : 307463510
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "ClassName" : "AActor",
+          "Properties" : {
+            "UUID" : 77780,
+            "mRootComponentUUID" : 35,
+            "mComponents" : [
+              {
+                "ClassName" : "UStaticMeshComponent",
+                "Properties" : {
+                  "UUID" : 35,
+                  "mRelativeLocation" : [-25.000000, 7.000000, 0.000000],
+                  "mRelativeRotation" : [0.000000, 0.000000, 0.000000],
+                  "mRelativeScale3D" : [1.000000, 1.000000, 1.000000],
+                  "ObjStaticMeshAsset" : {
+                    "A" : -170443363,
+                    "B" : 1082828327,
+                    "C" : 1251154865,
+                    "D" : -2060564276
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "ClassName" : "AActor",
+          "Properties" : {
+            "UUID" : 78891,
+            "mRootComponentUUID" : 36,
+            "mComponents" : [
+              {
+                "ClassName" : "UStaticMeshComponent",
+                "Properties" : {
+                  "UUID" : 36,
+                  "mRelativeLocation" : [-25.000000, 8.000000, 0.000000],
+                  "mRelativeRotation" : [0.000000, 0.000000, 0.000000],
+                  "mRelativeScale3D" : [1.000000, 1.000000, 1.000000],
+                  "ObjStaticMeshAsset" : {
+                    "A" : -845900634,
+                    "B" : 1179277642,
+                    "C" : 223949459,
+                    "D" : 307463510
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "ClassName" : "AActor",
+          "Properties" : {
+            "UUID" : 80002,
+            "mRootComponentUUID" : 37,
+            "mComponents" : [
+              {
+                "ClassName" : "UStaticMeshComponent",
+                "Properties" : {
+                  "UUID" : 37,
+                  "mRelativeLocation" : [-25.000000, 9.000000, 0.000000],
+                  "mRelativeRotation" : [0.000000, 0.000000, 0.000000],
+                  "mRelativeScale3D" : [1.000000, 1.000000, 1.000000],
+                  "ObjStaticMeshAsset" : {
+                    "A" : -170443363,
+                    "B" : 1082828327,
+                    "C" : 1251154865,
+                    "D" : -2060564276
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "ClassName" : "AActor",
+          "Properties" : {
+            "UUID" : 81113,
+            "mRootComponentUUID" : 38,
+            "mComponents" : [
+              {
+                "ClassName" : "UStaticMeshComponent",
+                "Properties" : {
+                  "UUID" : 38,
+                  "mRelativeLocation" : [-25.000000, 10.000000, 0.000000],
+                  "mRelativeRotation" : [0.000000, 0.000000, 0.000000],
+                  "mRelativeScale3D" : [1.000000, 1.000000, 1.000000],
+                  "ObjStaticMeshAsset" : {
+                    "A" : -845900634,
+                    "B" : 1179277642,
+                    "C" : 223949459,
+                    "D" : 307463510
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "ClassName" : "AActor",
+          "Properties" : {
+            "UUID" : 82224,
+            "mRootComponentUUID" : 39,
+            "mComponents" : [
+              {
+                "ClassName" : "UStaticMeshComponent",
+                "Properties" : {
+                  "UUID" : 39,
+                  "mRelativeLocation" : [-25.000000, 11.000000, 0.000000],
+                  "mRelativeRotation" : [0.000000, 0.000000, 0.000000],
+                  "mRelativeScale3D" : [1.000000, 1.000000, 1.000000],
+                  "ObjStaticMeshAsset" : {
+                    "A" : -170443363,
+                    "B" : 1082828327,
+                    "C" : 1251154865,
+                    "D" : -2060564276
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "ClassName" : "AActor",
+          "Properties" : {
+            "UUID" : 83336,
+            "mRootComponentUUID" : 40,
+            "mComponents" : [
+              {
+                "ClassName" : "UStaticMeshComponent",
+                "Properties" : {
+                  "UUID" : 40,
+                  "mRelativeLocation" : [-25.000000, 12.000000, 0.000000],
+                  "mRelativeRotation" : [0.000000, 0.000000, 0.000000],
+                  "mRelativeScale3D" : [1.000000, 1.000000, 1.000000],
+                  "ObjStaticMeshAsset" : {
+                    "A" : -845900634,
+                    "B" : 1179277642,
+                    "C" : 223949459,
+                    "D" : 307463510
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "ClassName" : "AActor",
+          "Properties" : {
+            "UUID" : 84447,
+            "mRootComponentUUID" : 41,
+            "mComponents" : [
+              {
+                "ClassName" : "UStaticMeshComponent",
+                "Properties" : {
+                  "UUID" : 41,
+                  "mRelativeLocation" : [-25.000000, 13.000000, 0.000000],
+                  "mRelativeRotation" : [0.000000, 0.000000, 0.000000],
+                  "mRelativeScale3D" : [1.000000, 1.000000, 1.000000],
+                  "ObjStaticMeshAsset" : {
+                    "A" : -170443363,
+                    "B" : 1082828327,
+                    "C" : 1251154865,
+                    "D" : -2060564276
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "ClassName" : "AActor",
+          "Properties" : {
+            "UUID" : 85558,
+            "mRootComponentUUID" : 42,
+            "mComponents" : [
+              {
+                "ClassName" : "UStaticMeshComponent",
+                "Properties" : {
+                  "UUID" : 42,
+                  "mRelativeLocation" : [-25.000000, 14.000000, 0.000000],
+                  "mRelativeRotation" : [0.000000, 0.000000, 0.000000],
+                  "mRelativeScale3D" : [1.000000, 1.000000, 1.000000],
+                  "ObjStaticMeshAsset" : {
+                    "A" : -845900634,
+                    "B" : 1179277642,
+                    "C" : 223949459,
+                    "D" : 307463510
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "ClassName" : "AActor",
+          "Properties" : {
+            "UUID" : 86669,
+            "mRootComponentUUID" : 43,
+            "mComponents" : [
+              {
+                "ClassName" : "UStaticMeshComponent",
+                "Properties" : {
+                  "UUID" : 43,
+                  "mRelativeLocation" : [-25.000000, 15.000000, 0.000000],
+                  "mRelativeRotation" : [0.000000, 0.000000, 0.000000],
+                  "mRelativeScale3D" : [1.000000, 1.000000, 1.000000],
+                  "ObjStaticMeshAsset" : {
+                    "A" : -170443363,
+                    "B" : 1082828327,
+                    "C" : 1251154865,
+                    "D" : -2060564276
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "ClassName" : "AActor",
+          "Properties" : {
+            "UUID" : 87780,
+            "mRootComponentUUID" : 44,
+            "mComponents" : [
+              {
+                "ClassName" : "UStaticMeshComponent",
+                "Properties" : {
+                  "UUID" : 44,
+                  "mRelativeLocation" : [-25.000000, 16.000000, 0.000000],
+                  "mRelativeRotation" : [0.000000, 0.000000, 0.000000],
+                  "mRelativeScale3D" : [1.000000, 1.000000, 1.000000],
+                  "ObjStaticMeshAsset" : {
+                    "A" : -845900634,
+                    "B" : 1179277642,
+                    "C" : 223949459,
+                    "D" : 307463510
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "ClassName" : "AActor",
+          "Properties" : {
+            "UUID" : 88891,
+            "mRootComponentUUID" : 45,
+            "mComponents" : [
+              {
+                "ClassName" : "UStaticMeshComponent",
+                "Properties" : {
+                  "UUID" : 45,
+                  "mRelativeLocation" : [-25.000000, 17.000000, 0.000000],
+                  "mRelativeRotation" : [0.000000, 0.000000, 0.000000],
+                  "mRelativeScale3D" : [1.000000, 1.000000, 1.000000],
+                  "ObjStaticMeshAsset" : {
+                    "A" : -170443363,
+                    "B" : 1082828327,
+                    "C" : 1251154865,
+                    "D" : -2060564276
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "ClassName" : "AActor",
+          "Properties" : {
+            "UUID" : 90002,
+            "mRootComponentUUID" : 46,
+            "mComponents" : [
+              {
+                "ClassName" : "UStaticMeshComponent",
+                "Properties" : {
+                  "UUID" : 46,
+                  "mRelativeLocation" : [-25.000000, 18.000000, 0.000000],
+                  "mRelativeRotation" : [0.000000, 0.000000, 0.000000],
+                  "mRelativeScale3D" : [1.000000, 1.000000, 1.000000],
+                  "ObjStaticMeshAsset" : {
+                    "A" : -845900634,
+                    "B" : 1179277642,
+                    "C" : 223949459,
+                    "D" : 307463510
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "ClassName" : "AActor",
+          "Properties" : {
+            "UUID" : 91113,
+            "mRootComponentUUID" : 47,
+            "mComponents" : [
+              {
+                "ClassName" : "UStaticMeshComponent",
+                "Properties" : {
+                  "UUID" : 47,
+                  "mRelativeLocation" : [-25.000000, 19.000000, 0.000000],
+                  "mRelativeRotation" : [0.000000, 0.000000, 0.000000],
+                  "mRelativeScale3D" : [1.000000, 1.000000, 1.000000],
+                  "ObjStaticMeshAsset" : {
+                    "A" : -170443363,
+                    "B" : 1082828327,
+                    "C" : 1251154865,
+                    "D" : -2060564276
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "ClassName" : "AActor",
+          "Properties" : {
+            "UUID" : 92224,
+            "mRootComponentUUID" : 48,
+            "mComponents" : [
+              {
+                "ClassName" : "UStaticMeshComponent",
+                "Properties" : {
+                  "UUID" : 48,
+                  "mRelativeLocation" : [-25.000000, 20.000000, 0.000000],
+                  "mRelativeRotation" : [0.000000, 0.000000, 0.000000],
+                  "mRelativeScale3D" : [1.000000, 1.000000, 1.000000],
+                  "ObjStaticMeshAsset" : {
+                    "A" : -845900634,
+                    "B" : 1179277642,
+                    "C" : 223949459,
+                    "D" : 307463510
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "ClassName" : "AActor",
+          "Properties" : {
+            "UUID" : 93335,
+            "mRootComponentUUID" : 49,
+            "mComponents" : [
+              {
+                "ClassName" : "UStaticMeshComponent",
+                "Properties" : {
+                  "UUID" : 49,
+                  "mRelativeLocation" : [-25.000000, 21.000000, 0.000000],
+                  "mRelativeRotation" : [0.000000, 0.000000, 0.000000],
+                  "mRelativeScale3D" : [1.000000, 1.000000, 1.000000],
+                  "ObjStaticMeshAsset" : {
+                    "A" : -170443363,
+                    "B" : 1082828327,
+                    "C" : 1251154865,
+                    "D" : -2060564276
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "ClassName" : "AActor",
+          "Properties" : {
+            "UUID" : 94447,
+            "mRootComponentUUID" : 50,
+            "mComponents" : [
+              {
+                "ClassName" : "UStaticMeshComponent",
+                "Properties" : {
+                  "UUID" : 50,
+                  "mRelativeLocation" : [-25.000000, 22.000000, 0.000000],
+                  "mRelativeRotation" : [0.000000, 0.000000, 0.000000],
+                  "mRelativeScale3D" : [1.000000, 1.000000, 1.000000],
+                  "ObjStaticMeshAsset" : {
+                    "A" : -845900634,
+                    "B" : 1179277642,
+                    "C" : 223949459,
+                    "D" : 307463510
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "ClassName" : "AActor",
+          "Properties" : {
+            "UUID" : 94561,
+            "mRootComponentUUID" : 51,
+            "mComponents" : [
+              {
+                "ClassName" : "UStaticMeshComponent",
+                "Properties" : {
+                  "UUID" : 51,
+                  "mRelativeLocation" : [-25.000000, 23.000000, 0.000000],
+                  "mRelativeRotation" : [0.000000, 0.000000, 0.000000],
+                  "mRelativeScale3D" : [1.000000, 1.000000, 1.000000],
+                  "ObjStaticMeshAsset" : {
+                    "A" : -170443363,
+                    "B" : 1082828327,
+                    "C" : 1251154865,
+                    "D" : -2060564276
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "ClassName" : "AActor",
+          "Properties" : {
+            "UUID" : 94672,
+            "mRootComponentUUID" : 52,
+            "mComponents" : [
+              {
+                "ClassName" : "UStaticMeshComponent",
+                "Properties" : {
+                  "UUID" : 52,
+                  "mRelativeLocation" : [-25.000000, 24.000000, 0.000000],
+                  "mRelativeRotation" : [0.000000, 0.000000, 0.000000],
+                  "mRelativeScale3D" : [1.000000, 1.000000, 1.000000],
+                  "ObjStaticMeshAsset" : {
+                    "A" : -845900634,
+                    "B" : 1179277642,
+                    "C" : 223949459,
+                    "D" : 307463510
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "ClassName" : "AActor",
+          "Properties" : {
+            "UUID" : 94783,
+            "mRootComponentUUID" : 53,
+            "mComponents" : [
+              {
+                "ClassName" : "UStaticMeshComponent",
+                "Properties" : {
+                  "UUID" : 53,
+                  "mRelativeLocation" : [-24.000000, -25.000000, 0.000000],
+                  "mRelativeRotation" : [0.000000, 0.000000, 0.000000],
+                  "mRelativeScale3D" : [1.000000, 1.000000, 1.000000],
+                  "ObjStaticMeshAsset" : {
+                    "A" : -170443363,
+                    "B" : 1082828327,
+                    "C" : 1251154865,
+                    "D" : -2060564276
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "ClassName" : "AActor",
+          "Properties" : {
+            "UUID" : 94894,
+            "mRootComponentUUID" : 54,
+            "mComponents" : [
+              {
+                "ClassName" : "UStaticMeshComponent",
+                "Properties" : {
+                  "UUID" : 54,
+                  "mRelativeLocation" : [-24.000000, -24.000000, 0.000000],
+                  "mRelativeRotation" : [0.000000, 0.000000, 0.000000],
+                  "mRelativeScale3D" : [1.000000, 1.000000, 1.000000],
+                  "ObjStaticMeshAsset" : {
+                    "A" : -845900634,
+                    "B" : 1179277642,
+                    "C" : 223949459,
+                    "D" : 307463510
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "ClassName" : "AActor",
+          "Properties" : {
+            "UUID" : 95005,
+            "mRootComponentUUID" : 55,
+            "mComponents" : [
+              {
+                "ClassName" : "UStaticMeshComponent",
+                "Properties" : {
+                  "UUID" : 55,
+                  "mRelativeLocation" : [-24.000000, -23.000000, 0.000000],
+                  "mRelativeRotation" : [0.000000, 0.000000, 0.000000],
+                  "mRelativeScale3D" : [1.000000, 1.000000, 1.000000],
+                  "ObjStaticMeshAsset" : {
+                    "A" : -170443363,
+                    "B" : 1082828327,
+                    "C" : 1251154865,
+                    "D" : -2060564276
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "ClassName" : "AActor",
+          "Properties" : {
+            "UUID" : 95116,
+            "mRootComponentUUID" : 56,
+            "mComponents" : [
+              {
+                "ClassName" : "UStaticMeshComponent",
+                "Properties" : {
+                  "UUID" : 56,
+                  "mRelativeLocation" : [-24.000000, -22.000000, 0.000000],
+                  "mRelativeRotation" : [0.000000, 0.000000, 0.000000],
+                  "mRelativeScale3D" : [1.000000, 1.000000, 1.000000],
+                  "ObjStaticMeshAsset" : {
+                    "A" : -845900634,
+                    "B" : 1179277642,
+                    "C" : 223949459,
+                    "D" : 307463510
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "ClassName" : "AActor",
+          "Properties" : {
+            "UUID" : 95227,
+            "mRootComponentUUID" : 57,
+            "mComponents" : [
+              {
+                "ClassName" : "UStaticMeshComponent",
+                "Properties" : {
+                  "UUID" : 57,
+                  "mRelativeLocation" : [-24.000000, -21.000000, 0.000000],
+                  "mRelativeRotation" : [0.000000, 0.000000, 0.000000],
+                  "mRelativeScale3D" : [1.000000, 1.000000, 1.000000],
+                  "ObjStaticMeshAsset" : {
+                    "A" : -170443363,
+                    "B" : 1082828327,
+                    "C" : 1251154865,
+                    "D" : -2060564276
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "ClassName" : "AActor",
+          "Properties" : {
+            "UUID" : 95338,
+            "mRootComponentUUID" : 58,
+            "mComponents" : [
+              {
+                "ClassName" : "UStaticMeshComponent",
+                "Properties" : {
+                  "UUID" : 58,
+                  "mRelativeLocation" : [-24.000000, -20.000000, 0.000000],
+                  "mRelativeRotation" : [0.000000, 0.000000, 0.000000],
+                  "mRelativeScale3D" : [1.000000, 1.000000, 1.000000],
+                  "ObjStaticMeshAsset" : {
+                    "A" : -845900634,
+                    "B" : 1179277642,
+                    "C" : 223949459,
+                    "D" : 307463510
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "ClassName" : "AActor",
+          "Properties" : {
+            "UUID" : 95449,
+            "mRootComponentUUID" : 59,
+            "mComponents" : [
+              {
+                "ClassName" : "UStaticMeshComponent",
+                "Properties" : {
+                  "UUID" : 59,
+                  "mRelativeLocation" : [-24.000000, -19.000000, 0.000000],
+                  "mRelativeRotation" : [0.000000, 0.000000, 0.000000],
+                  "mRelativeScale3D" : [1.000000, 1.000000, 1.000000],
+                  "ObjStaticMeshAsset" : {
+                    "A" : -170443363,
+                    "B" : 1082828327,
+                    "C" : 1251154865,
+                    "D" : -2060564276
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "ClassName" : "AActor",
+          "Properties" : {
+            "UUID" : 95561,
+            "mRootComponentUUID" : 60,
+            "mComponents" : [
+              {
+                "ClassName" : "UStaticMeshComponent",
+                "Properties" : {
+                  "UUID" : 60,
+                  "mRelativeLocation" : [-24.000000, -18.000000, 0.000000],
+                  "mRelativeRotation" : [0.000000, 0.000000, 0.000000],
+                  "mRelativeScale3D" : [1.000000, 1.000000, 1.000000],
+                  "ObjStaticMeshAsset" : {
+                    "A" : -845900634,
+                    "B" : 1179277642,
+                    "C" : 223949459,
+                    "D" : 307463510
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "ClassName" : "AActor",
+          "Properties" : {
+            "UUID" : 95672,
+            "mRootComponentUUID" : 61,
+            "mComponents" : [
+              {
+                "ClassName" : "UStaticMeshComponent",
+                "Properties" : {
+                  "UUID" : 61,
+                  "mRelativeLocation" : [-24.000000, -17.000000, 0.000000],
+                  "mRelativeRotation" : [0.000000, 0.000000, 0.000000],
+                  "mRelativeScale3D" : [1.000000, 1.000000, 1.000000],
+                  "ObjStaticMeshAsset" : {
+                    "A" : -170443363,
+                    "B" : 1082828327,
+                    "C" : 1251154865,
+                    "D" : -2060564276
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "ClassName" : "AActor",
+          "Properties" : {
+            "UUID" : 95783,
+            "mRootComponentUUID" : 62,
+            "mComponents" : [
+              {
+                "ClassName" : "UStaticMeshComponent",
+                "Properties" : {
+                  "UUID" : 62,
+                  "mRelativeLocation" : [-24.000000, -16.000000, 0.000000],
+                  "mRelativeRotation" : [0.000000, 0.000000, 0.000000],
+                  "mRelativeScale3D" : [1.000000, 1.000000, 1.000000],
+                  "ObjStaticMeshAsset" : {
+                    "A" : -845900634,
+                    "B" : 1179277642,
+                    "C" : 223949459,
+                    "D" : 307463510
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "ClassName" : "AActor",
+          "Properties" : {
+            "UUID" : 95894,
+            "mRootComponentUUID" : 63,
+            "mComponents" : [
+              {
+                "ClassName" : "UStaticMeshComponent",
+                "Properties" : {
+                  "UUID" : 63,
+                  "mRelativeLocation" : [-24.000000, -15.000000, 0.000000],
+                  "mRelativeRotation" : [0.000000, 0.000000, 0.000000],
+                  "mRelativeScale3D" : [1.000000, 1.000000, 1.000000],
+                  "ObjStaticMeshAsset" : {
+                    "A" : -170443363,
+                    "B" : 1082828327,
+                    "C" : 1251154865,
+                    "D" : -2060564276
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "ClassName" : "AActor",
+          "Properties" : {
+            "UUID" : 96005,
+            "mRootComponentUUID" : 64,
+            "mComponents" : [
+              {
+                "ClassName" : "UStaticMeshComponent",
+                "Properties" : {
+                  "UUID" : 64,
+                  "mRelativeLocation" : [-24.000000, -14.000000, 0.000000],
+                  "mRelativeRotation" : [0.000000, 0.000000, 0.000000],
+                  "mRelativeScale3D" : [1.000000, 1.000000, 1.000000],
+                  "ObjStaticMeshAsset" : {
+                    "A" : -845900634,
+                    "B" : 1179277642,
+                    "C" : 223949459,
+                    "D" : 307463510
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "ClassName" : "AActor",
+          "Properties" : {
+            "UUID" : 96116,
+            "mRootComponentUUID" : 65,
+            "mComponents" : [
+              {
+                "ClassName" : "UStaticMeshComponent",
+                "Properties" : {
+                  "UUID" : 65,
+                  "mRelativeLocation" : [-24.000000, -13.000000, 0.000000],
+                  "mRelativeRotation" : [0.000000, 0.000000, 0.000000],
+                  "mRelativeScale3D" : [1.000000, 1.000000, 1.000000],
+                  "ObjStaticMeshAsset" : {
+                    "A" : -170443363,
+                    "B" : 1082828327,
+                    "C" : 1251154865,
+                    "D" : -2060564276
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "ClassName" : "AActor",
+          "Properties" : {
+            "UUID" : 96227,
+            "mRootComponentUUID" : 66,
+            "mComponents" : [
+              {
+                "ClassName" : "UStaticMeshComponent",
+                "Properties" : {
+                  "UUID" : 66,
+                  "mRelativeLocation" : [-24.000000, -12.000000, 0.000000],
+                  "mRelativeRotation" : [0.000000, 0.000000, 0.000000],
+                  "mRelativeScale3D" : [1.000000, 1.000000, 1.000000],
+                  "ObjStaticMeshAsset" : {
+                    "A" : -845900634,
+                    "B" : 1179277642,
+                    "C" : 223949459,
+                    "D" : 307463510
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "ClassName" : "AActor",
+          "Properties" : {
+            "UUID" : 96338,
+            "mRootComponentUUID" : 67,
+            "mComponents" : [
+              {
+                "ClassName" : "UStaticMeshComponent",
+                "Properties" : {
+                  "UUID" : 67,
+                  "mRelativeLocation" : [-24.000000, -11.000000, 0.000000],
+                  "mRelativeRotation" : [0.000000, 0.000000, 0.000000],
+                  "mRelativeScale3D" : [1.000000, 1.000000, 1.000000],
+                  "ObjStaticMeshAsset" : {
+                    "A" : -170443363,
+                    "B" : 1082828327,
+                    "C" : 1251154865,
+                    "D" : -2060564276
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "ClassName" : "AActor",
+          "Properties" : {
+            "UUID" : 96449,
+            "mRootComponentUUID" : 68,
+            "mComponents" : [
+              {
+                "ClassName" : "UStaticMeshComponent",
+                "Properties" : {
+                  "UUID" : 68,
+                  "mRelativeLocation" : [-24.000000, -10.000000, 0.000000],
+                  "mRelativeRotation" : [0.000000, 0.000000, 0.000000],
+                  "mRelativeScale3D" : [1.000000, 1.000000, 1.000000],
+                  "ObjStaticMeshAsset" : {
+                    "A" : -845900634,
+                    "B" : 1179277642,
+                    "C" : 223949459,
+                    "D" : 307463510
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "ClassName" : "AActor",
+          "Properties" : {
+            "UUID" : 96560,
+            "mRootComponentUUID" : 69,
+            "mComponents" : [
+              {
+                "ClassName" : "UStaticMeshComponent",
+                "Properties" : {
+                  "UUID" : 69,
+                  "mRelativeLocation" : [-24.000000, -9.000000, 0.000000],
+                  "mRelativeRotation" : [0.000000, 0.000000, 0.000000],
+                  "mRelativeScale3D" : [1.000000, 1.000000, 1.000000],
+                  "ObjStaticMeshAsset" : {
+                    "A" : -170443363,
+                    "B" : 1082828327,
+                    "C" : 1251154865,
+                    "D" : -2060564276
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "ClassName" : "AActor",
+          "Properties" : {
+            "UUID" : 96672,
+            "mRootComponentUUID" : 70,
+            "mComponents" : [
+              {
+                "ClassName" : "UStaticMeshComponent",
+                "Properties" : {
+                  "UUID" : 70,
+                  "mRelativeLocation" : [-24.000000, -8.000000, 0.000000],
+                  "mRelativeRotation" : [0.000000, 0.000000, 0.000000],
+                  "mRelativeScale3D" : [1.000000, 1.000000, 1.000000],
+                  "ObjStaticMeshAsset" : {
+                    "A" : -845900634,
+                    "B" : 1179277642,
+                    "C" : 223949459,
+                    "D" : 307463510
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "ClassName" : "AActor",
+          "Properties" : {
+            "UUID" : 96783,
+            "mRootComponentUUID" : 71,
+            "mComponents" : [
+              {
+                "ClassName" : "UStaticMeshComponent",
+                "Properties" : {
+                  "UUID" : 71,
+                  "mRelativeLocation" : [-24.000000, -7.000000, 0.000000],
+                  "mRelativeRotation" : [0.000000, 0.000000, 0.000000],
+                  "mRelativeScale3D" : [1.000000, 1.000000, 1.000000],
+                  "ObjStaticMeshAsset" : {
+                    "A" : -170443363,
+                    "B" : 1082828327,
+                    "C" : 1251154865,
+                    "D" : -2060564276
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "ClassName" : "AActor",
+          "Properties" : {
+            "UUID" : 96894,
+            "mRootComponentUUID" : 72,
+            "mComponents" : [
+              {
+                "ClassName" : "UStaticMeshComponent",
+                "Properties" : {
+                  "UUID" : 72,
+                  "mRelativeLocation" : [-24.000000, -6.000000, 0.000000],
+                  "mRelativeRotation" : [0.000000, 0.000000, 0.000000],
+                  "mRelativeScale3D" : [1.000000, 1.000000, 1.000000],
+                  "ObjStaticMeshAsset" : {
+                    "A" : -845900634,
+                    "B" : 1179277642,
+                    "C" : 223949459,
+                    "D" : 307463510
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "ClassName" : "AActor",
+          "Properties" : {
+            "UUID" : 97005,
+            "mRootComponentUUID" : 73,
+            "mComponents" : [
+              {
+                "ClassName" : "UStaticMeshComponent",
+                "Properties" : {
+                  "UUID" : 73,
+                  "mRelativeLocation" : [-24.000000, -5.000000, 0.000000],
+                  "mRelativeRotation" : [0.000000, 0.000000, 0.000000],
+                  "mRelativeScale3D" : [1.000000, 1.000000, 1.000000],
+                  "ObjStaticMeshAsset" : {
+                    "A" : -170443363,
+                    "B" : 1082828327,
+                    "C" : 1251154865,
+                    "D" : -2060564276
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "ClassName" : "AActor",
+          "Properties" : {
+            "UUID" : 97116,
+            "mRootComponentUUID" : 74,
+            "mComponents" : [
+              {
+                "ClassName" : "UStaticMeshComponent",
+                "Properties" : {
+                  "UUID" : 74,
+                  "mRelativeLocation" : [-24.000000, -4.000000, 0.000000],
+                  "mRelativeRotation" : [0.000000, 0.000000, 0.000000],
+                  "mRelativeScale3D" : [1.000000, 1.000000, 1.000000],
+                  "ObjStaticMeshAsset" : {
+                    "A" : -845900634,
+                    "B" : 1179277642,
+                    "C" : 223949459,
+                    "D" : 307463510
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "ClassName" : "AActor",
+          "Properties" : {
+            "UUID" : 97227,
+            "mRootComponentUUID" : 75,
+            "mComponents" : [
+              {
+                "ClassName" : "UStaticMeshComponent",
+                "Properties" : {
+                  "UUID" : 75,
+                  "mRelativeLocation" : [-24.000000, -3.000000, 0.000000],
+                  "mRelativeRotation" : [0.000000, 0.000000, 0.000000],
+                  "mRelativeScale3D" : [1.000000, 1.000000, 1.000000],
+                  "ObjStaticMeshAsset" : {
+                    "A" : -170443363,
+                    "B" : 1082828327,
+                    "C" : 1251154865,
+                    "D" : -2060564276
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "ClassName" : "AActor",
+          "Properties" : {
+            "UUID" : 97338,
+            "mRootComponentUUID" : 76,
+            "mComponents" : [
+              {
+                "ClassName" : "UStaticMeshComponent",
+                "Properties" : {
+                  "UUID" : 76,
+                  "mRelativeLocation" : [-24.000000, -2.000000, 0.000000],
+                  "mRelativeRotation" : [0.000000, 0.000000, 0.000000],
+                  "mRelativeScale3D" : [1.000000, 1.000000, 1.000000],
+                  "ObjStaticMeshAsset" : {
+                    "A" : -845900634,
+                    "B" : 1179277642,
+                    "C" : 223949459,
+                    "D" : 307463510
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "ClassName" : "AActor",
+          "Properties" : {
+            "UUID" : 97449,
+            "mRootComponentUUID" : 77,
+            "mComponents" : [
+              {
+                "ClassName" : "UStaticMeshComponent",
+                "Properties" : {
+                  "UUID" : 77,
+                  "mRelativeLocation" : [-24.000000, -1.000000, 0.000000],
+                  "mRelativeRotation" : [0.000000, 0.000000, 0.000000],
+                  "mRelativeScale3D" : [1.000000, 1.000000, 1.000000],
+                  "ObjStaticMeshAsset" : {
+                    "A" : -170443363,
+                    "B" : 1082828327,
+                    "C" : 1251154865,
+                    "D" : -2060564276
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "ClassName" : "AActor",
+          "Properties" : {
+            "UUID" : 97560,
+            "mRootComponentUUID" : 78,
+            "mComponents" : [
+              {
+                "ClassName" : "UStaticMeshComponent",
+                "Properties" : {
+                  "UUID" : 78,
+                  "mRelativeLocation" : [-24.000000, 0.000000, 0.000000],
+                  "mRelativeRotation" : [0.000000, 0.000000, 0.000000],
+                  "mRelativeScale3D" : [1.000000, 1.000000, 1.000000],
+                  "ObjStaticMeshAsset" : {
+                    "A" : -845900634,
+                    "B" : 1179277642,
+                    "C" : 223949459,
+                    "D" : 307463510
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "ClassName" : "AActor",
+          "Properties" : {
+            "UUID" : 97671,
+            "mRootComponentUUID" : 79,
+            "mComponents" : [
+              {
+                "ClassName" : "UStaticMeshComponent",
+                "Properties" : {
+                  "UUID" : 79,
+                  "mRelativeLocation" : [-24.000000, 1.000000, 0.000000],
+                  "mRelativeRotation" : [0.000000, 0.000000, 0.000000],
+                  "mRelativeScale3D" : [1.000000, 1.000000, 1.000000],
+                  "ObjStaticMeshAsset" : {
+                    "A" : -170443363,
+                    "B" : 1082828327,
+                    "C" : 1251154865,
+                    "D" : -2060564276
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "ClassName" : "AActor",
+          "Properties" : {
+            "UUID" : 97783,
+            "mRootComponentUUID" : 80,
+            "mComponents" : [
+              {
+                "ClassName" : "UStaticMeshComponent",
+                "Properties" : {
+                  "UUID" : 80,
+                  "mRelativeLocation" : [-24.000000, 2.000000, 0.000000],
+                  "mRelativeRotation" : [0.000000, 0.000000, 0.000000],
+                  "mRelativeScale3D" : [1.000000, 1.000000, 1.000000],
+                  "ObjStaticMeshAsset" : {
+                    "A" : -845900634,
+                    "B" : 1179277642,
+                    "C" : 223949459,
+                    "D" : 307463510
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "ClassName" : "AActor",
+          "Properties" : {
+            "UUID" : 97894,
+            "mRootComponentUUID" : 81,
+            "mComponents" : [
+              {
+                "ClassName" : "UStaticMeshComponent",
+                "Properties" : {
+                  "UUID" : 81,
+                  "mRelativeLocation" : [-24.000000, 3.000000, 0.000000],
+                  "mRelativeRotation" : [0.000000, 0.000000, 0.000000],
+                  "mRelativeScale3D" : [1.000000, 1.000000, 1.000000],
+                  "ObjStaticMeshAsset" : {
+                    "A" : -170443363,
+                    "B" : 1082828327,
+                    "C" : 1251154865,
+                    "D" : -2060564276
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "ClassName" : "AActor",
+          "Properties" : {
+            "UUID" : 98005,
+            "mRootComponentUUID" : 82,
+            "mComponents" : [
+              {
+                "ClassName" : "UStaticMeshComponent",
+                "Properties" : {
+                  "UUID" : 82,
+                  "mRelativeLocation" : [-24.000000, 4.000000, 0.000000],
+                  "mRelativeRotation" : [0.000000, 0.000000, 0.000000],
+                  "mRelativeScale3D" : [1.000000, 1.000000, 1.000000],
+                  "ObjStaticMeshAsset" : {
+                    "A" : -845900634,
+                    "B" : 1179277642,
+                    "C" : 223949459,
+                    "D" : 307463510
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "ClassName" : "AActor",
+          "Properties" : {
+            "UUID" : 98116,
+            "mRootComponentUUID" : 83,
+            "mComponents" : [
+              {
+                "ClassName" : "UStaticMeshComponent",
+                "Properties" : {
+                  "UUID" : 83,
+                  "mRelativeLocation" : [-24.000000, 5.000000, 0.000000],
+                  "mRelativeRotation" : [0.000000, 0.000000, 0.000000],
+                  "mRelativeScale3D" : [1.000000, 1.000000, 1.000000],
+                  "ObjStaticMeshAsset" : {
+                    "A" : -170443363,
+                    "B" : 1082828327,
+                    "C" : 1251154865,
+                    "D" : -2060564276
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "ClassName" : "AActor",
+          "Properties" : {
+            "UUID" : 98227,
+            "mRootComponentUUID" : 84,
+            "mComponents" : [
+              {
+                "ClassName" : "UStaticMeshComponent",
+                "Properties" : {
+                  "UUID" : 84,
+                  "mRelativeLocation" : [-24.000000, 6.000000, 0.000000],
+                  "mRelativeRotation" : [0.000000, 0.000000, 0.000000],
+                  "mRelativeScale3D" : [1.000000, 1.000000, 1.000000],
+                  "ObjStaticMeshAsset" : {
+                    "A" : -845900634,
+                    "B" : 1179277642,
+                    "C" : 223949459,
+                    "D" : 307463510
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "ClassName" : "AActor",
+          "Properties" : {
+            "UUID" : 98338,
+            "mRootComponentUUID" : 85,
+            "mComponents" : [
+              {
+                "ClassName" : "UStaticMeshComponent",
+                "Properties" : {
+                  "UUID" : 85,
+                  "mRelativeLocation" : [-24.000000, 7.000000, 0.000000],
+                  "mRelativeRotation" : [0.000000, 0.000000, 0.000000],
+                  "mRelativeScale3D" : [1.000000, 1.000000, 1.000000],
+                  "ObjStaticMeshAsset" : {
+                    "A" : -170443363,
+                    "B" : 1082828327,
+                    "C" : 1251154865,
+                    "D" : -2060564276
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "ClassName" : "AActor",
+          "Properties" : {
+            "UUID" : 98449,
+            "mRootComponentUUID" : 86,
+            "mComponents" : [
+              {
+                "ClassName" : "UStaticMeshComponent",
+                "Properties" : {
+                  "UUID" : 86,
+                  "mRelativeLocation" : [-24.000000, 8.000000, 0.000000],
+                  "mRelativeRotation" : [0.000000, 0.000000, 0.000000],
+                  "mRelativeScale3D" : [1.000000, 1.000000, 1.000000],
+                  "ObjStaticMeshAsset" : {
+                    "A" : -845900634,
+                    "B" : 1179277642,
+                    "C" : 223949459,
+                    "D" : 307463510
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "ClassName" : "AActor",
+          "Properties" : {
+            "UUID" : 98560,
+            "mRootComponentUUID" : 87,
+            "mComponents" : [
+              {
+                "ClassName" : "UStaticMeshComponent",
+                "Properties" : {
+                  "UUID" : 87,
+                  "mRelativeLocation" : [-24.000000, 9.000000, 0.000000],
+                  "mRelativeRotation" : [0.000000, 0.000000, 0.000000],
+                  "mRelativeScale3D" : [1.000000, 1.000000, 1.000000],
+                  "ObjStaticMeshAsset" : {
+                    "A" : -170443363,
+                    "B" : 1082828327,
+                    "C" : 1251154865,
+                    "D" : -2060564276
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "ClassName" : "AActor",
+          "Properties" : {
+            "UUID" : 98671,
+            "mRootComponentUUID" : 88,
+            "mComponents" : [
+              {
+                "ClassName" : "UStaticMeshComponent",
+                "Properties" : {
+                  "UUID" : 88,
+                  "mRelativeLocation" : [-24.000000, 10.000000, 0.000000],
+                  "mRelativeRotation" : [0.000000, 0.000000, 0.000000],
+                  "mRelativeScale3D" : [1.000000, 1.000000, 1.000000],
+                  "ObjStaticMeshAsset" : {
+                    "A" : -845900634,
+                    "B" : 1179277642,
+                    "C" : 223949459,
+                    "D" : 307463510
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "ClassName" : "AActor",
+          "Properties" : {
+            "UUID" : 98782,
+            "mRootComponentUUID" : 89,
+            "mComponents" : [
+              {
+                "ClassName" : "UStaticMeshComponent",
+                "Properties" : {
+                  "UUID" : 89,
+                  "mRelativeLocation" : [-24.000000, 11.000000, 0.000000],
+                  "mRelativeRotation" : [0.000000, 0.000000, 0.000000],
+                  "mRelativeScale3D" : [1.000000, 1.000000, 1.000000],
+                  "ObjStaticMeshAsset" : {
+                    "A" : -170443363,
+                    "B" : 1082828327,
+                    "C" : 1251154865,
+                    "D" : -2060564276
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "ClassName" : "AActor",
+          "Properties" : {
+            "UUID" : 98894,
+            "mRootComponentUUID" : 90,
+            "mComponents" : [
+              {
+                "ClassName" : "UStaticMeshComponent",
+                "Properties" : {
+                  "UUID" : 90,
+                  "mRelativeLocation" : [-24.000000, 12.000000, 0.000000],
+                  "mRelativeRotation" : [0.000000, 0.000000, 0.000000],
+                  "mRelativeScale3D" : [1.000000, 1.000000, 1.000000],
+                  "ObjStaticMeshAsset" : {
+                    "A" : -845900634,
+                    "B" : 1179277642,
+                    "C" : 223949459,
+                    "D" : 307463510
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "ClassName" : "AActor",
+          "Properties" : {
+            "UUID" : 99005,
+            "mRootComponentUUID" : 91,
+            "mComponents" : [
+              {
+                "ClassName" : "UStaticMeshComponent",
+                "Properties" : {
+                  "UUID" : 91,
+                  "mRelativeLocation" : [-24.000000, 13.000000, 0.000000],
+                  "mRelativeRotation" : [0.000000, 0.000000, 0.000000],
+                  "mRelativeScale3D" : [1.000000, 1.000000, 1.000000],
+                  "ObjStaticMeshAsset" : {
+                    "A" : -170443363,
+                    "B" : 1082828327,
+                    "C" : 1251154865,
+                    "D" : -2060564276
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "ClassName" : "AActor",
+          "Properties" : {
+            "UUID" : 99116,
+            "mRootComponentUUID" : 92,
+            "mComponents" : [
+              {
+                "ClassName" : "UStaticMeshComponent",
+                "Properties" : {
+                  "UUID" : 92,
+                  "mRelativeLocation" : [-24.000000, 14.000000, 0.000000],
+                  "mRelativeRotation" : [0.000000, 0.000000, 0.000000],
+                  "mRelativeScale3D" : [1.000000, 1.000000, 1.000000],
+                  "ObjStaticMeshAsset" : {
+                    "A" : -845900634,
+                    "B" : 1179277642,
+                    "C" : 223949459,
+                    "D" : 307463510
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "ClassName" : "AActor",
+          "Properties" : {
+            "UUID" : 99227,
+            "mRootComponentUUID" : 93,
+            "mComponents" : [
+              {
+                "ClassName" : "UStaticMeshComponent",
+                "Properties" : {
+                  "UUID" : 93,
+                  "mRelativeLocation" : [-24.000000, 15.000000, 0.000000],
+                  "mRelativeRotation" : [0.000000, 0.000000, 0.000000],
+                  "mRelativeScale3D" : [1.000000, 1.000000, 1.000000],
+                  "ObjStaticMeshAsset" : {
+                    "A" : -170443363,
+                    "B" : 1082828327,
+                    "C" : 1251154865,
+                    "D" : -2060564276
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "ClassName" : "AActor",
+          "Properties" : {
+            "UUID" : 99338,
+            "mRootComponentUUID" : 94,
+            "mComponents" : [
+              {
+                "ClassName" : "UStaticMeshComponent",
+                "Properties" : {
+                  "UUID" : 94,
+                  "mRelativeLocation" : [-24.000000, 16.000000, 0.000000],
+                  "mRelativeRotation" : [0.000000, 0.000000, 0.000000],
+                  "mRelativeScale3D" : [1.000000, 1.000000, 1.000000],
+                  "ObjStaticMeshAsset" : {
+                    "A" : -845900634,
+                    "B" : 1179277642,
+                    "C" : 223949459,
+                    "D" : 307463510
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "ClassName" : "AActor",
+          "Properties" : {
+            "UUID" : 99449,
+            "mRootComponentUUID" : 95,
+            "mComponents" : [
+              {
+                "ClassName" : "UStaticMeshComponent",
+                "Properties" : {
+                  "UUID" : 95,
+                  "mRelativeLocation" : [-24.000000, 17.000000, 0.000000],
+                  "mRelativeRotation" : [0.000000, 0.000000, 0.000000],
+                  "mRelativeScale3D" : [1.000000, 1.000000, 1.000000],
+                  "ObjStaticMeshAsset" : {
+                    "A" : -170443363,
+                    "B" : 1082828327,
+                    "C" : 1251154865,
+                    "D" : -2060564276
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "ClassName" : "AActor",
+          "Properties" : {
+            "UUID" : 99560,
+            "mRootComponentUUID" : 96,
+            "mComponents" : [
+              {
+                "ClassName" : "UStaticMeshComponent",
+                "Properties" : {
+                  "UUID" : 96,
+                  "mRelativeLocation" : [-24.000000, 18.000000, 0.000000],
+                  "mRelativeRotation" : [0.000000, 0.000000, 0.000000],
+                  "mRelativeScale3D" : [1.000000, 1.000000, 1.000000],
+                  "ObjStaticMeshAsset" : {
+                    "A" : -845900634,
+                    "B" : 1179277642,
+                    "C" : 223949459,
+                    "D" : 307463510
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "ClassName" : "AActor",
+          "Properties" : {
+            "UUID" : 99671,
+            "mRootComponentUUID" : 97,
+            "mComponents" : [
+              {
+                "ClassName" : "UStaticMeshComponent",
+                "Properties" : {
+                  "UUID" : 97,
+                  "mRelativeLocation" : [-24.000000, 19.000000, 0.000000],
+                  "mRelativeRotation" : [0.000000, 0.000000, 0.000000],
+                  "mRelativeScale3D" : [1.000000, 1.000000, 1.000000],
+                  "ObjStaticMeshAsset" : {
+                    "A" : -170443363,
+                    "B" : 1082828327,
+                    "C" : 1251154865,
+                    "D" : -2060564276
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "ClassName" : "AActor",
+          "Properties" : {
+            "UUID" : 99782,
+            "mRootComponentUUID" : 98,
+            "mComponents" : [
+              {
+                "ClassName" : "UStaticMeshComponent",
+                "Properties" : {
+                  "UUID" : 98,
+                  "mRelativeLocation" : [-24.000000, 20.000000, 0.000000],
+                  "mRelativeRotation" : [0.000000, 0.000000, 0.000000],
+                  "mRelativeScale3D" : [1.000000, 1.000000, 1.000000],
+                  "ObjStaticMeshAsset" : {
+                    "A" : -845900634,
+                    "B" : 1179277642,
+                    "C" : 223949459,
+                    "D" : 307463510
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "ClassName" : "AActor",
+          "Properties" : {
+            "UUID" : 99893,
+            "mRootComponentUUID" : 99,
+            "mComponents" : [
+              {
+                "ClassName" : "UStaticMeshComponent",
+                "Properties" : {
+                  "UUID" : 99,
+                  "mRelativeLocation" : [-24.000000, 21.000000, 0.000000],
+                  "mRelativeRotation" : [0.000000, 0.000000, 0.000000],
+                  "mRelativeScale3D" : [1.000000, 1.000000, 1.000000],
+                  "ObjStaticMeshAsset" : {
+                    "A" : -170443363,
+                    "B" : 1082828327,
+                    "C" : 1251154865,
+                    "D" : -2060564276
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "ClassName" : "AActor",
+          "Properties" : {
+            "UUID" : 50005,
+            "mRootComponentUUID" : 100,
+            "mComponents" : [
+              {
+                "ClassName" : "UStaticMeshComponent",
+                "Properties" : {
+                  "UUID" : 100,
+                  "mRelativeLocation" : [-24.000000, 22.000000, 0.000000],
+                  "mRelativeRotation" : [0.000000, 0.000000, 0.000000],
+                  "mRelativeScale3D" : [1.000000, 1.000000, 1.000000],
+                  "ObjStaticMeshAsset" : {
+                    "A" : -845900634,
+                    "B" : 1179277642,
+                    "C" : 223949459,
+                    "D" : 307463510
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "ClassName" : "AActor",
+          "Properties" : {
+            "UUID" : 50116,
+            "mRootComponentUUID" : 101,
+            "mComponents" : [
+              {
+                "ClassName" : "UStaticMeshComponent",
+                "Properties" : {
+                  "UUID" : 101,
+                  "mRelativeLocation" : [-24.000000, 23.000000, 0.000000],
+                  "mRelativeRotation" : [0.000000, 0.000000, 0.000000],
+                  "mRelativeScale3D" : [1.000000, 1.000000, 1.000000],
+                  "ObjStaticMeshAsset" : {
+                    "A" : -170443363,
+                    "B" : 1082828327,
+                    "C" : 1251154865,
+                    "D" : -2060564276
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "ClassName" : "AActor",
+          "Properties" : {
+            "UUID" : 50227,
+            "mRootComponentUUID" : 102,
+            "mComponents" : [
+              {
+                "ClassName" : "UStaticMeshComponent",
+                "Properties" : {
+                  "UUID" : 102,
+                  "mRelativeLocation" : [-24.000000, 24.000000, 0.000000],
+                  "mRelativeRotation" : [0.000000, 0.000000, 0.000000],
+                  "mRelativeScale3D" : [1.000000, 1.000000, 1.000000],
+                  "ObjStaticMeshAsset" : {
+                    "A" : -845900634,
+                    "B" : 1179277642,
+                    "C" : 223949459,
+                    "D" : 307463510
+                  }
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}
