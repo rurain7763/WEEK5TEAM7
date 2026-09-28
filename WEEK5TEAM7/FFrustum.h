@@ -3,7 +3,6 @@
 #include "Vector.h"
 #include "Matrix.h"
 #include "FAABB.h"
-#include "FInstrumentor.h"
 #include <cmath>
 
 struct FPlane
@@ -120,8 +119,6 @@ struct FFrustum
 	// AABB 박스가 절두체 내부에 있거나 걸쳐있는지 검사
 	inline bool Intersects(const FAABB& Box) const
 	{
-		PROFILE_SCOPE("Viewport/Collect/..AABBIntersects");
-
 		const FVector Center = (Box.Min + Box.Max) * 0.5f;
 		const FVector Extent = (Box.Max - Box.Min) * 0.5f;
 
