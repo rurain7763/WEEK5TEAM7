@@ -1,5 +1,9 @@
 #include "LaunchEngineLoop.h"
 
+// Visual Profiler
+#define ENABLE_VISUAL_PROFILING 1
+#include "FInstrumentor.h"
+
 #include <windows.h>
 #include "Renderer.h"
 #include "WindowApplication.h"
@@ -35,6 +39,9 @@
 
 void FEngineLoop::Init(HINSTANCE hInstance, WNDPROC WndProc)
 {
+	PROFILE_BEGIN_SESSION("Engine", "engine-loop-profile.json");
+	PROFILE_FUNCTION();
+
 	// Initialize window infos
 	WCHAR WindowClass[] = L"JungleWindowClass";
 	WCHAR Title[] = L"Game Tech Lab";
@@ -97,7 +104,7 @@ void FEngineLoop::Init(HINSTANCE hInstance, WNDPROC WndProc)
 		EViewportType::Front,
 		EViewportType::Side
 	};
-	
+
 	for (int32 i = 0; i < 4; ++i)
 	{
 		mViewports[i].Window = (i == MainViewportIndex) ? mEditorLayout.RootWindow : mEditorLayout.ViewportWindows[i];
@@ -128,6 +135,8 @@ void FEngineLoop::Init(HINSTANCE hInstance, WNDPROC WndProc)
 
 void FEngineLoop::InitAssetManager()
 {
+	PROFILE_FUNCTION();
+
 	mAssetManager = new FAssetManager();
 
 	URenderer* renderer = mGraphicsManager->GetRenderer();
@@ -172,7 +181,7 @@ void FEngineLoop::InitAssetManager()
 
 	TSharedPtr<FFileAssetSource> FontAssetSource = MakeShared<FFileAssetSource>("Assets/Fonts/BMKkubulimTTF.ttf");
 	mAssetManager->RegisterAsset(FGuid::NewGuid(), FName("TestFont"), FontLoader, FontAssetSource);
-	
+
 	TSharedPtr<FFontAsset> TestFontAsset = mAssetManager->GetAssetAs<FFontAsset>(FName("TestFont"), true);
 	TSharedPtr<FFontAtlasAsset> FontAtlasAsset = MakeShared<FFontAtlasAsset>(FGuid::NewGuid(), FName("TestFontAtlas"), *renderer, TestFontAsset, 512, 512, 2, 2);
 	mAssetManager->RegisterAsset(FontAtlasAsset);
@@ -182,23 +191,33 @@ void FEngineLoop::Tick(bool bPumpMessages)
 {
 	if (GInTick) return;
 	GInTick = true;
+	PROFILE_FUNCTION();
 
 	FrameTimer->StartFrame();
 	float deltaTime = FrameTimer->GetDeltaTime();
 
 	FRenderCollector& RenderCollector = mGraphicsManager->GetRenderCollector();
 
-	WindowApplication.ProcessDeferredEvents();
-
-	if (WindowApplication.bPendingResize)
 	{
-		mGraphicsManager->OnResize(WindowApplication.PendingWidth, WindowApplication.PendingHeight);
-		WindowApplication.bPendingResize = false;
+		PROFILE_SCOPE("Frame/InputAndResize");
+		WindowApplication.ProcessDeferredEvents();
+
+		if (WindowApplication.bPendingResize)
+		{
+			mGraphicsManager->OnResize(WindowApplication.PendingWidth, WindowApplication.PendingHeight);
+			WindowApplication.bPendingResize = false;
+		}
 	}
 
-	mSceneManager->Tick(deltaTime);
+	{
+		PROFILE_SCOPE("Frame/SceneTick");
+		mSceneManager->Tick(deltaTime);
+	}
 
-	mGraphicsManager->UpdateProjectionTransition(deltaTime);
+	{
+		PROFILE_SCOPE("Frame/ProjectionTransition");
+		mGraphicsManager->UpdateProjectionTransition(deltaTime);
+	}
 
 	const float NearZ = 0.1f;
 	const float FarZ = 2000.0f;
@@ -213,117 +232,134 @@ void FEngineLoop::Tick(bool bPumpMessages)
 	}
 	else
 		mViewports[ActiveIndex].Window = mEditorLayout.RootWindow;
-	
+
 
 	mGraphicsManager->UpdateGpuRenderTime();
 	if (ConsoleWindow::Get().bShowStatRender)
 	{
 		mGraphicsManager->BeginGpuRenderTimer();
 	}
-	
+
 	mGraphicsManager->GetRenderer()->ResetDrawCallCount();
-	
-	for (int32 i = 0; i < ViewportCount; ++i)
+
 	{
-		int32 CurrentIndex = bIsSplit ? i : ActiveIndex;
-		FEditorViewport* CurrentViewport = &mViewports[CurrentIndex];
-
-		const FRect& ViewportRect = CurrentViewport->Window->Rect;
-
-		FCamera& Camera = CurrentViewport->Client->GetCamera();
-		Camera.mAspect = ViewportRect.Width / ViewportRect.Height;
-		Camera.mNear = NearZ;
-		Camera.mFar = FarZ;
-
-		RenderCollector.Clear();
-		RenderCollector.Camera = &Camera;
-
-		bool bIsOrtho = CurrentViewport->Client->IsOrtho();
-		float CurrentRatio = bIsOrtho ? 0.0f : mGraphicsManager->GetPerspectiveRatio();
-
-		// 뷰포트가 직교 타입이면 현재 -5000 ~ 5000으로 보이게 하드코딩, 나중에 카메라 위치에 따라 랜더 거리를 늘려야 함
-		Camera.mNear = bIsOrtho ? -5000.0f : Camera.mNear;
-		Camera.mFar = bIsOrtho ? 5000.0f : Camera.mFar;
-
-		CurrentViewport->Client->Update(deltaTime, CurrentRatio, RenderCollector);
-
-		FMatrix ViewProjection = Camera.GetViewMatrix() * Camera.GetUnifiedProjectionMatrix(Camera.mOrthoDistance, CurrentRatio);
-		FMatrix InvViewProjection = Camera.GetInverseUnifiedProjectionMatrix(Camera.mOrthoDistance, CurrentRatio) * Camera.GetViewMatrix().AffineInverse();
-
-		mSceneManager->Render(deltaTime, RenderCollector);
-
-		// 마우스 피킹 처리
-		// 뷰포트가 ImGui 창이 되면서 그 위에서는 io.WantCaptureMouse 가 항상 true 다.
-		// 그대로 두면 씬을 클릭해도 선택이 되지 않는다. 카메라/기즈모와 같은 기준을 쓴다.
-		const FInputState& Input = WindowApplication.Input;
-
-		// 드래그 중 마우스 피킹이 실행되어 선택된 액터가 풀리는 것 방지
-		bool bIsAssetDragging = (ImGui::GetDragDropPayload != nullptr);
-
-		if (CurrentViewport->Client->IsActive() && Input.WasPressed(VK_LBUTTON) && !CurrentViewport->Client->mGizmo.IsDragging() && !CurrentViewport->Client->mGizmo.IsMouseOverHandle() && bIsAssetDragging)
+		PROFILE_SCOPE("Frame/Viewports");
+		for (int32 i = 0; i < ViewportCount; ++i)
 		{
-			AActor* HitActor = CurrentViewport->Client->PerformMousePicking(CurrentViewport->Window->Rect, CurrentRatio, RenderCollector);
-			if (HitActor)
+			PROFILE_SCOPE("Viewport");
+			int32 CurrentIndex = bIsSplit ? i : ActiveIndex;
+			FEditorViewport* CurrentViewport = &mViewports[CurrentIndex];
+
+			const FRect& ViewportRect = CurrentViewport->Window->Rect;
+
+			FCamera& Camera = CurrentViewport->Client->GetCamera();
+			Camera.mAspect = ViewportRect.Width / ViewportRect.Height;
+			Camera.mNear = NearZ;
+			Camera.mFar = FarZ;
+
+			RenderCollector.Clear();
+			RenderCollector.Camera = &Camera;
+
+			bool bIsOrtho = CurrentViewport->Client->IsOrtho();
+			float CurrentRatio = bIsOrtho ? 0.0f : mGraphicsManager->GetPerspectiveRatio();
+
+			// 뷰포트가 직교 타입이면 현재 -5000 ~ 5000으로 보이게 하드코딩, 나중에 카메라 위치에 따라 랜더 거리를 늘려야 함
+			Camera.mNear = bIsOrtho ? -5000.0f : Camera.mNear;
+			Camera.mFar = bIsOrtho ? 5000.0f : Camera.mFar;
+
 			{
-				mSceneManager->SetSelectedActor(HitActor);
+				PROFILE_SCOPE("Viewport/Update");
+				CurrentViewport->Client->Update(deltaTime, CurrentRatio, RenderCollector);
 			}
-			else
+
+			FMatrix ViewProjection = Camera.GetViewMatrix() * Camera.GetUnifiedProjectionMatrix(Camera.mOrthoDistance, CurrentRatio);
+			FMatrix InvViewProjection = Camera.GetInverseUnifiedProjectionMatrix(Camera.mOrthoDistance, CurrentRatio) * Camera.GetViewMatrix().AffineInverse();
+
 			{
-				mSceneManager->ResetSelectedActor();
+				PROFILE_SCOPE("Viewport/Collect");
+				mSceneManager->Render(deltaTime, RenderCollector);
 			}
-		}
 
-		// 선택된 액터 처리
-		TArray<UPrimitiveComponent*> HighlightedComponents;
+			// 마우스 피킹 처리
+			// 뷰포트가 ImGui 창이 되면서 그 위에서는 io.WantCaptureMouse 가 항상 true 다.
+			// 그대로 두면 씬을 클릭해도 선택이 되지 않는다. 카메라/기즈모와 같은 기준을 쓴다.
+			const FInputState& Input = WindowApplication.Input;
 
-		AActor* SelectedActor = mSceneManager->GetSelectedActor();
-		if (SelectedActor)
-		{
-			FTransform Transform = SelectedActor->GetTransform();
+			// 드래그 중 마우스 피킹이 실행되어 선택된 액터가 풀리는 것 방지
+			bool bIsAssetDragging = (ImGui::GetDragDropPayload != nullptr);
 
-			for (UActorComponent* Component : SelectedActor->GetComponents())
 			{
-				UPrimitiveComponent* PrimitiveComponent = Component->Cast<UPrimitiveComponent>();
-				if (PrimitiveComponent)
+				PROFILE_SCOPE("Viewport/Picking");
+				if (CurrentViewport->Client->IsActive() && Input.WasPressed(VK_LBUTTON) && !CurrentViewport->Client->mGizmo.IsDragging() && !CurrentViewport->Client->mGizmo.IsMouseOverHandle() && bIsAssetDragging)
 				{
-					// 선택된 액터의 AABB를 화면에 표시
-					const FAABB& AABB = PrimitiveComponent->GetBoundingBox();
-
-					AABB.ForEachCornerLines([&RenderCollector](const FVector& Start, const FVector& End) {
-						FVector4 WorldStart = FVector4(Start, 1.f);
-						FVector4 WorldEnd = FVector4(End, 1.f);
-
-						FRenderLineInfo LineInfo;
-						LineInfo.Start = WorldStart.ToVec3();
-						LineInfo.End = WorldEnd.ToVec3();
-						LineInfo.Color = FVector4(1.f, 0.f, 0.f, 1.f); // 빨간색
-						LineInfo.Thickness = 5.0f;
-
-						RenderCollector.LineInfos.Add(LineInfo);
-					});
-
-					HighlightedComponents.Add(PrimitiveComponent);
-				}
-
-				// 선택된 액터의 컴포넌트 시각화
-				FComponentVisualizer* Visualizer = mComponentVisualizerManager->FindVisualizer(Component->GetClass());
-				if (Visualizer)
-				{
-					Visualizer->VisualizeComponent(Component, RenderCollector);
+					AActor* HitActor = CurrentViewport->Client->PerformMousePicking(CurrentViewport->Window->Rect, CurrentRatio, RenderCollector);
+					if (HitActor)
+					{
+						mSceneManager->SetSelectedActor(HitActor);
+					}
+					else
+					{
+						mSceneManager->ResetSelectedActor();
+					}
 				}
 			}
 
-			CurrentViewport->Client->mGizmo.Tick(SelectedActor, CurrentViewport->Window->Rect, CurrentViewport->Client->IsActive(), InvViewProjection);
-		}
+			// 선택된 액터 처리
+			TArray<UPrimitiveComponent*> HighlightedComponents;
 
-		//Render Threads
-		{
-			CurrentViewport->Viewport->Resize(*mGraphicsManager->GetRenderer(), ViewportRect.Width, ViewportRect.Height);
-			mGraphicsManager->Prepare(&CurrentViewport->Client->mCamera, ViewportRect.Width, ViewportRect.Height, *CurrentViewport->Viewport, CurrentViewport->Client->GetViewMode(), CurrentViewport->Client->GetViewportType());
-			mGraphicsManager->RenderHighLight(HighlightedComponents);
-			mGraphicsManager->Render();
+			AActor* SelectedActor = mSceneManager->GetSelectedActor();
+			{
+				PROFILE_SCOPE("Viewport/SelectionAndGizmo");
+				if (SelectedActor)
+				{
+					FTransform Transform = SelectedActor->GetTransform();
 
-			CurrentViewport->Client->mGizmo.Render(SelectedActor, CurrentViewport->Client->mCamera.Transform.Location, CurrentViewport->Window->Rect, ViewProjection, CurrentViewport->Client->IsOrtho(), CurrentViewport->Client->GetCamera().mOrthoDistance);
+					for (UActorComponent* Component : SelectedActor->GetComponents())
+					{
+						UPrimitiveComponent* PrimitiveComponent = Component->Cast<UPrimitiveComponent>();
+						if (PrimitiveComponent)
+						{
+							// 선택된 액터의 AABB를 화면에 표시
+							const FAABB& AABB = PrimitiveComponent->GetBoundingBox();
+
+							AABB.ForEachCornerLines([&RenderCollector](const FVector& Start, const FVector& End) {
+								FVector4 WorldStart = FVector4(Start, 1.f);
+								FVector4 WorldEnd = FVector4(End, 1.f);
+
+								FRenderLineInfo LineInfo;
+								LineInfo.Start = WorldStart.ToVec3();
+								LineInfo.End = WorldEnd.ToVec3();
+								LineInfo.Color = FVector4(1.f, 0.f, 0.f, 1.f); // 빨간색
+								LineInfo.Thickness = 5.0f;
+
+								RenderCollector.LineInfos.Add(LineInfo);
+								});
+
+							HighlightedComponents.Add(PrimitiveComponent);
+						}
+
+						// 선택된 액터의 컴포넌트 시각화
+						FComponentVisualizer* Visualizer = mComponentVisualizerManager->FindVisualizer(Component->GetClass());
+						if (Visualizer)
+						{
+							Visualizer->VisualizeComponent(Component, RenderCollector);
+						}
+					}
+
+					CurrentViewport->Client->mGizmo.Tick(SelectedActor, CurrentViewport->Window->Rect, CurrentViewport->Client->IsActive(), InvViewProjection);
+				}
+			}
+
+			//Render Threads
+			{
+				PROFILE_SCOPE("Viewport/Render");
+				CurrentViewport->Viewport->Resize(*mGraphicsManager->GetRenderer(), ViewportRect.Width, ViewportRect.Height);
+				mGraphicsManager->Prepare(&CurrentViewport->Client->mCamera, ViewportRect.Width, ViewportRect.Height, *CurrentViewport->Viewport, CurrentViewport->Client->GetViewMode(), CurrentViewport->Client->GetViewportType());
+				mGraphicsManager->RenderHighLight(HighlightedComponents);
+				mGraphicsManager->Render();
+
+				CurrentViewport->Client->mGizmo.Render(SelectedActor, CurrentViewport->Client->mCamera.Transform.Location, CurrentViewport->Window->Rect, ViewProjection, CurrentViewport->Client->IsOrtho(), CurrentViewport->Client->GetCamera().mOrthoDistance);
+			}
 		}
 	}
 
@@ -351,61 +387,80 @@ void FEngineLoop::Tick(bool bPumpMessages)
 		GuiReference.ViewportCount = 1;
 	}
 
-	mEditorUIManager->Render(GuiReference);
+	{
+		PROFILE_SCOPE("Frame/EditorUI");
+		mEditorUIManager->Render(GuiReference);
 
 #if IS_OBJ_VIEWER
-	mObjViewer.UpdateObjGUI(*mGraphicsManager);
+		mObjViewer.UpdateObjGUI(*mGraphicsManager);
 #endif
-	// 나중에 Ui 매니저에서 관리하도록 분리 필요
-	ImGui::SetMouseCursor(mMouseCursor);
+		// 나중에 Ui 매니저에서 관리하도록 분리 필요
+		ImGui::SetMouseCursor(mMouseCursor);
 
-	FRect ViewportRect;
-	ViewportRect.X = mEditorUIManager->GetViewportX();
-	ViewportRect.Y = mEditorUIManager->GetViewportY();
-	ViewportRect.Width = mEditorUIManager->GetViewportWidth();
-	ViewportRect.Height = mEditorUIManager->GetViewportHeight();
-	mEditorLayout.Resize(ViewportRect);
+		FRect ViewportRect;
+		ViewportRect.X = mEditorUIManager->GetViewportX();
+		ViewportRect.Y = mEditorUIManager->GetViewportY();
+		ViewportRect.Width = mEditorUIManager->GetViewportWidth();
+		ViewportRect.Height = mEditorUIManager->GetViewportHeight();
+		mEditorLayout.Resize(ViewportRect);
+	}
 
-	mGraphicsManager->GetRenderer()->BindFrameBuffer();
+	{
+		PROFILE_SCOPE("Frame/ImGuiSubmit");
+		mGraphicsManager->GetRenderer()->BindFrameBuffer();
 
-	ImGui::Render();
-	ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
+		ImGui::Render();
+		ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
+	}
 
-	mGraphicsManager->Display();
-	
-	FrameTimer->EndFrame();
+	{
+		PROFILE_SCOPE("Frame/Present");
+		mGraphicsManager->Display();
+	}
+
+	{
+		PROFILE_SCOPE("Frame/Limiter");
+		FrameTimer->EndFrame();
+	}
 
 	GInTick = false;
 }
 
 void FEngineLoop::End()
 {
-	SaveEditorSettings();
-
-	mSceneManager->DeleteScene();
-
-	ImGui_ImplDX11_Shutdown();
-	ImGui_ImplWin32_Shutdown();
-	ImGui::DestroyContext();
-
-	for (FEditorViewport& Viewport : mViewports)
 	{
-		Viewport.Release();
+		PROFILE_SCOPE("FEngineLoop::End");
+		SaveEditorSettings();
+
+		mSceneManager->DeleteScene();
+
+		ImGui_ImplDX11_Shutdown();
+		ImGui_ImplWin32_Shutdown();
+		ImGui::DestroyContext();
+
+		for (FEditorViewport& Viewport : mViewports)
+		{
+			Viewport.Release();
+		}
+
+		delete mEditorUIManager;
+		delete mComponentVisualizerManager;
+		delete FrameTimer;
+		delete mSceneManager;
+		delete mFileManager;
+		delete mAssetManager;
+		delete mFontManager;
+
+		delete mGraphicsManager;
 	}
 
-	delete mEditorUIManager;
-	delete mComponentVisualizerManager;
-	delete FrameTimer;
-	delete mSceneManager;
-	delete mFileManager;
-	delete mAssetManager;
-	delete mFontManager;
-
-	delete mGraphicsManager;
+	PROFILE_END_SESSION();
 }
 
 void FEngineLoop::SaveEditorSettings()
 {
+	PROFILE_FUNCTION();
+
 	// Save camera sensitivity
 	const std::string Value = std::format("{:.6f}", GetMainViewport().Client->GetCamera().Sensitivity);
 	if (!WritePrivateProfileStringA("Camera", "Sensitivity", Value.c_str(), ".\\editor.ini"))
@@ -450,6 +505,8 @@ void FEngineLoop::SaveEditorSettings()
 
 void FEngineLoop::LoadEditorSettings()
 {
+	PROFILE_FUNCTION();
+
 	char Value[64] = {};
 
 	// Load camera sensitivity
@@ -476,7 +533,7 @@ void FEngineLoop::LoadEditorSettings()
 
 	float VerticalRatio = 0.5f;
 	sscanf_s(Value, "%f", &VerticalRatio);
-	
+
 	mEditorLayout.SetSplitRatios(HorizontalRatio, VerticalRatio);
 
 	mEditorLayout.bIsSplitView = (GetPrivateProfileIntA("Layout", "IsSplitView", 0, ".\\editor.ini") == 1);
