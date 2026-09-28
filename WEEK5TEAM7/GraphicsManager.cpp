@@ -8,6 +8,7 @@
 #include "ObjectFactory.h"
 #include "UTextComponent.h"
 #include "FEditorViewportClient.h"
+#include <algorithm>
 
 // 선분 하나당 정점 2개. 축 6개 + 앞으로 붙을 그리드까지 감당할 만큼 잡아둔다
 static constexpr uint32 LINE_VERTEX_CAPACITY = 8192;
@@ -201,31 +202,81 @@ void FGraphicsManager::Render()
 {
 	mRenderer->RenderLines(mRenderCollector.LineInfos);
 
+	std::sort(mRenderCollector.RenderInfos.begin(), mRenderCollector.RenderInfos.end());
+
+	mMeshPipeline->UpdateConstantBuffer(1, mViewUnifiedProjectionMatrix);
+	mMeshPipeline->SetSamplerState(0, D3D11_FILTER_MIN_MAG_MIP_LINEAR, D3D11_TEXTURE_ADDRESS_WRAP, D3D11_TEXTURE_ADDRESS_WRAP);
+
+	// 렌더 루프 상태 캐시
+	uint16 CurrentPipelineID = 0;
+	uint32 CurrentMaterialID = 0xFFFFFFFF;
+	TSharedPtr<FTexture2DAsset> CurrentTexture = nullptr;
+	Microsoft::WRL::ComPtr<ID3D11Buffer> CurrentVertexBuffer = nullptr;
+	Microsoft::WRL::ComPtr<ID3D11Buffer> CurrentIndexBuffer = nullptr;
+
 	for (const FRenderInfo& RenderInfo : mRenderCollector.RenderInfos)
 	{
-		if (RenderInfo.Texture)
+		uint16 PipelineID = static_cast<uint16>((RenderInfo.SortKey >> 48) & 0xFFFF);
+		uint32 MaterialID = static_cast<uint32>((RenderInfo.SortKey >> 24) & 0x00FFFFFF);
+		uint32 MeshID = static_cast<uint32>(RenderInfo.SortKey & 0x00FFFFFF);
+
+		// 1. Pipeline
+		if (CurrentPipelineID != PipelineID)
 		{
-			mMeshPipeline->ClearShaderResource();
-			mMeshPipeline->ClearSamplerState();
+			mRenderer->BindPipeline(mMeshPipeline);
+			CurrentPipelineID = PipelineID;
 
-			FConstants Constants{};
-			Constants.Matrix = RenderInfo.Model;
-			Constants.Color = RenderInfo.Color;
-			Constants.UseVertexColor = RenderInfo.UseVertexColor;
-			Constants.HasTexture = RenderInfo.Texture ? 1 : 0;
-			Constants.UVOffset = RenderInfo.UVOffset;
+			CurrentMaterialID = 0xFFFFFFFF;
+			CurrentTexture = nullptr;
+			CurrentVertexBuffer = nullptr;
+			CurrentIndexBuffer = nullptr;
+		}
 
-			mMeshPipeline->UpdateConstantBuffer(0, Constants);
-			mMeshPipeline->UpdateConstantBuffer(1, mViewUnifiedProjectionMatrix);
+		// 2. Material
+		if (CurrentMaterialID != MaterialID || CurrentTexture != RenderInfo.Texture)
+		{
+			if (RenderInfo.Texture)
+			{
+				mMeshPipeline->SetShaderResource(0, RenderInfo.Texture->GetSRV());
+			}
+			else
+			{
+				mMeshPipeline->ClearShaderResource();
+			}
+			CurrentMaterialID = MaterialID;
+			CurrentTexture = RenderInfo.Texture;
+		}
 
-			mMeshPipeline->SetShaderResource(0, RenderInfo.Texture->GetSRV());
-			mMeshPipeline->SetSamplerState(0, D3D11_FILTER_MIN_MAG_MIP_LINEAR, D3D11_TEXTURE_ADDRESS_WRAP, D3D11_TEXTURE_ADDRESS_WRAP);
+		// 3. Mesh
+		if (CurrentVertexBuffer != RenderInfo.VertexBuffer)
+		{
+			mRenderer->BindVertexBuffer(RenderInfo.VertexBuffer, mMeshPipeline->GetStride());
+			CurrentVertexBuffer = RenderInfo.VertexBuffer;
+		}
 
-			mRenderer->RenderPrimitiveIndexed(mMeshPipeline, RenderInfo);
+		if (RenderInfo.IndexBuffer && CurrentIndexBuffer != RenderInfo.IndexBuffer)
+		{
+			mRenderer->BindIndexBuffer(RenderInfo.IndexBuffer);
+			CurrentIndexBuffer = RenderInfo.IndexBuffer;
+		}
+
+		// 4. 오브젝트 고유 상수버퍼 갱신
+		FConstants Constants{};
+		Constants.Matrix = RenderInfo.Model;
+		Constants.Color = RenderInfo.Color;
+		Constants.UseVertexColor = RenderInfo.UseVertexColor;
+		Constants.HasTexture = RenderInfo.Texture ? 1 : 0;
+		Constants.UVOffset = RenderInfo.UVOffset;
+
+		mMeshPipeline->UpdateConstantBuffer(0, Constants);
+
+		if (RenderInfo.IndexBuffer)
+		{
+			mRenderer->DrawIndexed(RenderInfo.IndexCount, RenderInfo.StartIndex);
 		}
 		else
 		{
-			mRenderer->RenderPrimitiveIndexed(RenderInfo);
+			mRenderer->Draw(RenderInfo.VertexCount);
 		}
 	}
 

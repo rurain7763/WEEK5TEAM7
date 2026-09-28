@@ -510,6 +510,13 @@ public:
 	mutable uint64 DrawCallCount = 0;
 	uint64 GetDrawCallCount() const { return DrawCallCount; }
 	void ResetDrawCallCount() { DrawCallCount = 0; }
+
+	void BindPipeline(const TSharedPtr<FRenderPipeline>& Pipeline, uint32 StencilRef = 0) const;
+	void BindVertexBuffer(Microsoft::WRL::ComPtr<ID3D11Buffer> Buffer, UINT Stride) const;
+	void BindIndexBuffer(Microsoft::WRL::ComPtr<ID3D11Buffer> Buffer) const;
+	void DrawIndexed(UINT IndexCount, UINT StartIndex = 0) const;
+	void Draw(UINT VertexCount) const;
+
 private:
 	void CreateDeviceAndSwapChain(HWND hWindow);
 	void ReleaseDeviceAndSwapChain();
@@ -518,8 +525,6 @@ private:
 	void ReleaseFrameBuffer();
 
 	void CreateDepthStencilBuffer();
-
-	void BindPipeline(const TSharedPtr<FRenderPipeline>& Pipeline, uint32 StencilRef = 0) const;
 
 private:
     ID3D11Device* Device = nullptr;

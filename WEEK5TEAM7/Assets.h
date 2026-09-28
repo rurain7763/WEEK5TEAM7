@@ -10,6 +10,7 @@
 #include "FObjImporter.h"
 #include "FGuid.h"
 #include "FMeshDescription.h"
+#include "FLogManager.h"
 #include <d3d11.h>
 #include <wrl/client.h>
 #include <filesystem>
@@ -65,6 +66,7 @@ public:
 	inline const TArray<FStaticMeshSection>& GetSections() const { return Sections; }
 	inline const TArray<FVertex>& GetVertices() const { return Vertices; }
 	inline const TArray<uint32>& GetIndices() const { return Indices; }
+	inline uint32 GetMeshID() const { return MeshID; }
 
 private:
 	TSharedPtr<FVertexBuffer> VertexBuffer;
@@ -77,6 +79,9 @@ private:
 	TArray<uint32> Indices;
 
 	TArray<FStaticMeshSection> Sections;
+
+	uint32 MeshID = 0;
+	inline static uint32 NextMeshID = 1;
 };
 
 class FStaticMeshAssetLoader : public FAssetLoader
@@ -239,6 +244,7 @@ public:
 		, SpecularTexture(InSpecularTexture)
 		, NormalTexture(InNormalTexture)
 		, Opacity(InOpacity)
+		, MaterialID(NextMaterialID++)
 	{
 	}
 
@@ -254,6 +260,8 @@ public:
 	inline bool HasNormalTexture() const { return NormalTexture.IsValid(); }
 	TSharedPtr<FTexture2DAsset> GetNormalTexture() const;
 
+	inline uint32 GetMaterialID() const { return MaterialID; }
+
 private:
 	FVector AmbientColor;
 	FVector DiffuseColor;
@@ -262,6 +270,8 @@ private:
 	FGuid SpecularTexture;
 	FGuid NormalTexture;
 	float Opacity;
+	uint32 MaterialID = 0;
+	inline static uint32 NextMaterialID = 1;
 };
 
 class FMaterialAssetLoader : public FAssetLoader

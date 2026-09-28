@@ -111,6 +111,7 @@ FStaticMeshAsset::FStaticMeshAsset(const FGuid& InAssetID, const FName& InAssetN
 	, Vertices(InBuildData.Vertices)
 	, Indices(InBuildData.Indices)
 	, Sections(InBuildData.Sections)
+	, MeshID(NextMeshID++)
 {
 	for (const FVertex& Source : InBuildData.Vertices)
 	{
