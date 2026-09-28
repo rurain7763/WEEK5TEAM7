@@ -327,17 +327,17 @@ void FContentBrowser::RenderDrawer(const float BottomBarHeight)
 						if (AssetType == EAssetType::StaticMesh)
 						{
 							//ImGui::SetDragDropPayload(AssetPayloadTags::StaticMesh, FullPath.c_str(), (FullPath.length() + 1) * sizeof(char));
-							ImGui::SetDragDropPayload("ASSET_GUID_MESH", &MetaInfo.AssetID, sizeof(FGuid));
+							ImGui::SetDragDropPayload("ASSET_GUID", &MetaInfo.AssetID, sizeof(FGuid));
 							ImGui::Text("Mesh: %s", DisplayName.c_str());
 						}
 						else if (AssetType == EAssetType::Texture2D)
 						{
-							ImGui::SetDragDropPayload("ASSET_GUID_TEXTURE", &MetaInfo.AssetID, sizeof(FGuid));
+							ImGui::SetDragDropPayload("ASSET_GUID", &MetaInfo.AssetID, sizeof(FGuid));
 							ImGui::Text("Texture2D: %s", DisplayName.c_str());
 						}
 						else if (AssetType == EAssetType::Material)
 						{
-							ImGui::SetDragDropPayload("ASSET_GUID_MATERIAL", &MetaInfo.AssetID, sizeof(FGuid));
+							ImGui::SetDragDropPayload("ASSET_GUID", &MetaInfo.AssetID, sizeof(FGuid));
 							ImGui::Text("Material: %s", DisplayName.c_str());
 						}
 

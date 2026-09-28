@@ -42,13 +42,13 @@ void FObjViewer::UpdateObjGUI(FGraphicsManager& InGraphicsManager)
 		ImGui::SeparatorText("Transform");
 		const FTransform& originalTransform = mViewerActor->GetTransform();
 
-		FVector translationInput = originalTransform.Location;
+		FVector translationInput = originalTransform.GetLocation();
 		FVector rotationInput = {
-			originalTransform.Rotation.Roll,
-			originalTransform.Rotation.Pitch,
-			originalTransform.Rotation.Yaw
+			originalTransform.GetRotation().Roll,
+			originalTransform.GetRotation().Pitch,
+			originalTransform.GetRotation().Yaw
 		};
-		FVector scaleInput = originalTransform.Scale;
+		FVector scaleInput = originalTransform.GetScale();
 
 		if (ImGui::DragFloat3("Translation", &translationInput.x, 0.1f))
 		{

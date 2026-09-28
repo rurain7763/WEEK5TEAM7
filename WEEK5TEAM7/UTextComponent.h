@@ -58,9 +58,9 @@ public:
 	void Tick(float DeltaTime) override
 	{
 		// NOTE: SpotLightComponent의 위치와 회전을 부모 액터에 맞춘다. 현재 Hierarchy가 없으므로 부모 액터의 위치와 회전만 가져와서 적용한다.
-		FTransform ParentTransform = mOwner->GetTransform();
-		SetRelativeLocation(ParentTransform.Location);
-		SetRelativeRotation(ParentTransform.Rotation);
+		const FTransform& ParentTransform = mOwner->GetTransform();
+		SetRelativeLocation(ParentTransform.GetLocation());
+		SetRelativeRotation(ParentTransform.GetRotation());
 	}
 
 	void Render(FRenderCollector& RenderCollector) override
@@ -70,11 +70,12 @@ public:
 			return;
 		}
 
-		FTransform PivotTransform = GetTransformMatrix();
+		FTransform PivotTransform = GetTransform();
 
 		if (mbBillboard && RenderCollector.Camera)
 		{
-			PivotTransform.Rotation = FRotator::LookAt(PivotTransform.Location, PivotTransform.Location + RenderCollector.Camera->GetForwardVector());
+			FRotator NewRotation = FRotator::LookAt(PivotTransform.GetLocation(), PivotTransform.GetLocation() + RenderCollector.Camera->GetForwardVector());
+			PivotTransform.SetRotation(NewRotation);
 		}
 
 		FRenderQuadInfo QuadInfo;
@@ -96,7 +97,7 @@ public:
 			return FAABB();
 		}
 
-		return mMeshAsset->GetLocalBoundingBox().ToWorld(GetTransformMatrix().MakeMatrix());
+		return mMeshAsset->GetLocalBoundingBox().ToWorld(GetTransform().MakeMatrix());
 	}
 
 	const TArray<FVertex>& GetMeshVertices() const override
@@ -145,10 +146,10 @@ public:
 	void Tick(float DeltaTime) override
 	{
 		// NOTE: SpotLightComponent의 위치와 회전을 부모 액터에 맞춘다. 현재 Hierarchy가 없으므로 부모 액터의 위치와 회전만 가져와서 적용한다.
-		FTransform ParentTransform = mOwner->GetTransform();
-		SetRelativeLocation(ParentTransform.Location);
-		SetRelativeRotation(ParentTransform.Rotation);
-		SetRelativeScale3D(ParentTransform.Scale);
+		const FTransform& ParentTransform = mOwner->GetTransform();
+		SetRelativeLocation(ParentTransform.GetLocation());
+		SetRelativeRotation(ParentTransform.GetRotation());
+		SetRelativeScale3D(ParentTransform.GetScale());
 	}
 
 	inline float GetRange() const { return Range; }
@@ -265,8 +266,8 @@ public:
 	void Tick(float DeltaTime) override
 	{
 		// NOTE: Text3DComponent의 위치와 회전을 부모 액터에 맞춘다. 현재 Hierarchy 매트릭스 구현이 없으므로 부모 액터의 위치와 회전만 가져와서 적용한다.
-		FTransform ParentTransform = mOwner->GetTransform();
-		SetRelativeLocation(ParentTransform.Location + FVector(0.f, 0.f, 1.f));
+		const FTransform& ParentTransform = mOwner->GetTransform();
+		SetRelativeLocation(ParentTransform.GetLocation() + FVector(0.f, 0.f, 1.f));
 	}
 
 	void Render(FRenderCollector& RenderCollector) override
@@ -295,27 +296,22 @@ public:
 		float TotalHeight = 0.0f;
 		TextBuilder.CalculateSize(mText, TotalWidth, TotalHeight);
 
-		const FTransform OwnerTransform = mOwner->GetTransform();
-		FTransform PivotTransform = GetTransformMatrix();
+		const FTransform& OwnerTransform = mOwner->GetTransform();
+		FTransform PivotTransform = GetTransform();
 
 		UPrimitiveComponent* Primitive = mOwner->GetRootComponent()->Cast<UPrimitiveComponent>();
 		if (Primitive)
 		{
 			const FAABB Bounds = Primitive->GetBoundingBox();
-
-			PivotTransform.Location = FVector(
-				PivotTransform.Location.x,
-				PivotTransform.Location.y,
-				Bounds.Max.z + 0.2f
-			);
+			PivotTransform.SetLocation(FVector(PivotTransform.GetLocation().x, PivotTransform.GetLocation().y, Bounds.Max.z + 0.2f));
 		}
 
 		if (mbBillboard && RenderCollector.Camera)
 		{
-			PivotTransform.Rotation = RenderCollector.Camera->Transform.Rotation;
+			PivotTransform.SetRotation(RenderCollector.Camera->Transform.GetRotation());
 		}
 
-		const FMatrix PivotMatrix = PivotTransform.MakeMatrix();
+		const FMatrix& PivotMatrix = PivotTransform.MakeMatrix();
 
 		TextBuilder.Build(mText, TotalWidth, TotalHeight, [&](const FRect& Rect, const FRect& UV) {
 			// 공백 등은 Builder에서 advance만 적용하고, 쿼드는 생략한다.
