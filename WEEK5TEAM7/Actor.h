@@ -29,7 +29,8 @@ public:
 
 	virtual void CreateEditorComponents();
 
-	FTransform GetTransform() const;
+	const FTransform& GetTransform() const;
+	FTransform& GetTransform();
 
 	virtual void Tick(float deltaTime);
 	virtual void Render(FRenderCollector& RenderCollector);

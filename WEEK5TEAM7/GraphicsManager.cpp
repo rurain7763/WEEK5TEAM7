@@ -108,7 +108,7 @@ void FGraphicsManager::Prepare(const FCamera* mCamera, float viewportWidth, floa
 	mViewUnifiedProjectionMatrix = view * projection_u;
 
 	// 하이라이트 두께를 화면 픽셀 기준으로 환산할 때 쓴다
-	mCameraLocation = mCamera->Transform.Location;
+	mCameraLocation = mCamera->Transform.GetLocation();
 	mCameraForward = mCamera->GetForwardVector();
 	mCameraFovDegree = mCamera->mFovDegree;
 	mCameraOrthoDistance = mCamera->mOrthoDistance;
@@ -161,7 +161,7 @@ void FGraphicsManager::RenderHighLight(const TArray<UPrimitiveComponent*>& Primi
 		mHighlightVertexBuffer->UpdateBuffer(Vertices.Data(), Vertices.Num());
 		mHighlightIndexBuffer->UpdateBuffer(Indices.Data(), Indices.Num());
 
-		FTransform Transform = Primitive->GetTransformMatrix();
+		const FTransform& Transform = Primitive->GetTransform();
 
 		FConstants Constants{};
 		Constants.Matrix = Transform.MakeMatrix();
@@ -178,7 +178,7 @@ void FGraphicsManager::RenderHighLight(const TArray<UPrimitiveComponent*>& Primi
 		RenderInfo.IndexBuffer = mHighlightIndexBuffer->Buffer;
 		RenderInfo.StartIndex = 0;
 		RenderInfo.IndexCount = static_cast<uint32>(Indices.Num());
-		RenderInfo.Model = Primitive->GetTransformMatrix().MakeMatrix();
+		RenderInfo.Model = Transform.MakeMatrix();
 
 		mRenderer->RenderPrimitiveIndexed(mHighlightMarkPipeline, RenderInfo, 1);
 	}
@@ -205,47 +205,40 @@ void FGraphicsManager::RenderHighLight(const TArray<UPrimitiveComponent*>& Primi
 
 void FGraphicsManager::Render()
 {
-	mRenderer->RenderLines(mRenderCollector.LineInfos);
-
 	PROFILE_SCOPE("Viewport/GraphicsRender");
+
+	{
+		PROFILE_SCOPE("Viewport/GraphicsRender/RenderLines");
+		mRenderer->RenderLines(mRenderCollector.LineInfos);
+	}
+
 
 	{
 		PROFILE_SCOPE("Viewport/GraphicsRender/sort");
 		std::sort(mRenderCollector.RenderInfos.begin(), mRenderCollector.RenderInfos.end());
 	}
 
+	mMeshPipeline->ClearShaderResource();
+	mMeshPipeline->ClearSamplerState();
 	mMeshPipeline->UpdateConstantBuffer(1, mViewUnifiedProjectionMatrix);
 	mMeshPipeline->SetSamplerState(0, D3D11_FILTER_MIN_MAG_MIP_LINEAR, D3D11_TEXTURE_ADDRESS_WRAP, D3D11_TEXTURE_ADDRESS_WRAP);
 
-	// 렌더 루프 상태 캐시
-	uint16 CurrentPipelineID = 0;
-	uint32 CurrentMaterialID = 0xFFFFFFFF;
-	TSharedPtr<FTexture2DAsset> CurrentTexture = nullptr;
-	Microsoft::WRL::ComPtr<ID3D11Buffer> CurrentVertexBuffer = nullptr;
-	Microsoft::WRL::ComPtr<ID3D11Buffer> CurrentIndexBuffer = nullptr;
+	TSharedPtr<FRenderPipeline> LastPipeline = nullptr;
+	TSharedPtr<FTexture2DAsset> LastTexture = nullptr;
+	bool bFirst = true;
 
 	for (const FRenderInfo& RenderInfo : mRenderCollector.RenderInfos)
 	{
-		uint16 PipelineID = static_cast<uint16>((RenderInfo.SortKey >> 48) & 0xFFFF);
-		uint32 MaterialID = static_cast<uint32>((RenderInfo.SortKey >> 24) & 0x00FFFFFF);
-		uint32 MeshID = static_cast<uint32>(RenderInfo.SortKey & 0x00FFFFFF);
-
 		TSharedPtr<FRenderPipeline> ActivePipeline = RenderInfo.Pipeline ? RenderInfo.Pipeline : mMeshPipeline;
 
-		// 1. Pipeline
-		if (CurrentPipelineID != PipelineID)
+		if (ActivePipeline != LastPipeline)
 		{
-			mRenderer->BindPipeline(ActivePipeline);
-			CurrentPipelineID = PipelineID;
-
-			CurrentMaterialID = 0xFFFFFFFF;
-			CurrentTexture = nullptr;
-			CurrentVertexBuffer = nullptr;
-			CurrentIndexBuffer = nullptr;
+			ActivePipeline->UpdateConstantBuffer(1, mViewUnifiedProjectionMatrix);
+			ActivePipeline->SetSamplerState(0, D3D11_FILTER_MIN_MAG_MIP_LINEAR, D3D11_TEXTURE_ADDRESS_WRAP, D3D11_TEXTURE_ADDRESS_WRAP);
+			LastPipeline = ActivePipeline;
 		}
 
-		// 2. Material
-		if (CurrentMaterialID != MaterialID || CurrentTexture != RenderInfo.Texture)
+		if (bFirst || RenderInfo.Texture != LastTexture || ActivePipeline != LastPipeline)
 		{
 			if (RenderInfo.Texture)
 			{
@@ -255,24 +248,11 @@ void FGraphicsManager::Render()
 			{
 				ActivePipeline->ClearShaderResource();
 			}
-			CurrentMaterialID = MaterialID;
-			CurrentTexture = RenderInfo.Texture;
+			LastTexture = RenderInfo.Texture;
+			bFirst = false;
 		}
 
-		// 3. Mesh
-		if (CurrentVertexBuffer != RenderInfo.VertexBuffer)
-		{
-			mRenderer->BindVertexBuffer(RenderInfo.VertexBuffer, ActivePipeline->GetStride());
-			CurrentVertexBuffer = RenderInfo.VertexBuffer;
-		}
-
-		if (RenderInfo.IndexBuffer && CurrentIndexBuffer != RenderInfo.IndexBuffer)
-		{
-			mRenderer->BindIndexBuffer(RenderInfo.IndexBuffer);
-			CurrentIndexBuffer = RenderInfo.IndexBuffer;
-		}
-
-		// 4. 오브젝트 고유 상수버퍼 갱신
+		// 오브젝트 고유 상수버퍼 갱신
 		{
 			PROFILE_SCOPE("Viewport/GraphicsRender/UpdateConstant");
 
@@ -284,53 +264,49 @@ void FGraphicsManager::Render()
 			Constants.UVOffset = RenderInfo.UVOffset;
 
 			ActivePipeline->UpdateConstantBuffer(0, Constants);
-
-			if (RenderInfo.IndexBuffer)
-			{
-				mRenderer->DrawIndexed(RenderInfo.IndexCount, RenderInfo.StartIndex);
-			}
-			else
-			{
-				mRenderer->Draw(RenderInfo.VertexCount);
-			}
 		}
+
+		mRenderer->RenderPrimitiveIndexed(ActivePipeline, RenderInfo);
 	}
-
-	for (const FRenderQuadInfo& QuadInfo : mRenderCollector.GetOpaqueQuadInfos())
 	{
-		mRenderer->RenderQuad(QuadInfo);
-	}
+		PROFILE_SCOPE("Viewport/GraphicsRender/RenderQuad");
 
-	if (FShowFlags::Get().IsEnabled(EShowFlag::Grid))
-	{
-		FMatrix GridWorldMatrix = FMatrix::Identity;
-
-		if (mViewportType == EViewportType::Front)
+		for (const FRenderQuadInfo& QuadInfo : mRenderCollector.GetOpaqueQuadInfos())
 		{
-			GridWorldMatrix = FMatrix::RotateY(90);
+			mRenderer->RenderQuad(QuadInfo);
 		}
-		else if (mViewportType == EViewportType::Side)
+
+		if (FShowFlags::Get().IsEnabled(EShowFlag::Grid))
 		{
-			GridWorldMatrix = FMatrix::RotateX(90);
+			FMatrix GridWorldMatrix = FMatrix::Identity;
+
+			if (mViewportType == EViewportType::Front)
+			{
+				GridWorldMatrix = FMatrix::RotateY(90);
+			}
+			else if (mViewportType == EViewportType::Side)
+			{
+				GridWorldMatrix = FMatrix::RotateX(90);
+			}
+			// Match the grid's world-space half-width of 0.001.
+			mRenderer->RenderWorldAxis(mViewMatrix, mProjectionMatrix, FVector4(0.f, 0.f, 1.f, 1.f), FVector3(0.f, 0.f, 1.f), 0.002f);
+			mRenderer->RenderWorldGrid(GridWorldMatrix * mViewUnifiedProjectionMatrix, mCameraLocation, GridGap);
 		}
-		// Match the grid's world-space half-width of 0.001.
-		mRenderer->RenderWorldAxis(mViewMatrix, mProjectionMatrix, FVector4(0.f, 0.f, 1.f, 1.f), FVector3(0.f, 0.f, 1.f), 0.002f);
-		mRenderer->RenderWorldGrid(GridWorldMatrix * mViewUnifiedProjectionMatrix, mCameraLocation, GridGap);
-	}
 
-	for (const FRenderQuadInfo& QuadInfo : mRenderCollector.GetTransparentQuadInfos())
-	{
-		mRenderer->RenderQuad(QuadInfo);
-	}
+		for (const FRenderQuadInfo& QuadInfo : mRenderCollector.GetTransparentQuadInfos())
+		{
+			mRenderer->RenderQuad(QuadInfo);
+		}
 
-	for (const FRenderQuadInfo& QuadInfo : mRenderCollector.GetOverlayQuadInfos())
-	{
-		mRenderer->RenderQuad(QuadInfo);
-	}
+		for (const FRenderQuadInfo& QuadInfo : mRenderCollector.GetOverlayQuadInfos())
+		{
+			mRenderer->RenderQuad(QuadInfo);
+		}
 
-	for (const FRenderQuad2DInfo& Quad2DInfo : mRenderCollector.GetQuad2DInfos())
-	{
-		mRenderer->RenderQuad2D(Quad2DInfo);
+		for (const FRenderQuad2DInfo& Quad2DInfo : mRenderCollector.GetQuad2DInfos())
+		{
+			mRenderer->RenderQuad2D(Quad2DInfo);
+		}
 	}
 }
 

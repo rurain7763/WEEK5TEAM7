@@ -56,13 +56,13 @@ void FPropertyWindow::Render(const FGuiReference& GuiReference)
 void FPropertyWindow::RenderTransformProperties(AActor* TargetActor)
 {
 	FTransform OriginalTransform = TargetActor->GetTransform();
-	FVector translationInput = OriginalTransform.Location;
+	FVector translationInput = OriginalTransform.GetLocation();
 	FVector rotationInput = {
-		OriginalTransform.Rotation.Roll,
-		OriginalTransform.Rotation.Pitch,
-		OriginalTransform.Rotation.Yaw
+		OriginalTransform.GetRotation().Roll,
+		OriginalTransform.GetRotation().Pitch,
+		OriginalTransform.GetRotation().Yaw
 	};
-	FVector scaleInput = OriginalTransform.Scale;
+	FVector scaleInput = OriginalTransform.GetScale();
 
 	if (ImGui::DragFloat3("Translation", &translationInput.x, 0.1f))
 	{
@@ -233,29 +233,16 @@ void FPropertyWindow::RenderStaticMeshComponent(UStaticMeshComponent* StaticMesh
 
 	if (ImGui::BeginDragDropTarget())
 	{
-		if (const ImGuiPayload* Payload = ImGui::AcceptDragDropPayload(AssetPayloadTags::StaticMesh))
+		if (const ImGuiPayload* Payload = ImGui::AcceptDragDropPayload("ASSET_GUID"))
 		{
-			const char* DroppedPathCStr = static_cast<const char*>(Payload->Data);
-			std::filesystem::path DroppedPath(DroppedPathCStr);
+			const FGuid& AssetGuid = *static_cast<const FGuid*>(Payload->Data);
+			const FAssetMetaInfo& AssetMetaInfo = mAssetManager->GetMetaInfo(AssetGuid);
 
-			std::string CanonicalKey = std::filesystem::weakly_canonical(DroppedPath).string();
-			FName AssetKey(CanonicalKey.c_str());
-
-			TSharedPtr<FStaticMeshAsset> MatchedMeshAsset = mAssetManager->GetAssetAs<FStaticMeshAsset>(AssetKey, true);
-
-			if (!MatchedMeshAsset)
+			if (AssetMetaInfo.AssetType == EAssetType::StaticMesh)
 			{
-				MatchedMeshAsset = mAssetManager->GetAssetAs<FStaticMeshAsset>(FName(DroppedPath.string().c_str()), true);
-			}
-
-			if (MatchedMeshAsset != nullptr)
-			{
+				TSharedPtr<FStaticMeshAsset> MatchedMeshAsset = mAssetManager->GetAssetAs<FStaticMeshAsset>(AssetGuid, true);
 				StaticMeshComponent->SetMesh(MatchedMeshAsset);
-				UE_LOG("Success: StaticMesh applied: %s", DroppedPathCStr);
-			}
-			else
-			{
-				UE_LOG_ERROR("Failed to load StaticMesh asset: %s", DroppedPathCStr);
+				UE_LOG("Success: StaticMesh applied: %s", AssetGuid.ToString().c_str());
 			}
 		}
 		ImGui::EndDragDropTarget();

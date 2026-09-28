@@ -1,5 +1,4 @@
 #include "UStaticMeshComponent.h"
-
 #include "FAssetManager.h"
 #include "RenderInfo.h"
 #include "ShowFlags.h"
@@ -113,30 +112,13 @@ void UStaticMeshComponent::Render(FRenderCollector& RenderCollector)
         }
     }
 
+	const FTransform& Transform = GetTransform();
+
     for (int32 SectionIndex = 0; SectionIndex < mMeshAsset->GetSections().Num(); ++SectionIndex)
     {
         const FStaticMeshSection& Section = mMeshAsset->GetSections()[SectionIndex];
 
         TSharedPtr<FMaterialAsset> Material = mMaterialAssets[SectionIndex];
-
-        const FVector4 MaterialColor = Material
-            ? FVector4(
-                Material->GetDiffuseColor().x,
-                Material->GetDiffuseColor().y,
-                Material->GetDiffuseColor().z,
-                Material->GetOpacity())
-            : FVector4(1, 1, 1, 1);
-
-        TSharedPtr<FTexture2DAsset> SectionTexture = Material ? Material->GetDiffuseTexture() : nullptr;
-
-        if (!SectionTexture && StaticMesh)
-        {
-            SectionTexture = StaticMesh->GetDiffuseTexture(Section.MaterialName);
-        }
-        if (!SectionTexture)
-        {
-            SectionTexture = mTextureAsset;
-        }
 
         uint16 PipelineID = Material ? Material->GetPipelineID() : 1;
         uint32 MaterialID = Material ? Material->GetMaterialID() : 0;
@@ -149,10 +131,10 @@ void UStaticMeshComponent::Render(FRenderCollector& RenderCollector)
         RenderInfo.IndexBuffer = mMeshAsset->GetIndexBuffer();
         RenderInfo.StartIndex = Section.FirstIndex;
         RenderInfo.IndexCount = Section.IndexCount;
-        RenderInfo.Texture = SectionTexture;
+        RenderInfo.Texture = Material ? Material->GetDiffuseTexture() : nullptr;
         RenderInfo.UVOffset = mUVOffsets[SectionIndex];
-        RenderInfo.Model = GetTransformMatrix().MakeMatrix();
-        RenderInfo.Color = Material ? MaterialColor : Color;
+        RenderInfo.Model = Transform.MakeMatrix();
+        RenderInfo.Color = Material ? FVector4(Material->GetDiffuseColor().x, Material->GetDiffuseColor().y, Material->GetDiffuseColor().z, Material->GetOpacity()) : Color;
         RenderInfo.UseVertexColor = Material == nullptr;
         RenderInfo.ObjectInternalIndex = mOwner->InternalIndex;
 
@@ -167,7 +149,7 @@ FAABB UStaticMeshComponent::GetBoundingBox() const
         return FAABB();
     }
 
-    return mMeshAsset->GetLocalBoundingBox().ToWorld(GetTransformMatrix().MakeMatrix());
+    return mMeshAsset->GetLocalBoundingBox().ToWorld(GetTransform().MakeMatrix());
 }
 
 void UStaticMeshComponent::SetMesh(const TSharedPtr<FStaticMeshAsset>& InMesh)

@@ -18,7 +18,8 @@ public:
 	}
 
 	void EndFrame()
-	{	
+	{
+#if 0 // NOTE: 프레임 대기 로직 주석
 		do
 		{
 			Sleep(0);
@@ -27,6 +28,10 @@ public:
 			elapsedTime = (EndTime.QuadPart - StartTime.QuadPart) * 1000.0 / Frequency.QuadPart;
 
 		} while (elapsedTime < targetFrameTime);
+#else
+		QueryPerformanceCounter(&EndTime);
+		elapsedTime = (EndTime.QuadPart - StartTime.QuadPart) * 1000.0 / Frequency.QuadPart;
+#endif
 	}
 
 	float GetDeltaTime() const { return deltaTime; }

@@ -101,7 +101,7 @@ void FGizmo::Tick(AActor* TargetActor, const FRect& ViewportRect, bool bViewport
                 HandleScreenStart = Segment.Start;
                 HandleScreenDirection = Segment.End - Segment.Start;
                 HandleScreenDirection.Normalize();
-                DragStartLocation = TargetActor->GetTransform().Location;
+                DragStartLocation = TargetActor->GetTransform().GetLocation();
                 DragStartMousePosition = MousePosInScreen;
                 bDragStarted = true;
                 bIsSelected = true;
@@ -116,7 +116,7 @@ void FGizmo::Tick(AActor* TargetActor, const FRect& ViewportRect, bool bViewport
         return;
     }
 
-    const FTransform Transform = TargetActor->GetTransform();
+    const FTransform& Transform = TargetActor->GetTransform();
     if (CurrentOperation == EGIZMO_TYPE::TRANSLATE)
     {
         float ProjectionLength = FVector2::Dot(MousePosInScreen - HandleScreenStart, HandleScreenDirection);
@@ -161,7 +161,7 @@ void FGizmo::Tick(AActor* TargetActor, const FRect& ViewportRect, bool bViewport
         const float Sensitivity = 0.01f;
         const float Amount = FVector2::Dot(MousePosInScreen - PrevMousePos, HandleScreenDirection);
 
-        FQuaternion RotationQ = ToQuaternion(FMatrix::Rotate(Transform.Rotation));
+        FQuaternion RotationQ = ToQuaternion(FMatrix::Rotate(Transform.GetRotation()));
         FQuaternion DeltaQ(AxisDirection, Amount * Sensitivity);
         FQuaternion FinalQ = DeltaQ * RotationQ;
         FinalQ.Normalize();
@@ -173,7 +173,7 @@ void FGizmo::Tick(AActor* TargetActor, const FRect& ViewportRect, bool bViewport
         const float Sensitivity = 0.01f;
         const float Amount = FVector2::Dot(MousePosInScreen - PrevMousePos, HandleScreenDirection);
 
-        FVector Scale = Transform.Scale + AxisDirection * Amount * Sensitivity;
+        FVector Scale = Transform.GetScale() + AxisDirection * Amount * Sensitivity;
         Scale.x = FMath::Max(Scale.x, MIN_SCALE);
         Scale.y = FMath::Max(Scale.y, MIN_SCALE);
         Scale.z = FMath::Max(Scale.z, MIN_SCALE);
@@ -202,14 +202,14 @@ void FGizmo::Render(AActor* TargetActor, const FVector& CameraPosition, const FR
 		TargetUUID = TargetActor->UUID; 
 	}
 
-    const FTransform Transform = TargetActor->GetTransform();
-    const FVector CenterToCamera = CameraPosition - Transform.Location;
+    const FTransform& Transform = TargetActor->GetTransform();
+    const FVector CenterToCamera = CameraPosition - Transform.GetLocation();
 
     // 직교 화면이면 직교 상 거리에 비례한 크기 조절
     const float AxisLength = bIsOrtho ? (0.08f * OrthoDistance) : (0.1f * CenterToCamera.Length());
     const int32 ScreenWidth = static_cast<int32>(ViewportRect.Width);
     const int32 ScreenHeight = static_cast<int32>(ViewportRect.Height);
-    const FVector4 Clip = FVector4(Transform.Location, 1.f) * ViewProjection;
+    const FVector4 Clip = FVector4(Transform.GetLocation(), 1.f) * ViewProjection;
     const bool bDrawGizmo = !(Clip.w <= 0.00001f || Clip.z < 0.f || Clip.z > Clip.w || Clip.x < -Clip.w || Clip.x > Clip.w || Clip.y < -Clip.w || Clip.y > Clip.w);
 	
 	if (!bDrawGizmo)
@@ -223,7 +223,7 @@ void FGizmo::Render(AActor* TargetActor, const FVector& CameraPosition, const FR
         Circle 
     };
 
-    const FVector2 Center = WorldToScreen(Transform.Location, ViewProjection, ScreenWidth, ScreenHeight);
+    const FVector2 Center = WorldToScreen(Transform.GetLocation(), ViewProjection, ScreenWidth, ScreenHeight);
     auto AxisColor = [&](EAxisNumber Axis, const FVector4& Color)
     {
         return Axis == (bIsSelected ? SelectedAxis : HoveredAxis) ? FVector4(1,1,0,1) : Color;
@@ -231,7 +231,7 @@ void FGizmo::Render(AActor* TargetActor, const FVector& CameraPosition, const FR
 
     auto DrawLineAxis = [&](const FVector& DrawAxis, const FVector& ApplyAxis, const FVector4& Color, EAxisEndPointStyle Style, EAxisNumber Axis)
     {
-        const FVector2 End = WorldToScreen(Transform.Location + DrawAxis * AxisLength, ViewProjection, ScreenWidth, ScreenHeight);
+        const FVector2 End = WorldToScreen(Transform.GetLocation() + DrawAxis * AxisLength, ViewProjection, ScreenWidth, ScreenHeight);
 
         FVector2 ScreenAxis = End - Center;
 		if (ScreenAxis.LengthSquared() < 0.01f)
@@ -260,14 +260,14 @@ void FGizmo::Render(AActor* TargetActor, const FVector& CameraPosition, const FR
         FVector Points[NumSegments];
         GenerateCircleVertices([&](int32 Index, const FVector2& Point)
         {
-            Points[Index] = Transform.Location + U * Point.X + V * Point.Y;
+            Points[Index] = Transform.GetLocation() + U * Point.X + V * Point.Y;
         }, AxisLength, NumSegments);
 
         for (int32 I = 0; I < NumSegments; ++I)
         {
             const FVector& StartWorld = Points[I];
             const FVector& EndWorld = Points[(I + 1) % NumSegments];
-			if (!bNoClipping && FVector::dot(Lerp(StartWorld, EndWorld, 0.5f) - Transform.Location, CenterToCamera) < 0.f)
+			if (!bNoClipping && FVector::dot(Lerp(StartWorld, EndWorld, 0.5f) - Transform.GetLocation(), CenterToCamera) < 0.f)
 			{
 				continue;
 			}
@@ -284,7 +284,7 @@ void FGizmo::Render(AActor* TargetActor, const FVector& CameraPosition, const FR
         }
     };
 
-    const FMatrix Rotation = FMatrix::Rotate(Transform.Rotation);
+    const FMatrix Rotation = FMatrix::Rotate(Transform.GetRotation());
     const bool bLocal = !bWorldMode || CurrentOperation == EGIZMO_TYPE::SCALE;
     const FVector ForwardAxis = bLocal ? Rotation.GetUnitAxis(EAxis::X) : Front;
     const FVector RightAxis = bLocal ? Rotation.GetUnitAxis(EAxis::Y) : Right;
