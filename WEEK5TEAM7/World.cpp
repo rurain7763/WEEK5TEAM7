@@ -100,8 +100,8 @@ void UWorld::Render(float deltaTime, FRenderCollector& outCollector)
 {
 	// 쿼드/라인 정보는 Render()가 그린 뒤 스스로 비운다. 월드 바깥(엔진 루프의 AABB 디버그 라인 등)에서도
 	// 채워지므로 여기서 Reset 하면 남의 것까지 날린다. 메시/픽킹 배열만 여기서 갈아끼운다.
-	outCollector.RenderInfos.Reset(DEFAULT_RESERVE_MEM);
-	outCollector.PickTargets.Reset(DEFAULT_RESERVE_MEM);
+	//outCollector.RenderInfos.Reset(DEFAULT_RESERVE_MEM);
+	//outCollector.PickTargets.Reset(DEFAULT_RESERVE_MEM);
 
 	CollectVisible(outCollector);
 }

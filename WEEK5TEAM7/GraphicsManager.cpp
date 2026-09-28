@@ -254,7 +254,7 @@ void FGraphicsManager::Render()
 
 		// 오브젝트 고유 상수버퍼 갱신
 		{
-			PROFILE_SCOPE("Viewport/GraphicsRender/UpdateConstant");
+			//PROFILE_SCOPE("Viewport/GraphicsRender/UpdateConstant");
 
 			FConstants Constants{};
 			Constants.Matrix = RenderInfo.Model;
