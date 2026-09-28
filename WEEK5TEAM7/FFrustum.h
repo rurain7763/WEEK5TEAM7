@@ -7,8 +7,9 @@
 
 struct FPlane
 {
-	FVector Normal;
-	float Distance;
+	FVector Normal = FVector(0.f, 0.f, 0.f);
+	float Distance = 0.0f;
+	FVector AbsNormal = FVector(0.f, 0.f, 0.f);
 
 	inline bool IsPointInFront(const FVector& Point) const
 	{
@@ -27,6 +28,7 @@ struct FPlane
 		{
 			Normal /= Length;
 			Distance /= Length;
+			AbsNormal = FVector(FGenericPlatformMath::Abs(Normal.x), FGenericPlatformMath::Abs(Normal.y), FGenericPlatformMath::Abs(Normal.z));
 		}
 	}
 
@@ -36,6 +38,7 @@ struct FPlane
 		Plane.Normal = FVector::cross(B - A, C - A);
 		Plane.Normal.Normalize();
 		Plane.Distance = -FVector::dot(Plane.Normal, A);
+		Plane.AbsNormal = FVector(FGenericPlatformMath::Abs(Plane.Normal.x), FGenericPlatformMath::Abs(Plane.Normal.y), FGenericPlatformMath::Abs(Plane.Normal.z));
 		return Plane;
 	}
 };
@@ -125,12 +128,10 @@ struct FFrustum
 		{
 			const FPlane& Plane = Planes[i];
 
-			FVector AbsNormal = FVector(FGenericPlatformMath::Abs(Plane.Normal.x), FGenericPlatformMath::Abs(Plane.Normal.y), FGenericPlatformMath::Abs(Plane.Normal.z));
-
 			// 박스의 반경을 평면 법선에 투영
-			const float Radius = Extent.x * AbsNormal.x +
-				Extent.y * AbsNormal.y +
-				Extent.z * AbsNormal.z;
+			const float Radius = Extent.x * Plane.AbsNormal.x +
+				Extent.y * Plane.AbsNormal.y +
+				Extent.z * Plane.AbsNormal.z;
 
 			const float Distance = Plane.DistanceToPoint(Center);
 
