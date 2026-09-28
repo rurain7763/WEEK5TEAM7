@@ -118,30 +118,23 @@ struct FFrustum
 
 	bool Intersects(const FAABB& BoundingBox) const
 	{
-		const FVector Corners[8] = {
-			FVector(BoundingBox.Min.x, BoundingBox.Min.y, BoundingBox.Min.z),
-			FVector(BoundingBox.Max.x, BoundingBox.Min.y, BoundingBox.Min.z),
-			FVector(BoundingBox.Min.x, BoundingBox.Max.y, BoundingBox.Min.z),
-			FVector(BoundingBox.Max.x, BoundingBox.Max.y, BoundingBox.Min.z),
-			FVector(BoundingBox.Min.x, BoundingBox.Min.y, BoundingBox.Max.z),
-			FVector(BoundingBox.Max.x, BoundingBox.Min.y, BoundingBox.Max.z),
-			FVector(BoundingBox.Min.x, BoundingBox.Max.y, BoundingBox.Max.z),
-			FVector(BoundingBox.Max.x, BoundingBox.Max.y, BoundingBox.Max.z)
-		};
+		const FVector Center = (BoundingBox.Min + BoundingBox.Max) * 0.5f;
+		const FVector Extent = (BoundingBox.Max - BoundingBox.Min) * 0.5f;
 
-		for (const FPlane& Plane : Planes)
+		for (int i = 0; i < 6; ++i)
 		{
-			bool bAllOutside = true;
-			for (const FVector& Corner : Corners)
-			{
-				if (Plane.IsPointInFront(Corner))
-				{
-					bAllOutside = false;
-					break;
-				}
-			}
+			const FPlane& Plane = Planes[i];
 
-			if (bAllOutside)
+			FVector AbsNormal = FVector(FGenericPlatformMath::Abs(Plane.Normal.x), FGenericPlatformMath::Abs(Plane.Normal.y), FGenericPlatformMath::Abs(Plane.Normal.z));
+
+			// 박스의 반경을 평면 법선에 투영
+			const float Radius = Extent.x * AbsNormal.x +
+				Extent.y * AbsNormal.y +
+				Extent.z * AbsNormal.z;
+
+			const float Distance = Plane.DistanceToPoint(Center);
+
+			if (Distance < -Radius)
 			{
 				return false;
 			}

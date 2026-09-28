@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include "Vector.h"
 #include "Rotator.h"
 #include "Matrix.h"
@@ -46,6 +46,7 @@ public:
 		Location = InLocation; 
 		mbTransformDirty = true; 
 		mbInverseTransformDirty = true; 
+		++TransformVersion;
 	}
 
 	inline FVector GetLocation() const { return Location; }
@@ -60,6 +61,7 @@ public:
 		Rotation = InRotation; 
 		mbTransformDirty = true; 
 		mbInverseTransformDirty = true; 
+		++TransformVersion;
 	}
 
 	inline FRotator GetRotation() const { return Rotation; }
@@ -74,9 +76,12 @@ public:
 		Scale = InScale; 
 		mbTransformDirty = true; 
 		mbInverseTransformDirty = true;
+		++TransformVersion;
 	}
 
 	inline FVector GetScale() const { return Scale; }
+
+	inline uint32 GetTransformVersion() const { return TransformVersion; }
 
 private:
 	void EnsureUpdateTransformMatrix() const
@@ -94,6 +99,7 @@ private:
 	FVector Location = FVector(0);
 	FRotator Rotation = FRotator(0, 0, 0);
 	FVector Scale = FVector(1);
+	uint32 TransformVersion = 1;
 
 	mutable bool mbTransformDirty = true;
 	mutable FMatrix mTransformMatrix;

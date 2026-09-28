@@ -33,7 +33,9 @@
 #include "Serializers.h"
 #include "NativeFileDialog.h"
 #include "FEditorUIManager.h"
+#include "ShowFlags.h"
 #include "FFrustum.h"
+#include "FInstrumentor.h"
 
 #if IS_OBJ_VIEWER
 #include "FObjViewer.h"
@@ -214,6 +216,8 @@ static void RenderPerformanceOverlay(FRenderCollector& RenderCollector, FFrameTi
 	float FrameTimeMs = FrameTimer ? (FrameTimer->GetDeltaTime() * 1000.0f) : 0.0f;
 	auto PickStat = FInstrumentor::Get().GetRealtimeStats("MousePicking");
 
+	const bool bCullingEnabled = FShowFlags::Get().IsEnabled(EShowFlag::FrustumCulling);
+
 	std::wstring PerformanceText = std::format(
 		L"Resolution: {}x{} (Viewport: {}x{})\n"
 		L"FPS: {:.1f} ({:.2f} ms)\n"
@@ -349,6 +353,10 @@ void FEngineLoop::Tick(bool bPumpMessages)
 			FMatrix InvViewProjection = Camera.GetInverseUnifiedProjectionMatrix(Camera.mOrthoDistance, CurrentRatio) * Camera.GetViewMatrix().AffineInverse();
 			RenderCollector.Frustum = FFrustum::Create(ViewProjection);
 
+			const FInputState& Input = WindowApplication.Input;
+			bool bIsAssetDragging = (ImGui::GetDragDropPayload() != nullptr);
+			RenderCollector.bNeedPickTargets = CurrentViewport->Client->IsActive() && Input.WasPressed(VK_LBUTTON) && !CurrentViewport->Client->mGizmo.IsDragging() && !CurrentViewport->Client->mGizmo.IsMouseOverHandle() && !bIsAssetDragging;
+
 			{
 				PROFILE_SCOPE("Viewport/Collect");
 				mSceneManager->Render(deltaTime, RenderCollector);
@@ -357,12 +365,8 @@ void FEngineLoop::Tick(bool bPumpMessages)
 			// 마우스 피킹 처리
 			// 뷰포트가 ImGui 창이 되면서 그 위에서는 io.WantCaptureMouse 가 항상 true 다.
 			// 그대로 두면 씬을 클릭해도 선택이 되지 않는다. 카메라/기즈모와 같은 기준을 쓴다.
-			const FInputState& Input = WindowApplication.Input;
-
-			// 드래그 중 마우스 피킹이 실행되어 선택된 액터가 풀리는 것 방지
-			bool bIsAssetDragging = (ImGui::GetDragDropPayload() != nullptr);
 			{
-				if (CurrentViewport->Client->IsActive() && Input.WasPressed(VK_LBUTTON) && !CurrentViewport->Client->mGizmo.IsDragging() && !CurrentViewport->Client->mGizmo.IsMouseOverHandle() && !bIsAssetDragging)
+				if (RenderCollector.bNeedPickTargets)
 				{
 					AActor* HitActor = nullptr;
 					{

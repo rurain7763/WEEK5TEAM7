@@ -5,11 +5,12 @@
 // 에디터에서 켜고 끄는 표시 옵션.
 enum class EShowFlag : uint64
 {
-	None      = 0,
-	WorldAxis = 1ull << 0,
-	UUIDText  = 1ull << 1,
-	Grid      = 1ull << 2,
-	Primitive = 1ull << 3,
+	None           = 0,
+	WorldAxis      = 1ull << 0,
+	UUIDText       = 1ull << 1,
+	Grid           = 1ull << 2,
+	Primitive      = 1ull << 3,
+	FrustumCulling = 1ull << 4,
 };
 
 inline constexpr EShowFlag operator|(EShowFlag a, EShowFlag b)
@@ -25,9 +26,10 @@ struct FShowFlagInfo
 
 inline constexpr FShowFlagInfo GShowFlagInfos[] =
 {
-	{ EShowFlag::UUIDText,  "UUID"       },
-	{ EShowFlag::Grid,      "Grid"      },
-	{ EShowFlag::Primitive, "Primitive" }
+	{ EShowFlag::UUIDText,        "UUID"            },
+	{ EShowFlag::Grid,            "Grid"            },
+	{ EShowFlag::Primitive,       "Primitive"       },
+	{ EShowFlag::FrustumCulling,  "Frustum Culling" }
 };
 
 class FShowFlags
@@ -65,7 +67,7 @@ private:
 	FShowFlags() = default;
 
 	static constexpr EShowFlag DEFAULT_FLAGS =
-		EShowFlag::WorldAxis | EShowFlag::UUIDText | EShowFlag::Grid | EShowFlag::Primitive;
+		EShowFlag::WorldAxis | EShowFlag::UUIDText | EShowFlag::Grid | EShowFlag::Primitive | EShowFlag::FrustumCulling;
 
 	uint64 mFlags = static_cast<uint64>(DEFAULT_FLAGS);
 };
