@@ -89,6 +89,7 @@ public:
 
 	FCamera* Camera = nullptr;
 	FFrustum Frustum;
+	bool bNeedPickTargets = false;
 
 	TArray<FRenderInfo> RenderInfos; // 메시 패스
 	TArray<FRenderLineInfo> LineInfos; // 라인 패스
@@ -144,6 +145,7 @@ public:
 
 	inline void Clear()
 	{
+		bNeedPickTargets = false;
 		RenderInfos.Reset(DEFAULT_RESERVE_MEM);
 		LineInfos.Reset(DEFAULT_RESERVE_MEM);
 		PickTargets.Reset(DEFAULT_RESERVE_MEM);

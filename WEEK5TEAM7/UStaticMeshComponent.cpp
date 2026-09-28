@@ -1,4 +1,4 @@
-﻿#include "UStaticMeshComponent.h"
+#include "UStaticMeshComponent.h"
 #include "FAssetManager.h"
 #include "RenderInfo.h"
 #include "ShowFlags.h"
@@ -99,6 +99,7 @@ void UStaticMeshComponent::Render(FRenderCollector& RenderCollector)
         return;
     }
 
+
 	const FAABB BoundingBox = GetBoundingBox();
 	if (!RenderCollector.Frustum.Intersects(BoundingBox))
 	{
@@ -142,11 +143,22 @@ FAABB UStaticMeshComponent::GetBoundingBox() const
         return FAABB();
     }
 
-    return mMeshAsset->GetLocalBoundingBox().ToWorld(GetTransform().MakeMatrix());
+    const FTransform& Transform = GetTransform();
+    const uint32 CurrentTransformVersion = Transform.GetTransformVersion();
+    if (mbAABBDirty || mCachedTransformVersion != CurrentTransformVersion)
+    {
+        mCachedWorldAABB = mMeshAsset->GetLocalBoundingBox().ToWorld(Transform.MakeMatrix());
+        mCachedTransformVersion = CurrentTransformVersion;
+        mbAABBDirty = false;
+    }
+
+    return mCachedWorldAABB;
 }
 
 void UStaticMeshComponent::SetMesh(const TSharedPtr<FStaticMeshAsset>& InMesh)
 {
+    mbAABBDirty = true;
+
     if (!InMesh)
     {
 		mMeshAsset = nullptr;

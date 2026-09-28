@@ -252,16 +252,14 @@ void FGraphicsManager::Render()
 		}
 
 		// 오브젝트 고유 상수버퍼 갱신
-		{
-			FConstants Constants{};
-			Constants.Matrix = RenderInfo.Model;
-			Constants.Color = RenderInfo.Color;
-			Constants.UseVertexColor = RenderInfo.UseVertexColor;
-			Constants.HasTexture = RenderInfo.Texture ? 1 : 0;
-			Constants.UVOffset = RenderInfo.UVOffset;
+		FConstants Constants{};
+		Constants.Matrix = RenderInfo.Model;
+		Constants.Color = RenderInfo.Color;
+		Constants.UseVertexColor = RenderInfo.UseVertexColor;
+		Constants.HasTexture = RenderInfo.Texture ? 1 : 0;
+		Constants.UVOffset = RenderInfo.UVOffset;
 
-			ActivePipeline->UpdateConstantBuffer(0, Constants);
-		}
+		ActivePipeline->UpdateConstantBuffer(0, Constants);
 
 		mRenderer->RenderPrimitiveIndexed(ActivePipeline, RenderInfo);
 	}
