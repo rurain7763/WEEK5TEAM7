@@ -273,22 +273,26 @@ void FGraphicsManager::Render()
 		}
 
 		// 4. 오브젝트 고유 상수버퍼 갱신
-		FConstants Constants{};
-		Constants.Matrix = RenderInfo.Model;
-		Constants.Color = RenderInfo.Color;
-		Constants.UseVertexColor = RenderInfo.UseVertexColor;
-		Constants.HasTexture = RenderInfo.Texture ? 1 : 0;
-		Constants.UVOffset = RenderInfo.UVOffset;
-
-		ActivePipeline->UpdateConstantBuffer(0, Constants);
-
-		if (RenderInfo.IndexBuffer)
 		{
-			mRenderer->DrawIndexed(RenderInfo.IndexCount, RenderInfo.StartIndex);
-		}
-		else
-		{
-			mRenderer->Draw(RenderInfo.VertexCount);
+			PROFILE_SCOPE("Viewport/GraphicsRender/UpdateConstant");
+
+			FConstants Constants{};
+			Constants.Matrix = RenderInfo.Model;
+			Constants.Color = RenderInfo.Color;
+			Constants.UseVertexColor = RenderInfo.UseVertexColor;
+			Constants.HasTexture = RenderInfo.Texture ? 1 : 0;
+			Constants.UVOffset = RenderInfo.UVOffset;
+
+			ActivePipeline->UpdateConstantBuffer(0, Constants);
+
+			if (RenderInfo.IndexBuffer)
+			{
+				mRenderer->DrawIndexed(RenderInfo.IndexCount, RenderInfo.StartIndex);
+			}
+			else
+			{
+				mRenderer->Draw(RenderInfo.VertexCount);
+			}
 		}
 	}
 
