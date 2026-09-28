@@ -108,7 +108,7 @@ void FGraphicsManager::Prepare(const FCamera* mCamera, float viewportWidth, floa
 	mViewUnifiedProjectionMatrix = view * projection_u;
 
 	// 하이라이트 두께를 화면 픽셀 기준으로 환산할 때 쓴다
-	mCameraLocation = mCamera->Transform.Location;
+	mCameraLocation = mCamera->Transform.GetLocation();
 	mCameraForward = mCamera->GetForwardVector();
 	mCameraFovDegree = mCamera->mFovDegree;
 	mCameraOrthoDistance = mCamera->mOrthoDistance;
@@ -161,7 +161,7 @@ void FGraphicsManager::RenderHighLight(const TArray<UPrimitiveComponent*>& Primi
 		mHighlightVertexBuffer->UpdateBuffer(Vertices.Data(), Vertices.Num());
 		mHighlightIndexBuffer->UpdateBuffer(Indices.Data(), Indices.Num());
 
-		FTransform Transform = Primitive->GetTransformMatrix();
+		const FTransform& Transform = Primitive->GetTransform();
 
 		FConstants Constants{};
 		Constants.Matrix = Transform.MakeMatrix();
@@ -178,7 +178,7 @@ void FGraphicsManager::RenderHighLight(const TArray<UPrimitiveComponent*>& Primi
 		RenderInfo.IndexBuffer = mHighlightIndexBuffer->Buffer;
 		RenderInfo.StartIndex = 0;
 		RenderInfo.IndexCount = static_cast<uint32>(Indices.Num());
-		RenderInfo.Model = Primitive->GetTransformMatrix().MakeMatrix();
+		RenderInfo.Model = Transform.MakeMatrix();
 
 		mRenderer->RenderPrimitiveIndexed(mHighlightMarkPipeline, RenderInfo, 1);
 	}
@@ -205,6 +205,8 @@ void FGraphicsManager::RenderHighLight(const TArray<UPrimitiveComponent*>& Primi
 
 void FGraphicsManager::Render()
 {
+	mRenderCollector.Sort();
+
 	mRenderer->RenderLines(mRenderCollector.LineInfos);
 
 	PROFILE_SCOPE("Viewport/GraphicsRender");
@@ -224,6 +226,9 @@ void FGraphicsManager::Render()
 	Microsoft::WRL::ComPtr<ID3D11Buffer> CurrentVertexBuffer = nullptr;
 	Microsoft::WRL::ComPtr<ID3D11Buffer> CurrentIndexBuffer = nullptr;
 
+	mMeshPipeline->ClearShaderResource();
+	mMeshPipeline->ClearSamplerState();
+	mMeshPipeline->UpdateConstantBuffer(1, mViewUnifiedProjectionMatrix);
 	for (const FRenderInfo& RenderInfo : mRenderCollector.RenderInfos)
 	{
 		uint16 PipelineID = static_cast<uint16>((RenderInfo.SortKey >> 48) & 0xFFFF);
