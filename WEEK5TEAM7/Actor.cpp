@@ -1,4 +1,4 @@
-﻿#include "Actor.h"
+#include "Actor.h"
 #include "JsonUtil.h"
 #include "RenderInfo.h"
 #include "SceneComponent.h"
@@ -181,9 +181,11 @@ void AActor::Render(FRenderCollector& RenderCollector)
 	{
 		component->Render(RenderCollector);
 
-		// 렌더 정보를 모으는 김에 픽킹 대상도 같이 모은다.
-		// 액터 계층을 두 번 훑지 않기 위함이다.
-		component->RegisterPickTarget(RenderCollector);
+		// 마우스 클릭 시에만 픽킹 대상을 수집하여 매 프레임 불필요한 가상함수 호출 및 배열 삽입 방지
+		if (RenderCollector.bNeedPickTargets)
+		{
+			component->RegisterPickTarget(RenderCollector);
+		}
 	}
 }
 

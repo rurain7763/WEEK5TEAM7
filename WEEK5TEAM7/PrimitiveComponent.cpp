@@ -63,7 +63,10 @@ void UPrimitiveComponent::Render(FRenderCollector& RenderCollector)
 
 void UPrimitiveComponent::RegisterPickTarget(FRenderCollector& RenderCollector)
 {
-	RenderCollector.PickTargets.Add(this);
+	if (RenderCollector.bNeedPickTargets)
+	{
+		RenderCollector.PickTargets.Add(this);
+	}
 }
 
 FAABB UPrimitiveComponent::GetBoundingBox() const

@@ -90,6 +90,7 @@ public:
 	FCamera* Camera = nullptr;
 	FFrustum Frustum;
 	bool bEnableFrustumCulling = true;
+	bool bNeedPickTargets = false;
 	uint32 TotalMeshCount = 0;
 	uint32 CulledMeshCount = 0;
 
@@ -149,6 +150,7 @@ public:
 	{
 		TotalMeshCount = 0;
 		CulledMeshCount = 0;
+		bNeedPickTargets = false;
 		RenderInfos.Reset(DEFAULT_RESERVE_MEM);
 		LineInfos.Reset(DEFAULT_RESERVE_MEM);
 		PickTargets.Reset(DEFAULT_RESERVE_MEM);
