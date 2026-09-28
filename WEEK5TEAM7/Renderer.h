@@ -471,27 +471,27 @@ public:
 	void BindFrameBuffer();
 	void BindRenderTarget(const TSharedPtr<FRenderTarget2D>& RenderTarget, const TSharedPtr<FDepthStencil>& DepthStencil, bool bClear = true);
 
-	void Render(const TSharedPtr<FRenderPipeline>& Pipeline, UINT NumVertices) const;
+	void Render(const TSharedPtr<FRenderPipeline>& Pipeline, UINT NumVertices);
 
-	void RenderLines(const TArray<FRenderLineInfo>& Lines) const;
+	void RenderLines(const TArray<FRenderLineInfo>& Lines);
 
-	void RenderQuad(const FRenderQuadInfo& Info) const;
+	void RenderQuad(const FRenderQuadInfo& Info);
 
-	void RenderPrimitive(const TSharedPtr<FRenderPipeline>& Pipeline, Microsoft::WRL::ComPtr<ID3D11Buffer> Buffer, UINT NumVertices) const;
-	void RenderPrimitive(Microsoft::WRL::ComPtr<ID3D11Buffer> Buffer, UINT NumVertices, const FMatrix& Model) const;
-	void RenderPrimitive(Microsoft::WRL::ComPtr<ID3D11Buffer> Buffer, UINT NumVertices, const FMatrix& Model, const FVector4& Color) const;
-	void RenderPrimitiveIndexed(const FRenderInfo& RenderInfo, uint32 StencilRef = 0) const;
-	void RenderPrimitiveIndexed(const TSharedPtr<FRenderPipeline>& Pipeline, const FRenderInfo& RenderInfo, uint32 StencilRef = 0) const;
+	void RenderPrimitive(const TSharedPtr<FRenderPipeline>& Pipeline, Microsoft::WRL::ComPtr<ID3D11Buffer> Buffer, UINT NumVertices);
+	void RenderPrimitive(Microsoft::WRL::ComPtr<ID3D11Buffer> Buffer, UINT NumVertices, const FMatrix& Model);
+	void RenderPrimitive(Microsoft::WRL::ComPtr<ID3D11Buffer> Buffer, UINT NumVertices, const FMatrix& Model, const FVector4& Color);
+	void RenderPrimitiveIndexed(const FRenderInfo& RenderInfo, uint32 StencilRef = 0);
+	void RenderPrimitiveIndexed(const TSharedPtr<FRenderPipeline>& Pipeline, const FRenderInfo& RenderInfo, uint32 StencilRef = 0);
 
-	void RenderQuad2D(const FRenderQuad2DInfo& Info) const;
-	void RenderLine2D(const FVector2& Start, const FVector2& End, const FVector4& Color, float Thickness = 1.0f) const;
-	void RenderCircle2D(const FVector2& Center, const FVector4& Color, float Radius = 1.0f) const;
-	void RenderTriangle2D(const FVector2& Center, const FVector4& Color, float Size = 1.0f, float Rotation = 0.0f) const;
+	void RenderQuad2D(const FRenderQuad2DInfo& Info);
+	void RenderLine2D(const FVector2& Start, const FVector2& End, const FVector4& Color, float Thickness = 1.0f);
+	void RenderCircle2D(const FVector2& Center, const FVector4& Color, float Radius = 1.0f);
+	void RenderTriangle2D(const FVector2& Center, const FVector4& Color, float Size = 1.0f, float Rotation = 0.0f);
 
-	void RenderWorldAxis(const FMatrix& View, const FMatrix& Projection, const FVector4& Color, const FVector& Axis, float Thickness = 0.002f) const;
-	void RenderWorldGrid(const FMatrix& ViewProjection, const FVector& CameraLocation, float GridGap) const;
+	void RenderWorldAxis(const FMatrix& View, const FMatrix& Projection, const FVector4& Color, const FVector& Axis, float Thickness = 0.002f);
+	void RenderWorldGrid(const FMatrix& ViewProjection, const FVector& CameraLocation, float GridGap);
 
-	void ClearAllShaderResources() const;
+	void ClearAllShaderResources();
 
 	void SwapBuffer();
 
@@ -519,7 +519,9 @@ private:
 
 	void CreateDepthStencilBuffer();
 
-	void BindPipeline(const TSharedPtr<FRenderPipeline>& Pipeline, uint32 StencilRef = 0) const;
+	void BindPipeline(const TSharedPtr<FRenderPipeline>& Pipeline, uint32 StencilRef = 0);
+	void BindVertexBuffer(ID3D11Buffer* VertexBuffer, UINT Stride);
+	void BindIndexBuffer(ID3D11Buffer* IndexBuffer);
 
 private:
     ID3D11Device* Device = nullptr;
@@ -559,4 +561,26 @@ private:
 	// 와이어프레임 여부. Prepare에서 갱신하고 BindPipeline이 읽는다.
 	// RSSetState는 드로우 직전마다 덮어써지므로 플래그로 들고 있어야 한다.
 	EViewModeIndex ViewModeIndex = EViewModeIndex::VMI_Lit;
+
+	// NOTE: 최적화를 위한 RenderState 캐싱.
+	ID3D11RasterizerState* CurrentRasterizerState = nullptr;
+	ID3D11DepthStencilState* CurrentDepthStencilState = nullptr;
+	uint32 CurrentStencilRef = UINT32_MAX;
+	ID3D11BlendState* CurrentBlendState = nullptr;
+	D3D11_PRIMITIVE_TOPOLOGY CurrentPrimitiveTopology = D3D11_PRIMITIVE_TOPOLOGY_UNDEFINED;
+	ID3D11InputLayout* CurrentInputLayout = nullptr;
+	ID3D11VertexShader* CurrentVertexShader = nullptr;
+	ID3D11PixelShader* CurrentPixelShader = nullptr;
+
+	ID3D11Buffer* CurrentCBs[D3D11_COMMONSHADER_CONSTANT_BUFFER_API_SLOT_COUNT] = {};
+	ID3D11ShaderResourceView* CurrentSRVs[D3D11_COMMONSHADER_INPUT_RESOURCE_SLOT_COUNT] = {};
+	ID3D11SamplerState* CurrentSamplerStates[D3D11_COMMONSHADER_SAMPLER_SLOT_COUNT] = {};
+	int32 CurrentCBCount = 0;
+	int32 CurrentSRVCount = 0;
+	int32 CurrentSamplerStateCount = 0;
+
+	ID3D11Buffer* CurrentVertexBuffer = nullptr;
+	UINT CurrentVertexStride = 0;
+
+	ID3D11Buffer* CurrentIndexBuffer = nullptr;
 };

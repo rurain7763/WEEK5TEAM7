@@ -309,25 +309,41 @@ void FControlWindow::RenderCameraControl(const FGuiReference& GuiReference)
 	const float spacing = ImGui::GetStyle().ItemSpacing.x;
 	const float itemWidth = (ImGui::GetContentRegionAvail().x - spacing * 2.0f) / 3.0f;
 
+	FVector Location = camera.Transform.GetLocation();
+	bool bLocationChanged = false;
+
 	ImGui::SetNextItemWidth(itemWidth);
-	ImGui::DragFloat("##CamLocX", &camera.Transform.Location.x, 0.1f, 10.0f);
+	bLocationChanged |= ImGui::DragFloat("##CamLocX", &Location.x, 0.1f, 10.0f);
 	ImGui::SameLine();
 	ImGui::SetNextItemWidth(itemWidth);
-	ImGui::DragFloat("##CamLocY", &camera.Transform.Location.y, 0.1f, 10.0f);
+	bLocationChanged |= ImGui::DragFloat("##CamLocY", &Location.y, 0.1f, 10.0f);
 	ImGui::SameLine();
 	ImGui::SetNextItemWidth(itemWidth);
-	ImGui::DragFloat("##CamLocZ", &camera.Transform.Location.z, 0.1f, 10.0f);
+	bLocationChanged |= ImGui::DragFloat("##CamLocZ", &Location.z, 0.1f, 10.0f);
+	
+	if (bLocationChanged)
+	{
+		camera.Transform.SetLocation(Location);
+	}
+
+	FRotator Rotation = camera.Transform.GetRotation();
+	bool bRotationChanged = false;
 
 	ImGui::Text("Rotation");
 	ImGui::SameLine();
 	ImGui::SetNextItemWidth(itemWidth);
-	ImGui::DragFloat("##CamRotX", &camera.Transform.Rotation.Roll, 0.1f, 180.0f);
+	bRotationChanged |= ImGui::DragFloat("##CamRotX", &Rotation.Roll, 0.1f, 180.0f);
 	ImGui::SameLine();
 	ImGui::SetNextItemWidth(itemWidth);
-	ImGui::DragFloat("##CamRotY", &camera.Transform.Rotation.Pitch, 0.1f, 180.0f);
+	bRotationChanged |= ImGui::DragFloat("##CamRotY", &Rotation.Pitch, 0.1f, 180.0f);
 	ImGui::SameLine();
 	ImGui::SetNextItemWidth(itemWidth);
-	ImGui::DragFloat("##CamRotZ", &camera.Transform.Rotation.Yaw, 0.1f, 180.0f);
+	bRotationChanged |= ImGui::DragFloat("##CamRotZ", &Rotation.Yaw, 0.1f, 180.0f);
+
+	if (bRotationChanged)
+	{
+		camera.Transform.SetRotation(Rotation);
+	}
 }
 
 void FControlWindow::RenderGizmoControl(const FGuiReference& GuiReference)

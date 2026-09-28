@@ -32,6 +32,7 @@
 #include "Serializers.h"
 #include "NativeFileDialog.h"
 #include "FEditorUIManager.h"
+#include "FInstrumentor.h"
 
 #if IS_OBJ_VIEWER
 #include "FObjViewer.h"
@@ -189,6 +190,8 @@ void FEngineLoop::InitAssetManager()
 
 void FEngineLoop::Tick(bool bPumpMessages)
 {
+	PROFILE_FUNCTION();
+
 	if (GInTick) return;
 	GInTick = true;
 	PROFILE_FUNCTION();
@@ -231,8 +234,9 @@ void FEngineLoop::Tick(bool bPumpMessages)
 			mViewports[i].Window = mEditorLayout.ViewportWindows[i];
 	}
 	else
+	{
 		mViewports[ActiveIndex].Window = mEditorLayout.RootWindow;
-
+	}
 
 	mGraphicsManager->UpdateGpuRenderTime();
 	if (ConsoleWindow::Get().bShowStatRender)
@@ -286,11 +290,10 @@ void FEngineLoop::Tick(bool bPumpMessages)
 			const FInputState& Input = WindowApplication.Input;
 
 			// 드래그 중 마우스 피킹이 실행되어 선택된 액터가 풀리는 것 방지
-			bool bIsAssetDragging = (ImGui::GetDragDropPayload != nullptr);
-
+			bool bIsAssetDragging = (ImGui::GetDragDropPayload() != nullptr);
 			{
 				PROFILE_SCOPE("Viewport/Picking");
-				if (CurrentViewport->Client->IsActive() && Input.WasPressed(VK_LBUTTON) && !CurrentViewport->Client->mGizmo.IsDragging() && !CurrentViewport->Client->mGizmo.IsMouseOverHandle() && bIsAssetDragging)
+				if (CurrentViewport->Client->IsActive() && Input.WasPressed(VK_LBUTTON) && !CurrentViewport->Client->mGizmo.IsDragging() && !CurrentViewport->Client->mGizmo.IsMouseOverHandle() && !bIsAssetDragging)
 				{
 					AActor* HitActor = CurrentViewport->Client->PerformMousePicking(CurrentViewport->Window->Rect, CurrentRatio, RenderCollector);
 					if (HitActor)
@@ -358,7 +361,7 @@ void FEngineLoop::Tick(bool bPumpMessages)
 				mGraphicsManager->RenderHighLight(HighlightedComponents);
 				mGraphicsManager->Render();
 
-				CurrentViewport->Client->mGizmo.Render(SelectedActor, CurrentViewport->Client->mCamera.Transform.Location, CurrentViewport->Window->Rect, ViewProjection, CurrentViewport->Client->IsOrtho(), CurrentViewport->Client->GetCamera().mOrthoDistance);
+				CurrentViewport->Client->mGizmo.Render(SelectedActor, CurrentViewport->Client->mCamera.Transform.GetLocation(), CurrentViewport->Window->Rect, ViewProjection, CurrentViewport->Client->IsOrtho(), CurrentViewport->Client->GetCamera().mOrthoDistance);
 			}
 		}
 	}

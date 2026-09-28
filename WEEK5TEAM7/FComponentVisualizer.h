@@ -26,9 +26,9 @@ public:
 			return;
 		}
 
-		const FTransform Transform = SpotLightComponent->GetTransformMatrix();
-		const FVector Origin = Transform.Location;
-		const FMatrix Rotation = FMatrix::Rotate(Transform.Rotation);
+		const FTransform& Transform = SpotLightComponent->GetTransform();
+		const FVector Origin = Transform.GetLocation();
+		const FMatrix Rotation = FMatrix::Rotate(Transform.GetRotation());
 		const FVector Forward = Rotation.GetUnitAxis(EAxis::X);
 		const FVector Right = Rotation.GetUnitAxis(EAxis::Y);
 		const FVector Up = Rotation.GetUnitAxis(EAxis::Z);

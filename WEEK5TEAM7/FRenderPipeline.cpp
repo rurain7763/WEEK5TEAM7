@@ -72,8 +72,7 @@ static D3D11_FILL_MODE GetFillModeForViewMode(EViewModeIndex ViewMode)
 	}
 }
 
-void FRenderPipeline::SetRasterRizerState(D3D11_CULL_MODE CullMode, int32 DepthBias,
-	std::initializer_list<EViewModeIndex> ViewModes)
+void FRenderPipeline::SetRasterRizerState(D3D11_CULL_MODE CullMode, int32 DepthBias, std::initializer_list<EViewModeIndex> ViewModes)
 {
 	for (int32 Index = 0; Index < ViewModeCount; ++Index)
 	{

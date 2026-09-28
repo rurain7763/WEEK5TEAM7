@@ -122,8 +122,8 @@ void FSceneManager::SaveScene(FCamera* Camera, const std::filesystem::path& scen
 	sceneJson["World"] = worldJson;
 
 	json::JSON& PerspectiveCameraJson = sceneJson["PerspectiveCamera"];
-	PerspectiveCameraJson["Location"] = JsonUtils::ToJson(Camera->Transform.Location);
-	PerspectiveCameraJson["Rotation"] = JsonUtils::ToJson(Camera->Transform.Rotation);
+	PerspectiveCameraJson["Location"] = JsonUtils::ToJson(Camera->Transform.GetLocation());
+	PerspectiveCameraJson["Rotation"] = JsonUtils::ToJson(Camera->Transform.GetRotation());
 	PerspectiveCameraJson["FOV"] = Camera->mFovDegree;
 	PerspectiveCameraJson["Near"] = Camera->mNear;
 	PerspectiveCameraJson["Far"] = Camera->mFar;
@@ -159,8 +159,8 @@ void FSceneManager::LoadScene(FCamera* Camera, const std::filesystem::path& scen
 	UWorld* newWorld = FObjectFactory::LoadObject<UWorld>(worldJson);
 
 	json::JSON PerspectiveCameraJson = sceneJson.at("PerspectiveCamera");
-	Camera->Transform.Location = JsonUtils::FromJson<FVector>(PerspectiveCameraJson.at("Location"));
-	Camera->Transform.Rotation = JsonUtils::FromJson<FRotator>(PerspectiveCameraJson.at("Rotation"));
+	Camera->Transform.SetLocation(JsonUtils::FromJson<FVector>(PerspectiveCameraJson.at("Location")));
+	Camera->Transform.SetRotation(JsonUtils::FromJson<FRotator>(PerspectiveCameraJson.at("Rotation")));
 	Camera->mFovDegree = PerspectiveCameraJson.at("FOV").ToFloat();
 	Camera->mNear = PerspectiveCameraJson.at("Near").ToFloat();
 	Camera->mFar = PerspectiveCameraJson.at("Far").ToFloat();

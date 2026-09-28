@@ -76,13 +76,14 @@ public:
 private:
 	friend class URenderer;
 
+	static constexpr int32 ViewModeCount = static_cast<int32>(EViewModeIndex::VMI_Max);
+
 	ID3D11Device* Device = nullptr;
 	ID3D11DeviceContext* DeviceContext = nullptr;
 	D3D11_PRIMITIVE_TOPOLOGY PrimitiveTopology = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
 	FSamplerStatePool* SamplerStatePool = nullptr;
 	FDepthStencilStatePool* DepthStencilStatePool = nullptr;
 	FBlendStatePool* BlendStatePool = nullptr;
-	static constexpr int32 ViewModeCount = static_cast<int32>(EViewModeIndex::VMI_Max);
 	ID3D11RasterizerState* RasterizerStates[ViewModeCount] = {};
 	ID3D11DepthStencilState* DepthStencilState = nullptr;
 	ID3D11InputLayout* InputLayout = nullptr;

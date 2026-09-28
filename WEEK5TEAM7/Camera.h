@@ -16,17 +16,14 @@ public:
 	FMatrix GetViewMatrix() const
 	{
 		// 카메라에는 스케일이 없다. 위치를 되돌리고, 회전을 되돌리고, 축을 교환한다.
-		return FMatrix::Translation(FVector(-Transform.Location.x,
-			-Transform.Location.y,
-			-Transform.Location.z))
-			* FMatrix::Rotate(Transform.Rotation).Transpose()
-			* FMatrix::UEToDX;
+		return Transform.InverseMatrix() * FMatrix::UEToDX;
 	}
 
 	// 특정 지점을 바라보도록 회전을 맞춘다.
 	void LookAt(const FVector& Target)
 	{
-		Transform.Rotation = FRotator::LookAt(Transform.Location, Target);
+		TRotator NewRotation = TRotator::LookAt(Transform.GetLocation(), Target);
+		Transform.SetRotation(NewRotation);
 	}
 
 	FMatrix GetProjectionMatrix() const
@@ -162,16 +159,18 @@ public:
 
 	void Rotate(long Dx, long Dy)
 	{
-		Transform.Rotation.Yaw += FMath::Fmod(Dx * Sensitivity, 360.f);
-		Transform.Rotation.Pitch -= FMath::Fmod(Dy * Sensitivity, 360.f);
+		TRotator NewRotation = Transform.GetRotation();
+		NewRotation.Yaw += FMath::Fmod(Dx * Sensitivity, 360.f);
+		NewRotation.Pitch -= FMath::Fmod(Dy * Sensitivity, 360.f);
+		Transform.SetRotation(NewRotation);
 	}
 
 	void Update();
 
 	void SetSensitivity(float _v) { Sensitivity = _v; }
-	FVector GetForwardVector() const { return FMatrix::Rotate(Transform.Rotation).GetUnitAxis(EAxis::X); }
-	FVector GetRightVector()   const { return FMatrix::Rotate(Transform.Rotation).GetUnitAxis(EAxis::Y); }
-	FVector GetUpVector()      const { return FMatrix::Rotate(Transform.Rotation).GetUnitAxis(EAxis::Z); }
+	FVector GetForwardVector() const { return FMatrix::Rotate(Transform.GetRotation()).GetUnitAxis(EAxis::X); }
+	FVector GetRightVector()   const { return FMatrix::Rotate(Transform.GetRotation()).GetUnitAxis(EAxis::Y); }
+	FVector GetUpVector()      const { return FMatrix::Rotate(Transform.GetRotation()).GetUnitAxis(EAxis::Z); }
 
 	FTransform Transform;
 

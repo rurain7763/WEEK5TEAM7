@@ -14,6 +14,16 @@ struct TRotator
 
 	//static const TRotator ZeroRotator = { 0, 0, 0 };
 
+	bool operator==(const TRotator& Other) const
+	{
+		return Pitch == Other.Pitch && Yaw == Other.Yaw && Roll == Other.Roll;
+	}
+
+	bool operator!=(const TRotator& Other) const
+	{
+		return !(*this == Other);
+	}
+
 	static TRotator FromDirection(const FVector& Direction)
 	{
 		float Yaw = std::atan2(Direction.y, Direction.x);
