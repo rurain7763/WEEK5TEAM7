@@ -24,6 +24,8 @@ public:
 
 	void Tick(float deltaTime);
 	void Render(float deltaTime, FRenderCollector& outCollector);
+	// 이후 공간 트리 조회로 후보 순회를 교체할 가시성 수집 진입점입니다.
+	void CollectVisible(FRenderCollector& Collector);
 	//void Render();
 
 

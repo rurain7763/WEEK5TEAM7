@@ -3,6 +3,7 @@
 #include "Object.h"
 
 struct FRenderInfo;
+struct FAABB;
 class FRenderCollector;
 
 enum EActorComponentFlags
@@ -24,6 +25,8 @@ public:
 	// Todo: Make as pure class
 	virtual void Tick(float deltaTime);
 	virtual void Render(FRenderCollector& RenderCollector);
+	// 신뢰할 수 있는 월드 경계를 제공하는 렌더 컴포넌트만 컬링에 참여합니다.
+	virtual bool GetCullingBounds(FAABB& OutBounds) const { return false; }
 	virtual void GetRenderInfos(TArray<FRenderInfo>* outRenderInfos) const;
 
 	// 이 컴포넌트가 마우스 픽킹 대상이면 컬렉터에 자신을 등록한다.

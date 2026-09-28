@@ -21,6 +21,12 @@ public:
 	virtual void Render(FRenderCollector& RenderCollector) override;
 
 	FAABB GetBoundingBox() const override;
+	bool GetCullingBounds(FAABB& OutBounds) const override
+	{
+		if (!mMeshAsset) return false;
+		OutBounds = GetBoundingBox();
+		return true;
+	}
 
 	const TArray<FVertex>& GetMeshVertices() const override
 	{

@@ -212,6 +212,8 @@ ConsoleWindow::ConsoleWindow()
 	Commands.push_back("STAT RENDER");
 	Commands.push_back("STAT ALL");
 	Commands.push_back("STAT NONE");
+	Commands.push_back("CULL ON");
+	Commands.push_back("CULL OFF");
 	AutoScroll = true;
 	ScrollToBottom = false;
 }
@@ -358,6 +360,11 @@ void ConsoleWindow::ExecCommand(const char* command_line)
 		{
 			UE_LOG("%3d: %s\n", i, History[i]);
 		}
+	}
+	else if (Stricmp(command_line, "CULL ON") == 0 || Stricmp(command_line, "CULL OFF") == 0)
+	{
+		bFrustumCulling = Stricmp(command_line, "CULL ON") == 0;
+		UE_LOG("Frustum culling: %s", bFrustumCulling ? "ON" : "OFF");
 	}
 	else if (Stricmp(command_line, "STAT FPS") == 0)
 	{

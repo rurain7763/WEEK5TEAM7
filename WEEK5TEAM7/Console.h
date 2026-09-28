@@ -24,6 +24,7 @@ public:
 	bool bShowStatFPS = false;
 	bool bShowStatMemory = false;
 	bool bShowStatRender = false;
+	bool bFrustumCulling = true;
 
 	void Process(float BottomBarHeight = 0.0f); float GetDrawerHeight() const { return mDrawerHeight; }
 

@@ -344,6 +344,8 @@ void FEngineLoop::Tick(bool bPumpMessages)
 			}
 
 			FMatrix ViewProjection = Camera.GetViewMatrix() * Camera.GetUnifiedProjectionMatrix(Camera.mOrthoDistance, CurrentRatio);
+			RenderCollector.Frustum.Update(ViewProjection);
+			RenderCollector.bEnableFrustumCulling = ConsoleWindow::Get().bFrustumCulling;
 			FMatrix InvViewProjection = Camera.GetInverseUnifiedProjectionMatrix(Camera.mOrthoDistance, CurrentRatio) * Camera.GetViewMatrix().AffineInverse();
 
 			{
