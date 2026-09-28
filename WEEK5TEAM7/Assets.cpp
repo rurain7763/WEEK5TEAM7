@@ -428,3 +428,8 @@ void FMaterialAssetLoader::UnloadAsset(TSharedPtr<FAsset> Asset)
 	// NOTE: Nothing to do for now
 }
 
+uint16 FMaterialAsset::GetPipelineID() const
+{
+	return Pipeline ? Pipeline->GetPipelineID() : 1;
+}
+

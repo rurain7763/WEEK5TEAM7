@@ -8,6 +8,7 @@
 #include "ObjectFactory.h"
 #include "UTextComponent.h"
 #include "FEditorViewportClient.h"
+#include "FInstrumentor.h"
 #include <algorithm>
 
 // 선분 하나당 정점 2개. 축 6개 + 앞으로 붙을 그리드까지 감당할 만큼 잡아둔다
@@ -75,6 +76,8 @@ FGraphicsManager::~FGraphicsManager()
 
 void FGraphicsManager::Prepare(const FCamera* mCamera, float viewportWidth, float viewportHeight, const FViewport& Viewport, const EViewModeIndex InViewMode, const EViewportType InViewportType)
 {
+	PROFILE_SCOPE("Viewport/Prepare");
+
 	mViewportType = InViewportType;
 	const bool bIsOrtho = (InViewportType != EViewportType::Perspective);
 
@@ -120,6 +123,8 @@ void FGraphicsManager::Prepare(const FCamera* mCamera, float viewportWidth, floa
 
 void FGraphicsManager::RenderHighLight(const TArray<UPrimitiveComponent*>& Primitives)
 {
+	PROFILE_SCOPE("Viewport/RenderHighLight");
+
 	if (Primitives.Num() == 0)
 	{
 		return;
@@ -202,7 +207,12 @@ void FGraphicsManager::Render()
 {
 	mRenderer->RenderLines(mRenderCollector.LineInfos);
 
-	std::sort(mRenderCollector.RenderInfos.begin(), mRenderCollector.RenderInfos.end());
+	PROFILE_SCOPE("Viewport/GraphicsRender");
+
+	{
+		PROFILE_SCOPE("Viewport/GraphicsRender/sort");
+		std::sort(mRenderCollector.RenderInfos.begin(), mRenderCollector.RenderInfos.end());
+	}
 
 	mMeshPipeline->UpdateConstantBuffer(1, mViewUnifiedProjectionMatrix);
 	mMeshPipeline->SetSamplerState(0, D3D11_FILTER_MIN_MAG_MIP_LINEAR, D3D11_TEXTURE_ADDRESS_WRAP, D3D11_TEXTURE_ADDRESS_WRAP);
@@ -220,10 +230,12 @@ void FGraphicsManager::Render()
 		uint32 MaterialID = static_cast<uint32>((RenderInfo.SortKey >> 24) & 0x00FFFFFF);
 		uint32 MeshID = static_cast<uint32>(RenderInfo.SortKey & 0x00FFFFFF);
 
+		TSharedPtr<FRenderPipeline> ActivePipeline = RenderInfo.Pipeline ? RenderInfo.Pipeline : mMeshPipeline;
+
 		// 1. Pipeline
 		if (CurrentPipelineID != PipelineID)
 		{
-			mRenderer->BindPipeline(mMeshPipeline);
+			mRenderer->BindPipeline(ActivePipeline);
 			CurrentPipelineID = PipelineID;
 
 			CurrentMaterialID = 0xFFFFFFFF;
@@ -237,11 +249,11 @@ void FGraphicsManager::Render()
 		{
 			if (RenderInfo.Texture)
 			{
-				mMeshPipeline->SetShaderResource(0, RenderInfo.Texture->GetSRV());
+				ActivePipeline->SetShaderResource(0, RenderInfo.Texture->GetSRV());
 			}
 			else
 			{
-				mMeshPipeline->ClearShaderResource();
+				ActivePipeline->ClearShaderResource();
 			}
 			CurrentMaterialID = MaterialID;
 			CurrentTexture = RenderInfo.Texture;
@@ -250,7 +262,7 @@ void FGraphicsManager::Render()
 		// 3. Mesh
 		if (CurrentVertexBuffer != RenderInfo.VertexBuffer)
 		{
-			mRenderer->BindVertexBuffer(RenderInfo.VertexBuffer, mMeshPipeline->GetStride());
+			mRenderer->BindVertexBuffer(RenderInfo.VertexBuffer, ActivePipeline->GetStride());
 			CurrentVertexBuffer = RenderInfo.VertexBuffer;
 		}
 
@@ -268,7 +280,7 @@ void FGraphicsManager::Render()
 		Constants.HasTexture = RenderInfo.Texture ? 1 : 0;
 		Constants.UVOffset = RenderInfo.UVOffset;
 
-		mMeshPipeline->UpdateConstantBuffer(0, Constants);
+		ActivePipeline->UpdateConstantBuffer(0, Constants);
 
 		if (RenderInfo.IndexBuffer)
 		{

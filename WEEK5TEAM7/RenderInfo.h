@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 #include "Transform.h"
 #include "Object.h"
@@ -8,6 +8,7 @@
 
 class FCamera;
 class UPrimitiveComponent;
+class FRenderPipeline;
 
 inline uint64 MakeRenderSortKey(uint16 pipelineID, uint32 materialID, uint32 meshID)
 {
@@ -28,6 +29,7 @@ enum class ERenderBlendMode
 struct FRenderInfo
 {
 	uint64 SortKey = 0;
+	TSharedPtr<FRenderPipeline> Pipeline;
 	Microsoft::WRL::ComPtr<ID3D11Buffer> VertexBuffer;
 	uint32 VertexCount = 0;
 	Microsoft::WRL::ComPtr<ID3D11Buffer> IndexBuffer;

@@ -19,6 +19,7 @@
 
 class FFontManager;
 class URenderer;
+class FRenderPipeline;
 class FAssetManager;
 struct FVertexBuffer;
 struct FIndexBuffer;
@@ -262,7 +263,12 @@ public:
 
 	inline uint32 GetMaterialID() const { return MaterialID; }
 
+	inline TSharedPtr<FRenderPipeline> GetPipeline() const { return Pipeline; }
+	inline void SetPipeline(const TSharedPtr<FRenderPipeline>& InPipeline) { Pipeline = InPipeline; }
+	uint16 GetPipelineID() const;
+
 private:
+	TSharedPtr<FRenderPipeline> Pipeline = nullptr;
 	FVector AmbientColor;
 	FVector DiffuseColor;
 	FVector SpecularColor;
