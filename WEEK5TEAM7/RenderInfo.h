@@ -5,6 +5,7 @@
 #include "FName.h"
 #include "Assets.h"
 #include "TArray.h"
+#include "FFrustum.h"
 
 class FCamera;
 class UPrimitiveComponent;
@@ -86,6 +87,10 @@ public:
 	enum { DEFAULT_RESERVE_MEM = 1024U };
 
 	FCamera* Camera = nullptr;
+	FFrustum Frustum;
+	bool bEnableFrustumCulling = true;
+	uint32 TotalMeshCount = 0;
+	uint32 CulledMeshCount = 0;
 
 	TArray<FRenderInfo>     RenderInfos;   // 메시 패스
 	TArray<FRenderLineInfo> LineInfos;     // 라인 패스
@@ -117,6 +122,8 @@ public:
 
 	inline void Clear()
 	{
+		TotalMeshCount = 0;
+		CulledMeshCount = 0;
 		RenderInfos.Empty();
 		LineInfos.Empty();
 		PickTargets.Empty();

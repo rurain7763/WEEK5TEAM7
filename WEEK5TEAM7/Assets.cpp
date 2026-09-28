@@ -113,9 +113,13 @@ FStaticMeshAsset::FStaticMeshAsset(const FGuid& InAssetID, const FName& InAssetN
 	, Sections(InBuildData.Sections)
 	, MeshID(NextMeshID++)
 {
-	for (const FVertex& Source : InBuildData.Vertices)
+	if (InBuildData.Vertices.Num() > 0)
 	{
-		BoundingBox.ExpandToInclude(Source.Pos);
+		BoundingBox = FAABB(InBuildData.Vertices[0].Pos, InBuildData.Vertices[0].Pos);
+		for (int32 i = 1; i < InBuildData.Vertices.Num(); ++i)
+		{
+			BoundingBox.ExpandToInclude(InBuildData.Vertices[i].Pos);
+		}
 	}
 	
 	VertexBuffer = InRenderer.CreateVertexBuffer(InBuildData.Vertices.Data(), static_cast<uint32>(InBuildData.Vertices.Num()));

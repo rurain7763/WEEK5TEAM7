@@ -1,4 +1,4 @@
-﻿#include "UStaticMeshComponent.h"
+#include "UStaticMeshComponent.h"
 
 #include "FAssetManager.h"
 #include "RenderInfo.h"
@@ -98,6 +98,19 @@ void UStaticMeshComponent::Render(FRenderCollector& RenderCollector)
     if (!FShowFlags::Get().IsEnabled(EShowFlag::Primitive))
     {
         return;
+    }
+
+    RenderCollector.TotalMeshCount++;
+
+    const bool bCull = FShowFlags::Get().IsEnabled(EShowFlag::FrustumCulling) && RenderCollector.bEnableFrustumCulling;
+    if (bCull)
+    {
+        const FAABB WorldAABB = GetBoundingBox();
+        if (!RenderCollector.Frustum.Intersects(WorldAABB))
+        {
+            RenderCollector.CulledMeshCount++;
+            return;
+        }
     }
 
     for (int32 SectionIndex = 0; SectionIndex < mMeshAsset->GetSections().Num(); ++SectionIndex)

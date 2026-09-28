@@ -8,6 +8,7 @@
 #include "WindowApplication.h"
 #include "GraphicsManager.h"
 #include "Camera.h"
+#include "FInstrumentor.h"
 
 FEditorUIManager::FEditorUIManager(URenderer& InRenderer)
 	: mRenderer(InRenderer)
@@ -37,6 +38,8 @@ void FEditorUIManager::Render(FGuiReference& GuiReference)
 	// 저장된 도킹 노드가 없을 때만 기본 배치 생성
 	if (!ImGui::DockBuilderGetNode(dockspaceID))
 	{
+		PROFILE_SCOPE("Frame/EditorUI/DockingSomething");
+
 		ImGui::DockBuilderAddNode(dockspaceID, ImGuiDockNodeFlags_DockSpace | flags);
 		ImGui::DockBuilderSetNodeSize(dockspaceID, viewport->WorkSize);
 
@@ -76,6 +79,8 @@ void FEditorUIManager::Render(FGuiReference& GuiReference)
 
 	if (ImGui::Begin("Viewport", nullptr, ViewportWindowFlags))
 	{
+		PROFILE_SCOPE("Frame/EditorUI/Viewport");
+
 		const ImVec2 Origin = ImGui::GetCursorScreenPos();
 		const ImVec2 TotalSize = ImGui::GetContentRegionAvail();
 
@@ -231,7 +236,10 @@ void FEditorUIManager::Render(FGuiReference& GuiReference)
 	}
 	ImGui::End();
 
-	RenderBottomBar(); 
+	{
+		PROFILE_SCOPE("Frame/EditorUI/RenderBottonBar");
+		RenderBottomBar();
+	}
 
 	ConsoleWindow& console = ConsoleWindow::Get();
 	if (console.bShowStatFPS || console.bShowStatMemory || console.bShowStatRender)

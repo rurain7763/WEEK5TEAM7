@@ -33,6 +33,8 @@
 #include "Serializers.h"
 #include "NativeFileDialog.h"
 #include "FEditorUIManager.h"
+#include "ShowFlags.h"
+#include "FFrustum.h"
 
 #if IS_OBJ_VIEWER
 #include "FObjViewer.h"
@@ -211,15 +213,27 @@ static void RenderPerformanceOverlay(FRenderCollector& RenderCollector, FFrameTi
 	float FrameTimeMs = FrameTimer ? (FrameTimer->GetDeltaTime() * 1000.0f) : 0.0f;
 	auto PickStat = FInstrumentor::Get().GetRealtimeStats("MousePicking");
 
+	const bool bCullingEnabled = FShowFlags::Get().IsEnabled(EShowFlag::FrustumCulling);
+	const uint32 TotalMeshes = RenderCollector.TotalMeshCount;
+	const uint32 CulledMeshes = RenderCollector.CulledMeshCount;
+	const uint32 RenderedMeshes = TotalMeshes >= CulledMeshes ? (TotalMeshes - CulledMeshes) : 0;
+	const float CullRatio = TotalMeshes > 0 ? (100.0f * static_cast<float>(CulledMeshes) / static_cast<float>(TotalMeshes)) : 0.0f;
+
 	std::wstring PerformanceText = std::format(
 		L"Resolution: {}x{} (Viewport: {}x{})\n"
 		L"FPS: {:.1f} ({:.2f} ms)\n"
+		L"Frustum Culling: {}\n"
+		L"Culled: {} / {} ({:.1f}%)\n"
+		L"Meshes Drawn: {}\n"
 		L"Last Picking: {:.3f} ms\n"
 		L"Picking Count: {}\n"
 		L"Total Picking Time: {:.3f} ms",
 		MonitorWidth, MonitorHeight,
 		ViewWidth, ViewHeight,
 		FPS, FrameTimeMs,
+		bCullingEnabled ? L"ON" : L"OFF",
+		CulledMeshes, TotalMeshes, CullRatio,
+		RenderedMeshes,
 		PickStat.LastDurationMs,
 		PickStat.CallCount,
 		PickStat.TotalDurationMs
@@ -341,6 +355,8 @@ void FEngineLoop::Tick(bool bPumpMessages)
 
 			FMatrix ViewProjection = Camera.GetViewMatrix() * Camera.GetUnifiedProjectionMatrix(Camera.mOrthoDistance, CurrentRatio);
 			FMatrix InvViewProjection = Camera.GetInverseUnifiedProjectionMatrix(Camera.mOrthoDistance, CurrentRatio) * Camera.GetViewMatrix().AffineInverse();
+
+			RenderCollector.Frustum = FFrustum::FromMatrix(ViewProjection);
 
 			{
 				PROFILE_SCOPE("Viewport/Collect");
