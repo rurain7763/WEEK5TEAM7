@@ -106,6 +106,7 @@ void URenderer::CreateDeviceAndSwapChain(HWND hWindow)
 	SwapChainDesc.OutputWindow = hWindow;
 	SwapChainDesc.Windowed = TRUE;
 	SwapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
+	SwapChainDesc.Flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING;
 
 	UINT CreateDeviceFlags = 0;
 
@@ -219,7 +220,7 @@ void URenderer::Release()
 
 void URenderer::SwapBuffer()
 {
-	SwapChain->Present(0, 0);
+	SwapChain->Present(0, DXGI_PRESENT_ALLOW_TEARING);
 }
 
 void URenderer::Prepare(const FMatrix& ViewProjectionMatrix)
