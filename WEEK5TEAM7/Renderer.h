@@ -511,9 +511,6 @@ public:
 	uint64 GetDrawCallCount() const { return DrawCallCount; }
 	void ResetDrawCallCount() { DrawCallCount = 0; }
 
-	void BindPipeline(const TSharedPtr<FRenderPipeline>& Pipeline, uint32 StencilRef = 0) const;
-	void BindVertexBuffer(Microsoft::WRL::ComPtr<ID3D11Buffer> Buffer, UINT Stride) const;
-	void BindIndexBuffer(Microsoft::WRL::ComPtr<ID3D11Buffer> Buffer) const;
 	void DrawIndexed(UINT IndexCount, UINT StartIndex = 0) const;
 	void Draw(UINT VertexCount) const;
 

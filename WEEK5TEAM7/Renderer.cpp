@@ -658,17 +658,6 @@ void URenderer::RenderPrimitiveIndexed(const FRenderInfo& RenderInfo, uint32 Ste
 	RenderPrimitiveIndexed(PrimitivePipeline, RenderInfo, StencilRef);
 }
 
-void URenderer::BindVertexBuffer(Microsoft::WRL::ComPtr<ID3D11Buffer> Buffer, UINT Stride) const
-{
-	UINT Offset = 0;
-	DeviceContext->IASetVertexBuffers(0, 1, Buffer.GetAddressOf(), &Stride, &Offset);
-}
-
-void URenderer::BindIndexBuffer(Microsoft::WRL::ComPtr<ID3D11Buffer> Buffer) const
-{
-	DeviceContext->IASetIndexBuffer(Buffer.Get(), DXGI_FORMAT_R32_UINT, 0);
-}
-
 void URenderer::DrawIndexed(UINT IndexCount, UINT StartIndex) const
 {
 	DeviceContext->DrawIndexed(IndexCount, StartIndex, 0);
@@ -681,15 +670,16 @@ void URenderer::Draw(UINT VertexCount) const
 	++DrawCallCount;
 }
 
-void URenderer::RenderPrimitiveIndexed(const TSharedPtr<FRenderPipeline>& Pipeline, const FRenderInfo& RenderInfo, uint32 StencilRef) const
+void URenderer::RenderPrimitiveIndexed(const TSharedPtr<FRenderPipeline>& Pipeline, const FRenderInfo& RenderInfo, uint32 StencilRef)
 {
 	BindPipeline(Pipeline, StencilRef);
+
 	BindVertexBuffer(RenderInfo.VertexBuffer.Get(), Pipeline->Stride);
 
 	if (RenderInfo.IndexBuffer)
 	{
 		BindIndexBuffer(RenderInfo.IndexBuffer.Get());
-		DeviceContext->DrawIndexed(RenderInfo.IndexCount, RenderInfo.StartIndex, 0);
+		DrawIndexed(RenderInfo.IndexCount, RenderInfo.StartIndex);
 	}
 	else
 	{
