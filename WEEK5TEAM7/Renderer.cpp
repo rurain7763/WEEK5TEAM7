@@ -809,7 +809,7 @@ void URenderer::OnResize(UINT width, UINT height)
 	DepthStencilBuffer->Release();
 	DepthStencilView->Release();
 
-	SwapChain->ResizeBuffers(0, 0, 0, DXGI_FORMAT_UNKNOWN, 0);
+	SwapChain->ResizeBuffers(0, 0, 0, DXGI_FORMAT_UNKNOWN, DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING);
 
 	Width = width;
 	Height = height;
