@@ -8,6 +8,7 @@
 #include "enum.h"
 #include "FAssetManager.h"
 #include "FObjViewer.h"
+#include "FFrustum.h"
 
 inline constexpr std::string_view kSceneDataDir = "SceneData\\";
 inline constexpr std::string_view kSceneDataSuffix = ".Scene";

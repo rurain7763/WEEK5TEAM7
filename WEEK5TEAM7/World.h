@@ -2,9 +2,8 @@
 
 #include "Object.h"
 #include "Actor.h"
-
 #include "RenderInfo.h"
-//struct FRenderInfo;
+#include "FFrustum.h"
 
 class UWorld final : public UObject
 {
@@ -19,13 +18,10 @@ public:
 	void AddActor(AActor* actor);
 	bool RemoveActor(uint32 componentUUID);
 
-
 	TArray<AActor*>& GetActors() { return mActors; }
 
 	void Tick(float deltaTime);
 	void Render(float deltaTime, FRenderCollector& outCollector);
-	//void Render();
-
 
 private:
 	int32 getActorIndex(uint32 actorUUID) const;
@@ -38,7 +34,4 @@ private:
 	
 	// Todo: Must reserve
 	TArray<AActor*> mActors;
-
-
-
 };

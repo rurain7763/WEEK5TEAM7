@@ -99,6 +99,12 @@ void UStaticMeshComponent::Render(FRenderCollector& RenderCollector)
         return;
     }
 
+	const FAABB BoundingBox = GetBoundingBox();
+	if (!RenderCollector.Frustum.Intersects(BoundingBox))
+	{
+		return;
+	}
+
 	const FTransform& Transform = GetTransform();
 
     for (int32 SectionIndex = 0; SectionIndex < mMeshAsset->GetSections().Num(); ++SectionIndex)

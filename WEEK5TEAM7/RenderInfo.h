@@ -5,6 +5,7 @@
 #include "FName.h"
 #include "Assets.h"
 #include "TArray.h"
+#include "FFrustum.h"
 #include <algorithm>
 
 class FCamera;
@@ -72,6 +73,7 @@ public:
 	enum { DEFAULT_RESERVE_MEM = 1024U };
 
 	FCamera* Camera = nullptr;
+	FFrustum Frustum;
 
 	TArray<FRenderInfo> RenderInfos; // 메시 패스
 	TArray<FRenderLineInfo> LineInfos; // 라인 패스

@@ -65,6 +65,11 @@ typedef struct FVector
         return FVector(x - Others.x, y - Others.y, z - Others.z);
     }
 
+	const FVector operator/(const FVector& Others) const
+    {
+        return FVector(x / Others.x, y / Others.y, z / Others.z);
+    }
+
     void operator+=(const FVector& Others)
     {
         x += Others.x;

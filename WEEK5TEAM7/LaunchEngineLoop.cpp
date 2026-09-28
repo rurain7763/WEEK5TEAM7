@@ -32,7 +32,7 @@
 #include "Serializers.h"
 #include "NativeFileDialog.h"
 #include "FEditorUIManager.h"
-#include "FInstrumentor.h"
+#include "FFrustum.h"
 
 #if IS_OBJ_VIEWER
 #include "FObjViewer.h"
@@ -278,6 +278,7 @@ void FEngineLoop::Tick(bool bPumpMessages)
 
 			FMatrix ViewProjection = Camera.GetViewMatrix() * Camera.GetUnifiedProjectionMatrix(Camera.mOrthoDistance, CurrentRatio);
 			FMatrix InvViewProjection = Camera.GetInverseUnifiedProjectionMatrix(Camera.mOrthoDistance, CurrentRatio) * Camera.GetViewMatrix().AffineInverse();
+			RenderCollector.Frustum = FFrustum::Create(ViewProjection);
 
 			{
 				PROFILE_SCOPE("Viewport/Collect");
