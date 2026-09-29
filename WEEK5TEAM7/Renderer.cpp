@@ -108,14 +108,14 @@ void URenderer::CreateDeviceAndSwapChain(HWND hWindow)
 	SwapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
 	SwapChainDesc.Flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING;
 
-	UINT CreateDeviceFlags = 0;
+	UINT CreateDeviceFlags = D3D11_CREATE_DEVICE_BGRA_SUPPORT | D3D11_CREATE_DEVICE_SINGLETHREADED;
 
 #if defined(_DEBUG)
 	CreateDeviceFlags |= D3D11_CREATE_DEVICE_DEBUG;
 #endif
 
 	D3D11CreateDeviceAndSwapChain(nullptr, D3D_DRIVER_TYPE_HARDWARE,
-		nullptr, D3D11_CREATE_DEVICE_BGRA_SUPPORT | CreateDeviceFlags,
+		nullptr, CreateDeviceFlags,
 		FeatureLevels, ARRAYSIZE(FeatureLevels), D3D11_SDK_VERSION,
 		&SwapChainDesc, &SwapChain, &Device, nullptr, &DeviceContext);
 
