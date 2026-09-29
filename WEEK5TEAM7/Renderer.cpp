@@ -102,11 +102,11 @@ void URenderer::CreateDeviceAndSwapChain(HWND hWindow)
 	SwapChainDesc.BufferDesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
 	SwapChainDesc.SampleDesc.Count = 1;
 	SwapChainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
-	SwapChainDesc.BufferCount = 2;
+	SwapChainDesc.BufferCount = 3;
 	SwapChainDesc.OutputWindow = hWindow;
 	SwapChainDesc.Windowed = TRUE;
 	SwapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
-	SwapChainDesc.Flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING;
+	SwapChainDesc.Flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING | DXGI_SWAP_CHAIN_FLAG_FRAME_LATENCY_WAITABLE_OBJECT;
 
 	UINT CreateDeviceFlags = 0;
 
@@ -119,10 +119,19 @@ void URenderer::CreateDeviceAndSwapChain(HWND hWindow)
 		FeatureLevels, ARRAYSIZE(FeatureLevels), D3D11_SDK_VERSION,
 		&SwapChainDesc, &SwapChain, &Device, nullptr, &DeviceContext);
 
-	Microsoft::WRL::ComPtr<IDXGIDevice1> DxgiDevice;
-	if (SUCCEEDED(Device->QueryInterface(IID_PPV_ARGS(&DxgiDevice))))
+	Microsoft::WRL::ComPtr<IDXGISwapChain2> SwapChain2;
+	if (SUCCEEDED(SwapChain->QueryInterface(IID_PPV_ARGS(&SwapChain2))))
 	{
-		DxgiDevice->SetMaximumFrameLatency(1);
+		SwapChain2->SetMaximumFrameLatency(1);
+		FrameLatencyWaitableObject = SwapChain2->GetFrameLatencyWaitableObject();
+	}
+	else
+	{
+		Microsoft::WRL::ComPtr<IDXGIDevice1> DxgiDevice;
+		if (SUCCEEDED(Device->QueryInterface(IID_PPV_ARGS(&DxgiDevice))))
+		{
+			DxgiDevice->SetMaximumFrameLatency(1);
+		}
 	}
 
 	SwapChain->GetDesc(&SwapChainDesc);
@@ -143,6 +152,7 @@ void URenderer::ReleaseDeviceAndSwapChain()
 	{
 		SwapChain->Release();
 		SwapChain = nullptr;
+		FrameLatencyWaitableObject = nullptr;
 	}
 
 	if (Device)
@@ -815,7 +825,7 @@ void URenderer::OnResize(UINT width, UINT height)
 	DepthStencilBuffer->Release();
 	DepthStencilView->Release();
 
-	SwapChain->ResizeBuffers(0, 0, 0, DXGI_FORMAT_UNKNOWN, DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING);
+	SwapChain->ResizeBuffers(0, 0, 0, DXGI_FORMAT_UNKNOWN, DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING | DXGI_SWAP_CHAIN_FLAG_FRAME_LATENCY_WAITABLE_OBJECT);
 
 	Width = width;
 	Height = height;
