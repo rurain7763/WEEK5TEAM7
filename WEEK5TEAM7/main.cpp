@@ -1,4 +1,7 @@
 ﻿#include <windows.h>
+#include <nvapi.h>
+#include <NvApiDriverSettings.h>
+#include "NvapiHelpers.h"
 
 #include "Sphere.h"
 #include "Renderer.h"
@@ -142,6 +145,29 @@ void ProcessMessage(bool& bIsExit)
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd)
 {
+	// nvAPI >>>>>>>>>>>>>>>>>>>>>>
+	NvAPI_Status status = NvAPI_Initialize();
+	if (status == NVAPI_OK)
+	{
+		status = nvapi_example::WriteDwordSettingForCurrentExecutable(
+			PREFERRED_PSTATE_STRING,
+			PREFERRED_PSTATE_PREFER_MAX);
+	}
+
+	if (status != NVAPI_OK)
+	{
+		NvAPI_ShortString errorDesc = { 0 };
+		NvAPI_GetErrorMessage(status, errorDesc);
+		char debugMsg[256];
+		sprintf_s(debugMsg, "[NVAPI] WriteDwordSetting failed! Code: %d (%s)\n", status, errorDesc);
+		OutputDebugStringA(debugMsg);
+		if (IsDebuggerPresent())
+		{
+			__debugbreak();
+		}
+	}
+	// nvAPI <<<<<<<<<<<<<<<<<<<<<<<
+
 	GEngineLoop.Init(hInstance, WndProc);
 
 	// Main Loop

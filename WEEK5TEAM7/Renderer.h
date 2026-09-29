@@ -2,7 +2,6 @@
 
 #include "Core.h"
 #include <d3d11.h>
-#include <dxgi1_3.h>
 #include <d3dcompiler.h>
 #include <wrl/client.h>
 #include "Matrix.h"
@@ -506,7 +505,6 @@ public:
 	FORCEINLINE void SetViewModeIndex(EViewModeIndex InViewModeIndex) { ViewModeIndex = InViewModeIndex; }
 	FORCEINLINE TSharedPtr<FRenderTarget2D> GetBindedRenderTarget() const { return BindedRenderTarget; }
 	FORCEINLINE TSharedPtr<FDepthStencil> GetBindedDepthStencil() const { return BindedDepthStencil; }
-	FORCEINLINE HANDLE GetFrameLatencyWaitableObject() const { return FrameLatencyWaitableObject; }
 
 	mutable uint64 DrawCallCount = 0;
 	uint64 GetDrawCallCount() const { return DrawCallCount; }
@@ -532,7 +530,6 @@ private:
     ID3D11Device* Device = nullptr;
     ID3D11DeviceContext* DeviceContext = nullptr;
     IDXGISwapChain* SwapChain = nullptr;
-	HANDLE FrameLatencyWaitableObject = nullptr;
 
 	FSamplerStatePool SamplerStatePool;
 	FDepthStencilStatePool DepthStencilStatePool;
