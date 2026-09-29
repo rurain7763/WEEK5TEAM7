@@ -272,16 +272,6 @@ void FEngineLoop::Tick(bool bPumpMessages)
 
 	if (GInTick) return;
 	GInTick = true;
-	PROFILE_FUNCTION();
-
-	if (mGraphicsManager && mGraphicsManager->GetRenderer())
-	{
-		HANDLE hWaitableObject = mGraphicsManager->GetRenderer()->GetFrameLatencyWaitableObject();
-		if (hWaitableObject)
-		{
-			WaitForSingleObjectEx(hWaitableObject, 1000, TRUE);
-		}
-	}
 
 	FrameTimer->StartFrame();
 	float deltaTime = FrameTimer->GetDeltaTime();
