@@ -121,6 +121,24 @@ void UStaticMeshComponent::Render(FRenderCollector& RenderCollector)
     }
 }
 
+bool UStaticMeshComponent::RayCastComponent(const FPickingRay& PickingRay, float& OutHitT) const
+{
+    if (!mMeshAsset) return false;
+
+    const FMatrix& InvWorld = GetTransform().InverseMatrix();
+    if (InvWorld == FMatrix::Zero) return false;
+
+    // 에셋의 트리는 로컬 좌표계이므로 월드 Ray의 양 끝점을 역행렬로 변환합니다.
+    // 변환된 끝점으로 방향과 길이를 다시 구하면 비균일·음수 스케일에도 대응합니다.
+    const FPickingRay LocalRay(InvWorld.TransformPosition(PickingRay.Near),
+        InvWorld.TransformPosition(PickingRay.Far));
+
+    // 전체 삼각형 순회 대신 공유 트리에서 후보를 찾고 해당 삼각형만 검사합니다.
+    // 반환 T는 원래 Near~Far 구간의 비율(0~1)이므로 호출자의 최단 거리 비교에 그대로 사용합니다.
+    // 향후 외부 BVH가 최단 거리를 제공하면 네 번째 인자로 BestWorldDistance / PickingRay.Length를 전달합니다.
+    return mMeshAsset->RayCastLocal(LocalRay, OutHitT);
+}
+
 FAABB UStaticMeshComponent::GetBoundingBox() const
 {
     if (!mMeshAsset)
