@@ -6,6 +6,7 @@
 #include "RayCast.h"
 #include <algorithm>
 #include <cmath>
+#include <limits>
 
 struct FSpatialEntry
 {
@@ -43,7 +44,9 @@ struct FFrustumQueryResult
 class FSpatialOctree
 {
 public:
-    void Build(const TArray<FSpatialEntry>& InEntries)
+    // GridSize는 객체 중심 배치의 기준 간격입니다. 0이면 기존 루트 크기 정책을 사용합니다.
+    // 기본 1은 현재 테스트 씬의 월드 단위 격자에 맞춘 값이며 자동 추정값이 아닙니다.
+    void Build(const TArray<FSpatialEntry>& InEntries, float GridSize = 1.0f)
     {
         Entries.Empty();
         // 유효하지 않은 경계는 등록하지 않습니다. 조회 중에는 다시 검증하지 않습니다.
@@ -52,6 +55,7 @@ public:
         Nodes.Empty();
         EntryIndices.Empty();
         Root = Invalid;
+        StraddlingEntryCount = 0;
         TArray<uint32> Indices;
         FAABB Bounds;
         for (uint32 I = 0; I < static_cast<uint32>(Entries.Num()); ++I)
@@ -75,6 +79,7 @@ public:
             Cube.Max[Axis] = (std::max)(Bounds.Max[Axis], Bounds.Min[Axis] + Side);
         // 극단적인 좌표에서 루트 확장이 넘치면 기존 합집합 경계를 사용합니다.
         if (!IsValidBounds(Cube)) Cube = Bounds;
+        Cube = MakeAlignedRoot(Bounds, Cube, GridSize);
         Root = BuildNode(Cube, Indices, 0);
     }
 
@@ -145,7 +150,7 @@ public:
             if (Root != Invalid)
             {
                 ++Stats.VisitedNodes;
-                if (RaySlab(Prepared, Nodes[Root].Bounds, BestDistance, Enter))
+                if (RaySlab(Prepared, Nodes[Root].ContentBounds, BestDistance, Enter))
                     VisitRayNode(Root, Prepared, BestDistance, Visit, Stats);
             }
         }
@@ -163,6 +168,9 @@ public:
             }
         }
     }
+
+    // 분할을 시도했지만 어느 자식에도 완전히 들어가지 못한 객체 수입니다.
+    uint32 GetStraddlingEntryCount() const { return StraddlingEntryCount; }
 
     uint32 GetNodeCount() const { return static_cast<uint32>(Nodes.Num()); }
     uint32 GetEntryCount() const { return static_cast<uint32>(Entries.Num()); }
@@ -185,12 +193,13 @@ public:
     }
 
 private:
-    static constexpr uint32 Invalid = ~uint32{0};
+    static constexpr uint32 Invalid = ~uint32{ 0 };
     static constexpr uint32 MaxDepth = 10;
     static constexpr int32 LeafCapacity = 32;
     struct FNode
     {
-        FAABB Bounds;
+        // 조회용 경계입니다. 분할용 셀은 구축 인자로만 전달합니다.
+        FAABB ContentBounds;
         uint32 Children[8] = { Invalid, Invalid, Invalid, Invalid, Invalid, Invalid, Invalid, Invalid };
         uint32 FirstEntry = 0;
         uint32 EntryCount = 0;
@@ -241,6 +250,35 @@ private:
         return true;
     }
 
+    static FAABB MakeAlignedRoot(const FAABB& Bounds, const FAABB& Fallback, float GridSize)
+    {
+        if (!std::isfinite(GridSize) || GridSize <= 0) return Fallback;
+        const double Unit = GridSize;
+        double Minimum[3];
+        double RequiredSide = Unit;
+        for (uint32 Axis = 0; Axis < 3; ++Axis)
+        {
+            // 정수 배치 중심 사이의 반 칸 경계로 내립니다. 음수 좌표도 floor로 처리합니다.
+            Minimum[Axis] = (std::floor(static_cast<double>(Bounds.Min[Axis]) / Unit + 0.5) - 0.5) * Unit;
+            RequiredSide = (std::max)(RequiredSide, static_cast<double>(Bounds.Max[Axis]) - Minimum[Axis]);
+        }
+        // 기준 간격에 도달할 때까지 반으로 나눈 길이가 간격의 정수 배수가 되도록 확장합니다.
+        double Side = Unit;
+        while (Side < RequiredSide) Side *= 2;
+        FAABB Result;
+        for (uint32 Axis = 0; Axis < 3; ++Axis)
+        {
+            const double Maximum = Minimum[Axis] + Side;
+            // float로 표현할 수 없는 극단적인 좌표에서는 기존 안전한 루트를 유지합니다.
+            if (Minimum[Axis] < -(std::numeric_limits<float>::max)()
+                || Maximum > (std::numeric_limits<float>::max)()) return Fallback;
+            Result.Min[Axis] = static_cast<float>(Minimum[Axis]);
+            Result.Max[Axis] = static_cast<float>(Maximum);
+        }
+        // 반올림 때문에 객체 일부가 루트 밖으로 나가면 정렬을 포기합니다. 객체 경계는 줄이지 않습니다.
+        return IsValidBounds(Result) && Contains(Result, Bounds) ? Result : Fallback;
+    }
+
     static bool Contains(const FAABB& Outer, const FAABB& Inner)
     {
         for (uint32 Axis = 0; Axis < 3; ++Axis)
@@ -262,23 +300,34 @@ private:
         return Result;
     }
 
-    uint32 BuildNode(const FAABB& Bounds, const TArray<uint32>& Indices, uint32 Depth)
+    static void ExpandBounds(FAABB& Target, const FAABB& Other)
+    {
+        Target.ExpandToInclude(Other.Min);
+        Target.ExpandToInclude(Other.Max);
+    }
+
+    uint32 BuildNode(const FAABB& CellBounds, const TArray<uint32>& Indices, uint32 Depth)
     {
         FNode Node;
-        Node.Bounds = Bounds;
+        // 생성되는 노드는 항상 하나 이상의 유효 엔트리를 포함합니다.
+        Node.ContentBounds = Entries[Indices[0]].Bounds;
         Node.SubtreeEntryCount = static_cast<uint32>(Indices.Num());
         const uint32 Index = Nodes.Add(Node);
         if (Indices.Num() <= LeafCapacity || Depth >= MaxDepth)
         {
             Nodes[Index].FirstEntry = static_cast<uint32>(EntryIndices.Num());
             Nodes[Index].EntryCount = static_cast<uint32>(Indices.Num());
-            for (uint32 I : Indices) EntryIndices.Add(I);
+            for (uint32 I : Indices)
+            {
+                EntryIndices.Add(I);
+                ExpandBounds(Nodes[Index].ContentBounds, Entries[I].Bounds);
+            }
             return Index;
         }
         Nodes[Index].FirstEntry = static_cast<uint32>(EntryIndices.Num());
         TArray<uint32> Buckets[8];
         FAABB ChildBounds[8];
-        for (uint32 Child = 0; Child < 8; ++Child) ChildBounds[Child] = MakeChildBounds(Bounds, Child);
+        for (uint32 Child = 0; Child < 8; ++Child) ChildBounds[Child] = MakeChildBounds(CellBounds, Child);
         for (uint32 EntryIndex : Indices)
         {
             int32 Target = -1;
@@ -292,6 +341,8 @@ private:
             {
                 EntryIndices.Add(EntryIndex);
                 ++Nodes[Index].EntryCount;
+                ++StraddlingEntryCount;
+                ExpandBounds(Nodes[Index].ContentBounds, Entries[EntryIndex].Bounds);
             }
             else Buckets[Target].Add(EntryIndex);
         }
@@ -301,6 +352,8 @@ private:
             const uint32 ChildIndex = BuildNode(ChildBounds[Child], Buckets[Child], Depth + 1);
             // 재귀 중 재할당될 수 있으므로 노드 참조 대신 인덱스를 사용합니다.
             Nodes[Index].Children[Child] = ChildIndex;
+            // 자식이 계산한 합집합을 재사용하므로 하위 엔트리를 다시 순회하지 않습니다.
+            ExpandBounds(Nodes[Index].ContentBounds, Nodes[ChildIndex].ContentBounds);
         }
         return Index;
     }
@@ -322,7 +375,7 @@ private:
         ++Stats.VisitedNodes;
         const FNode& Node = Nodes[Index];
         bool bFullyInside;
-        if (!Frustum.Intersects(Node.Bounds, bFullyInside)) return;
+        if (!Frustum.Intersects(Node.ContentBounds, bFullyInside)) return;
         if (bFullyInside)
         {
             if (Index == Root)
@@ -371,7 +424,7 @@ private:
             if (Child == Invalid) continue;
             ++Stats.VisitedNodes;
             float Enter;
-            if (!RaySlab(Ray, Nodes[Child].Bounds, BestDistance, Enter)) continue;
+            if (!RaySlab(Ray, Nodes[Child].ContentBounds, BestDistance, Enter)) continue;
             uint32 Position = Count++;
             while (Position > 0 && Hits[Position - 1].Enter > Enter)
             {
@@ -392,4 +445,5 @@ private:
     TArray<FNode> Nodes;
     TArray<uint32> EntryIndices;
     uint32 Root = Invalid;
+    uint32 StraddlingEntryCount = 0;
 };
