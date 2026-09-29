@@ -263,6 +263,7 @@ void FGraphicsManager::Render()
 
 		mRenderer->RenderPrimitiveIndexed(ActivePipeline, RenderInfo);
 	}
+
 	{
 		PROFILE_SCOPE("Viewport/GraphicsRender/RenderQuad");
 

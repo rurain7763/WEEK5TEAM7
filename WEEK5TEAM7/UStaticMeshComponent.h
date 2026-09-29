@@ -11,7 +11,6 @@ public:
 	UStaticMeshComponent() = default;
 
 	using UPrimitiveComponent::Initialize;
-	void Initialize(const FString& InAssetPathFileName, FVector Location, FRotator Rotation, FVector Scale);
 
 	virtual ~UStaticMeshComponent() = default;
 
@@ -57,6 +56,13 @@ public:
 
 	FVector2 GetUVOffset(int32 index) const { return mUVOffsets[index]; }
 	void SetUVOffset(int32 index, const FVector2& InUVOffset) { mUVOffsets[index] = InUVOffset; }
+
+protected:
+	virtual void OnTransformChanged() override
+	{
+		mbAABBDirty = true;
+		Super::OnTransformChanged();
+	}
 
 private:
 	FVector4 Color = FVector4(1.f, 1.f, 1.f, 1.f);
