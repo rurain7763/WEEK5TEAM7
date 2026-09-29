@@ -1,9 +1,11 @@
-#include "Actor.h"
+﻿#include "Actor.h"
 #include "JsonUtil.h"
 #include "RenderInfo.h"
 #include "SceneComponent.h"
 #include "UTextComponent.h"
 #include "ObjectFactory.h"
+#include "World.h"
+#include "PrimitiveComponent.h"
 #include <format>
 
 AActor::~AActor()
@@ -100,6 +102,8 @@ void AActor::AddComponent(UActorComponent* actorComponent)
 
 	mComponents.Add(actorComponent);
 	actorComponent->SetOwner(this);
+	if (UPrimitiveComponent* Primitive = actorComponent->Cast<UPrimitiveComponent>())
+        Primitive->MarkSpatialDirty();
 }
 
 void AActor::AddRootSceneComponent(USceneComponent* sceneComponent)
@@ -125,6 +129,8 @@ bool AActor::RemoveComponent(uint32 componentUUID)
 	}
 
 	//mComponents.RemoveAt(componentIndex, 1);
+	if (UPrimitiveComponent* Primitive = mComponents[componentIndex]->Cast<UPrimitiveComponent>())
+        Primitive->MarkSpatialDirty();
 	mComponents.RemoveAtSwap(componentIndex);
 
 	return true;
@@ -236,6 +242,11 @@ void AActor::SetScale(FVector scale)
 	{
 		mRootComponent->SetRelativeScale3D(scale);
 	}
+}
+
+void AActor::MarkSpatialDirty()
+{
+	if (mWorld) mWorld->MarkSpatialDirty();
 }
 
 int32 AActor::getComponentIndex(int32 componentUUID) const

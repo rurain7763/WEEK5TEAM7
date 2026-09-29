@@ -1,4 +1,4 @@
-#include "FEditorViewportClient.h"
+﻿#include "FEditorViewportClient.h"
 
 #include "Cube.h"
 #include "Sphere.h"
@@ -18,6 +18,7 @@
 #include "EngineMathLibrary.h"
 #include "PrimitiveComponent.h"
 #include "RayCast.h"
+#include "World.h"
 
 FEditorViewportClient::FEditorViewportClient(URenderer& InRenderer)
 	: mCamera(FTransform({ -2.0f, 1.0f, 1.0f }, { 0, 30, 0 }, { 1, 1, 1 }))
@@ -99,9 +100,19 @@ AActor* FEditorViewportClient::PerformMousePicking(const FRect& ViewportRect, fl
 	float NearlistT = FLT_MAX;
 	AActor* NearestActor = nullptr;
 	const FPickingRay PickingRay(NearPoint, FarPoint);
+    if (RenderCollector.SpatialWorld)
+    {
+		// Octree가 구현되어 있는 경우, octree를 이용한 ray cast로 처리한다
+        UPrimitiveComponent* Hit = RenderCollector.SpatialWorld->RayCastClosest(PickingRay);
+        return Hit ? Hit->GetOwner() : nullptr;
+    }
+
+
+
+    const TArray<UPrimitiveComponent*>& PickTargets = RenderCollector.PickTargets;
 
 	// 충돌 판정은 컴포넌트가 스스로 한다. 여기서는 어느 것이 가장 가까운지만 고른다.
-	for (UPrimitiveComponent* PickTarget : RenderCollector.PickTargets)
+	for (UPrimitiveComponent* PickTarget : PickTargets)
 	{
 		float HitT = FLT_MAX;
 		if (!PickTarget->RayCastComponent(PickingRay, HitT))

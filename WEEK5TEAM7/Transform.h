@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "Vector.h"
 #include "Rotator.h"
 #include "Matrix.h"
@@ -13,6 +13,27 @@ struct FTransform
 {
 public:
 	FTransform(){ }
+	// 값 복사는 변경 알림의 소유자를 복사하지 않습니다.
+	FTransform(const FTransform& Other)
+		: Location(Other.Location), Rotation(Other.Rotation), Scale(Other.Scale) {}
+	FTransform& operator=(const FTransform& Other)
+	{
+		if (this != &Other)
+		{
+            if (Location == Other.Location && Rotation == Other.Rotation && Scale == Other.Scale)
+                return *this;
+            Location = Other.Location;
+            Rotation = Other.Rotation;
+            Scale = Other.Scale;
+            MarkChanged();
+		}
+		return *this;
+	}
+	void SetChangeCallback(void* Context, void (*Callback)(void*))
+	{
+		ChangeContext = Context;
+		OnChanged = Callback;
+	}
 	FTransform(FVector _Location, FRotator _Rotation, FVector _Scale) : Location(_Location), Rotation(_Rotation), Scale(_Scale)
 	{
 	}
@@ -44,9 +65,7 @@ public:
 		}
 
 		Location = InLocation; 
-		mbTransformDirty = true; 
-		mbInverseTransformDirty = true; 
-		++TransformVersion;
+		MarkChanged();
 	}
 
 	inline FVector GetLocation() const { return Location; }
@@ -59,9 +78,7 @@ public:
 		}
 
 		Rotation = InRotation; 
-		mbTransformDirty = true; 
-		mbInverseTransformDirty = true; 
-		++TransformVersion;
+		MarkChanged();
 	}
 
 	inline FRotator GetRotation() const { return Rotation; }
@@ -74,9 +91,7 @@ public:
 		}
 
 		Scale = InScale; 
-		mbTransformDirty = true; 
-		mbInverseTransformDirty = true;
-		++TransformVersion;
+		MarkChanged();
 	}
 
 	inline FVector GetScale() const { return Scale; }
@@ -84,6 +99,15 @@ public:
 	inline uint32 GetTransformVersion() const { return TransformVersion; }
 
 private:
+    // 행렬 캐시, 버전, 외부 알림을 한 곳에서 갱신합니다.
+    void MarkChanged()
+    {
+        mbTransformDirty = true;
+        mbInverseTransformDirty = true;
+        ++TransformVersion;
+        if (OnChanged) OnChanged(ChangeContext);
+    }
+
 	void EnsureUpdateTransformMatrix() const
 	{
 		if (!mbTransformDirty)
@@ -100,6 +124,8 @@ private:
 	FRotator Rotation = FRotator(0, 0, 0);
 	FVector Scale = FVector(1);
 	uint32 TransformVersion = 1;
+	void* ChangeContext = nullptr;
+	void (*OnChanged)(void*) = nullptr;
 
 	mutable bool mbTransformDirty = true;
 	mutable FMatrix mTransformMatrix;

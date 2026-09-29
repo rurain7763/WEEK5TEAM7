@@ -4,6 +4,7 @@
 #include "Actor.h"
 #include "RenderInfo.h"
 #include "FFrustum.h"
+#include "FWorldOctreeManager.h"
 
 class UWorld final : public UObject
 {
@@ -23,6 +24,15 @@ public:
 	void Tick(float deltaTime);
 	void Render(float deltaTime, FRenderCollector& outCollector);
 
+	void MarkSpatialDirty() { OctreeManager.MarkDirty(); }
+	void QueryPickTargets(const FPickingRay& Ray, TArray<UPrimitiveComponent*>& OutTargets);
+	UPrimitiveComponent* RayCastClosest(const FPickingRay& Ray);
+	const FSpatialQueryStats& GetCullingStats() const { return OctreeManager.GetCullingStats(); }
+	const FSpatialQueryStats& GetPickingStats() const { return OctreeManager.GetPickingStats(); }
+	uint32 GetSpatialBuildCount() const { return OctreeManager.GetBuildCount(); }
+	uint32 GetSpatialEntryCount() const { return OctreeManager.GetEntryCount(); }
+	uint32 GetSpatialNodeCount() const { return OctreeManager.GetNodeCount(); }
+
 private:
 	int32 getActorIndex(uint32 actorUUID) const;
 
@@ -34,4 +44,6 @@ private:
 	
 	// Todo: Must reserve
 	TArray<AActor*> mActors;
+
+	FWorldOctreeManager OctreeManager;
 };

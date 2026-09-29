@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "SceneComponent.h"
 #include "Assets.h"
@@ -10,6 +10,8 @@ class UPrimitiveComponent : public USceneComponent
 
 public:
 	UPrimitiveComponent();
+	// 공간 경계나 등록 상태가 변경되었음을 월드에 전달합니다.
+	void MarkSpatialDirty();
 
 	//void Initialize(GraphicsManager* graphicsManager, EPrimitive ePrimitive);
 	//void Initialize(GraphicsManager* graphicsManager, EPrimitive ePrimitive, FVector location, FRotator rotation, FVector scale3D);

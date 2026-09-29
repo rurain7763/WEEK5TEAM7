@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "Vector.h"
 #include "Matrix.h"
@@ -9,6 +9,10 @@ struct FAABB
 	FVector Max;
 
 	FAABB() = default;
+
+    // 기본값을 미설정 경계로 예약합니다. 원점의 크기 0인 점도 등록하지 않습니다.
+    static FAABB Invalid() { return FAABB(); }
+    bool IsUnset() const { return Min == FVector(0) && Max == FVector(0); }
 	FAABB(const FVector& InMin, const FVector& InMax)
 		: Min(InMin)
 		, Max(InMax)

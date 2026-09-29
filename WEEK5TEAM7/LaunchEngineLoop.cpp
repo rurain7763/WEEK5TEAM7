@@ -217,19 +217,43 @@ static void RenderPerformanceOverlay(FRenderCollector& RenderCollector, FFrameTi
 	auto PickStat = FInstrumentor::Get().GetRealtimeStats("MousePicking");
 
 	const bool bCullingEnabled = FShowFlags::Get().IsEnabled(EShowFlag::FrustumCulling);
+	const UWorld* SpatialWorld = RenderCollector.SpatialWorld;
+	const FSpatialQueryStats SpatialStats = SpatialWorld ? SpatialWorld->GetCullingStats() : FSpatialQueryStats{};
+	const uint32 TotalEntries = SpatialWorld ? SpatialWorld->GetSpatialEntryCount() : 0;
+	const uint32 CulledEntries = TotalEntries >= SpatialStats.AcceptedEntries
+		? TotalEntries - SpatialStats.AcceptedEntries : 0;
+	const float CulledPercent = TotalEntries ? 100.0f * CulledEntries / TotalEntries : 0.0f;
+	// 현재 뷰포트의 조회가 끝난 직후이므로 마지막 조회 시간을 표시합니다.
+	const auto QueryStat = FInstrumentor::Get().GetRealtimeStats("World/OctreeQuery");
 
 	std::wstring PerformanceText = std::format(
 		L"Resolution: {}x{} (Viewport: {}x{})\n"
 		L"FPS: {:.1f} ({:.2f} ms)\n"
 		L"Last Picking: {:.3f} ms\n"
 		L"Picking Count: {}\n"
-		L"Total Picking Time: {:.3f} ms",
+		L"Total Picking Time: {:.3f} ms\n"
+		L"Cull: {} / Octree: {}\n"
+		L"Visible meshes: {} / {}\n"
+		L"Culled meshes: {} ({:.1f}%)\n"
+		L"Octree nodes: {} / Visited: {}\n"
+		L"Object AABB tests: {}\n"
+		L"Cull query: {:.3f} ms\n"
+		L"Tree builds (total): {}",
 		MonitorWidth, MonitorHeight,
 		ViewWidth, ViewHeight,
 		FPS, FrameTimeMs,
 		PickStat.LastDurationMs,
 		PickStat.CallCount,
-		PickStat.TotalDurationMs
+		PickStat.TotalDurationMs,
+		bCullingEnabled ? L"ON" : L"OFF",
+		FShowFlags::Get().IsEnabled(EShowFlag::Octree) ? L"ON" : L"OFF",
+		SpatialStats.AcceptedEntries,
+		TotalEntries,
+		CulledEntries, CulledPercent,
+		SpatialWorld ? SpatialWorld->GetSpatialNodeCount() : 0,
+		SpatialStats.VisitedNodes, SpatialStats.TestedEntries,
+		SpatialWorld ? QueryStat.LastDurationMs : 0.0f,
+		SpatialWorld ? SpatialWorld->GetSpatialBuildCount() : 0
 	);
 
 	// 텍스트 전체의 픽셀 Width Height

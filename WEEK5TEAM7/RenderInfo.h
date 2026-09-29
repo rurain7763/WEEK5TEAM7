@@ -11,6 +11,7 @@
 class FCamera;
 class UPrimitiveComponent;
 class FRenderPipeline;
+class UWorld;
 
 inline uint64 MakeRenderSortKey(uint16 pipelineID, uint32 materialID, uint32 meshID)
 {
@@ -90,6 +91,8 @@ public:
 	FCamera* Camera = nullptr;
 	FFrustum Frustum;
 	bool bNeedPickTargets = false;
+	// 월드가 있으면 클릭 시 공간 트리에서 별도로 피킹 후보를 조회합니다.
+	UWorld* SpatialWorld = nullptr;
 
 	TArray<FRenderInfo> RenderInfos; // 메시 패스
 	TArray<FRenderLineInfo> LineInfos; // 라인 패스
@@ -146,6 +149,7 @@ public:
 	inline void Clear()
 	{
 		bNeedPickTargets = false;
+		SpatialWorld = nullptr;
 		RenderInfos.Reset(DEFAULT_RESERVE_MEM);
 		LineInfos.Reset(DEFAULT_RESERVE_MEM);
 		PickTargets.Reset(DEFAULT_RESERVE_MEM);

@@ -1,4 +1,4 @@
-#include "World.h"
+﻿#include "World.h"
 
 #include <format>
 
@@ -6,11 +6,15 @@
 #include "JsonUtil.h"
 #include "Console.h"
 #include "ObjectFactory.h"
+#include "FInstrumentor.h"
+#include "ShowFlags.h"
+#include "PrimitiveComponent.h"
 
 UWorld::~UWorld()
 {
 	for (AActor* removeActor : mActors)
 	{
+		removeActor->mWorld = nullptr;
 		FObjectFactory::DestroyObject(removeActor);
 	}
 }
@@ -67,6 +71,9 @@ void UWorld::AddActor(AActor* actor)
 	assert(getActorIndex(actor->UUID) == -1);
 
 	mActors.Add(actor);
+	assert(actor->mWorld == nullptr);
+	actor->mWorld = this;
+	MarkSpatialDirty();
 
 	// TODO: 전처리를 통해 에디터 모드가 아니면 아래 코드를 컴파일하지 않게 막아야함.
 	actor->CreateEditorComponents();
@@ -81,7 +88,9 @@ bool UWorld::RemoveActor(uint32 componentUUID)
 	}
 
 	//mActors.RemoveAt(componentIndex, 1);
+	mActors[componentIndex]->mWorld = nullptr;
 	mActors.RemoveAtSwap(componentIndex);
+	MarkSpatialDirty();
 
 	return true;
 }
@@ -96,10 +105,21 @@ void UWorld::Tick(float deltaTime)
 
 void UWorld::Render(float deltaTime, FRenderCollector& outCollector)
 {
-	for (AActor* actor : mActors)
-	{
-		actor->Render(outCollector);
-	}
+    OctreeManager.EnsureBuilt(mActors);
+    outCollector.SpatialWorld = this;
+    OctreeManager.Render(outCollector);
+}
+
+void UWorld::QueryPickTargets(const FPickingRay& Ray, TArray<UPrimitiveComponent*>& OutTargets)
+{
+    OctreeManager.EnsureBuilt(mActors);
+    OctreeManager.QueryPickTargets(Ray, OutTargets);
+}
+
+UPrimitiveComponent* UWorld::RayCastClosest(const FPickingRay& Ray)
+{
+    OctreeManager.EnsureBuilt(mActors);
+    return OctreeManager.RayCastClosest(Ray);
 }
 
 int32 UWorld::getActorIndex(uint32 actorUUID) const

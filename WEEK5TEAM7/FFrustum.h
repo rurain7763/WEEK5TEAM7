@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "Core.h"
 #include "Vector.h"
@@ -119,31 +119,42 @@ struct FFrustum
 	FPlane& Far() { return Planes[5]; }
 	const FPlane& Far() const { return Planes[5]; }
 
-	bool Intersects(const FAABB& BoundingBox) const
-	{
-		const FVector Center = (BoundingBox.Min + BoundingBox.Max) * 0.5f;
-		const FVector Extent = (BoundingBox.Max - BoundingBox.Min) * 0.5f;
+    bool Intersects(const FAABB& Bounds) const
+    {
+        bool Unused;
+        return IntersectsInternal<false>(Bounds, Unused);
+    }
 
-		for (int i = 0; i < 6; ++i)
-		{
-			const FPlane& Plane = Planes[i];
+    // 교차 여부와 완전 포함 여부를 같은 평면 계산에서 얻습니다.
+    bool Intersects(const FAABB& Bounds, bool& OutFullyInside) const
+    {
+        return IntersectsInternal<true>(Bounds, OutFullyInside);
+    }
 
-			// 박스의 반경을 평면 법선에 투영
-			const float Radius = Extent.x * Plane.AbsNormal.x +
-				Extent.y * Plane.AbsNormal.y +
-				Extent.z * Plane.AbsNormal.z;
+private:
+    template<bool bCheckContainment>
+    bool IntersectsInternal(const FAABB& Bounds, bool& OutFullyInside) const
+    {
+        const FVector Center = Bounds.Min * 0.5f + Bounds.Max * 0.5f;
+        const FVector Extent = Bounds.Max * 0.5f - Bounds.Min * 0.5f;
+        if constexpr (bCheckContainment) OutFullyInside = true;
+        for (const FPlane& Plane : Planes)
+        {
+            const float Radius = FVector::dot(Extent, Plane.AbsNormal);
+            const float Distance = Plane.DistanceToPoint(Center);
+            if (Distance < -Radius)
+            {
+                if constexpr (bCheckContainment) OutFullyInside = false;
+                return false;
+            }
+            // 개별 객체의 교차 검사에서는 포함 판정 코드를 생성하지 않습니다.
+            if constexpr (bCheckContainment)
+                if (!(Distance >= Radius)) OutFullyInside = false;
+        }
+        return true;
+    }
 
-			const float Distance = Plane.DistanceToPoint(Center);
-
-			if (Distance < -Radius)
-			{
-				return false;
-			}
-		}
-
-		return true;
-	}
-
+public:
 	static FFrustum Create(const FMatrix& ViewProjection)
 	{
 		FFrustum Frustum;

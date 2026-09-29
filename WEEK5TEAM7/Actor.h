@@ -41,11 +41,15 @@ public:
 	void SetLocation(FVector location);
 	void SetRotation(FRotator rotation);
 	void SetScale(FVector scale);
+	void MarkSpatialDirty();
+	UWorld* GetWorld() const { return mWorld; }
 
 private:
 	int32 getComponentIndex(int32 componentUUID) const;
 
 private:
+	friend class UWorld;
+	UWorld* mWorld = nullptr;
 	
 	USceneComponent* mRootComponent = nullptr;
 	TArray<UActorComponent*> mComponents;

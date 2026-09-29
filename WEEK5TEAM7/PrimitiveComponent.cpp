@@ -1,4 +1,4 @@
-
+﻿
 #include "PrimitiveComponent.h"
 
 #include <format>
@@ -21,6 +21,16 @@
 
 UPrimitiveComponent::UPrimitiveComponent()
 {
+    // 공간 컴포넌트만 변경 알림을 설치합니다. 일반 SceneComponent에는 설치하지 않습니다.
+    GetTransform().SetChangeCallback(this, [](void* Context)
+    {
+        static_cast<UPrimitiveComponent*>(Context)->MarkSpatialDirty();
+    });
+}
+
+void UPrimitiveComponent::MarkSpatialDirty()
+{
+    if (mOwner) mOwner->MarkSpatialDirty();
 }
 
 /*
@@ -71,7 +81,7 @@ void UPrimitiveComponent::RegisterPickTarget(FRenderCollector& RenderCollector)
 
 FAABB UPrimitiveComponent::GetBoundingBox() const
 {
-	return FAABB();
+	return FAABB::Invalid();
 }
 
 const TArray<FVertex>& UPrimitiveComponent::GetMeshVertices() const

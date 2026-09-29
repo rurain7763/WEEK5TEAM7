@@ -1,4 +1,4 @@
-#include "UStaticMeshComponent.h"
+﻿#include "UStaticMeshComponent.h"
 #include "FAssetManager.h"
 #include "RenderInfo.h"
 #include "ShowFlags.h"
@@ -100,12 +100,6 @@ void UStaticMeshComponent::Render(FRenderCollector& RenderCollector)
     }
 
 
-	const FAABB BoundingBox = GetBoundingBox();
-	if (!RenderCollector.Frustum.Intersects(BoundingBox))
-	{
-		return;
-	}
-
 	const FTransform& Transform = GetTransform();
 
     for (int32 SectionIndex = 0; SectionIndex < mMeshAsset->GetSections().Num(); ++SectionIndex)
@@ -140,7 +134,7 @@ FAABB UStaticMeshComponent::GetBoundingBox() const
 {
     if (!mMeshAsset)
     {
-        return FAABB();
+        return FAABB::Invalid();
     }
 
     const FTransform& Transform = GetTransform();
@@ -158,6 +152,7 @@ FAABB UStaticMeshComponent::GetBoundingBox() const
 void UStaticMeshComponent::SetMesh(const TSharedPtr<FStaticMeshAsset>& InMesh)
 {
     mbAABBDirty = true;
+	MarkSpatialDirty();
 
     if (!InMesh)
     {

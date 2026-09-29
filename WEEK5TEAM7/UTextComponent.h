@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "SceneComponent.h"
 #include "PrimitiveComponent.h"
@@ -94,7 +94,7 @@ public:
 	{
 		if (!mMeshAsset)
 		{
-			return FAABB();
+			return FAABB::Invalid();
 		}
 
 		return mMeshAsset->GetLocalBoundingBox().ToWorld(GetTransform().MakeMatrix());
