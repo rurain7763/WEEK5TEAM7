@@ -10,7 +10,7 @@ class UPrimitiveComponent : public USceneComponent
 
 public:
 	UPrimitiveComponent();
-	// 공간 경계나 등록 상태가 변경되었음을 월드에 전달합니다.
+	// 경계 변경을 월드의 부분 갱신 목록에 전달합니다. 등록 변경은 Actor가 별도 통지합니다.
 	void MarkSpatialDirty();
 
 	//void Initialize(GraphicsManager* graphicsManager, EPrimitive ePrimitive);
@@ -41,6 +41,12 @@ public:
 	// 기본 구현은 AABB로 먼저 거르고 메시의 삼각형과 판정한다.
 	// 다른 충돌 모양이 필요한 컴포넌트는 이 함수를 재정의한다.
 	virtual bool RayCastComponent(const FPickingRay& PickingRay, float& OutHitT) const;
+private:
+    friend class FWorldOctreeManager;
+    // 등록 슬롯과 재구축 세대를 통해 전체 검색 없이 자신을 찾습니다.
+    uint32 SpatialRegistrationIndex = ~uint32{0};
+    uint64 SpatialRegistrationGeneration = 0;
+
 };
 
 

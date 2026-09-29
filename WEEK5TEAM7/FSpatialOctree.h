@@ -53,6 +53,8 @@ public:
         for (const FSpatialEntry& Entry : InEntries)
             if (IsValidBounds(Entry.Bounds)) Entries.Add(Entry);
         Nodes.Empty();
+        NodeUpdateData.Empty();
+        EntryNodes.SetNum(Entries.Num());
         EntryIndices.Empty();
         Root = Invalid;
         StraddlingEntryCount = 0;
@@ -169,6 +171,24 @@ public:
         }
     }
 
+    // 기존 셀 안의 경계 변경만 허용합니다. 실패하면 호출자가 전체 재구축합니다.
+    // EntryIndex는 구축 시 유효한 입력 엔트리가 저장된 순서이며 정렬 위치가 아닙니다.
+    bool UpdateEntryBounds(uint32 EntryIndex, const FAABB& NewBounds)
+    {
+        if (EntryIndex >= static_cast<uint32>(Entries.Num()) || !IsValidBounds(NewBounds)) return false;
+        uint32 NodeIndex = EntryNodes[EntryIndex];
+        if (!Contains(NodeUpdateData[NodeIndex].CellBounds, NewBounds)) return false;
+        Entries[EntryIndex].Bounds = NewBounds;
+        // 축소는 재구축까지 미룹니다. 이미 포함하는 조상을 만나면 더 위도 포함하므로 끝냅니다.
+        while (NodeIndex != Invalid)
+        {
+            if (Contains(Nodes[NodeIndex].ContentBounds, NewBounds)) break;
+            ExpandBounds(Nodes[NodeIndex].ContentBounds, NewBounds);
+            NodeIndex = NodeUpdateData[NodeIndex].ParentIndex;
+        }
+        return true;
+    }
+
     // 분할을 시도했지만 어느 자식에도 완전히 들어가지 못한 객체 수입니다.
     uint32 GetStraddlingEntryCount() const { return StraddlingEntryCount; }
 
@@ -205,6 +225,13 @@ private:
         uint32 EntryCount = 0;
         // 깊이 우선 구축으로 자신과 모든 자손의 엔트리는 연속 범위에 놓입니다.
         uint32 SubtreeEntryCount = 0;
+    };
+
+    // 갱신 전용 정보는 조회 노드와 분리하여 매 프레임 순회하는 노드 크기를 유지합니다.
+    struct FNodeUpdateData
+    {
+        FAABB CellBounds;
+        uint32 ParentIndex;
     };
 
     struct FRayPrecomp
@@ -306,13 +333,14 @@ private:
         Target.ExpandToInclude(Other.Max);
     }
 
-    uint32 BuildNode(const FAABB& CellBounds, const TArray<uint32>& Indices, uint32 Depth)
+    uint32 BuildNode(const FAABB& CellBounds, const TArray<uint32>& Indices, uint32 Depth, uint32 ParentIndex = Invalid)
     {
         FNode Node;
         // 생성되는 노드는 항상 하나 이상의 유효 엔트리를 포함합니다.
         Node.ContentBounds = Entries[Indices[0]].Bounds;
         Node.SubtreeEntryCount = static_cast<uint32>(Indices.Num());
         const uint32 Index = Nodes.Add(Node);
+        NodeUpdateData.Add({ CellBounds, ParentIndex });
         if (Indices.Num() <= LeafCapacity || Depth >= MaxDepth)
         {
             Nodes[Index].FirstEntry = static_cast<uint32>(EntryIndices.Num());
@@ -320,6 +348,7 @@ private:
             for (uint32 I : Indices)
             {
                 EntryIndices.Add(I);
+                EntryNodes[I] = Index;
                 ExpandBounds(Nodes[Index].ContentBounds, Entries[I].Bounds);
             }
             return Index;
@@ -340,6 +369,7 @@ private:
             if (Target < 0)
             {
                 EntryIndices.Add(EntryIndex);
+                EntryNodes[EntryIndex] = Index;
                 ++Nodes[Index].EntryCount;
                 ++StraddlingEntryCount;
                 ExpandBounds(Nodes[Index].ContentBounds, Entries[EntryIndex].Bounds);
@@ -349,7 +379,7 @@ private:
         for (uint32 Child = 0; Child < 8; ++Child)
         {
             if (Buckets[Child].IsEmpty()) continue;
-            const uint32 ChildIndex = BuildNode(ChildBounds[Child], Buckets[Child], Depth + 1);
+            const uint32 ChildIndex = BuildNode(ChildBounds[Child], Buckets[Child], Depth + 1, Index);
             // 재귀 중 재할당될 수 있으므로 노드 참조 대신 인덱스를 사용합니다.
             Nodes[Index].Children[Child] = ChildIndex;
             // 자식이 계산한 합집합을 재사용하므로 하위 엔트리를 다시 순회하지 않습니다.
@@ -443,6 +473,8 @@ private:
 
     TArray<FSpatialEntry> Entries;
     TArray<FNode> Nodes;
+    TArray<FNodeUpdateData> NodeUpdateData;
+    TArray<uint32> EntryNodes;
     TArray<uint32> EntryIndices;
     uint32 Root = Invalid;
     uint32 StraddlingEntryCount = 0;

@@ -8,6 +8,7 @@
 #include "JsonUtil.h"
 #include "Console.h"
 #include "Actor.h"
+#include "World.h"
 #include "FAssetManager.h"
 #include "EngineMathLibrary.h"
 
@@ -30,7 +31,7 @@ UPrimitiveComponent::UPrimitiveComponent()
 
 void UPrimitiveComponent::MarkSpatialDirty()
 {
-    if (mOwner) mOwner->MarkSpatialDirty();
+    if (mOwner && mOwner->GetWorld()) mOwner->GetWorld()->MarkPrimitiveSpatialDirty(this);
 }
 
 /*

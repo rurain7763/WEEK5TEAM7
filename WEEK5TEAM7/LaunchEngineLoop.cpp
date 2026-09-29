@@ -1,4 +1,4 @@
-#include "LaunchEngineLoop.h"
+﻿#include "LaunchEngineLoop.h"
 
 // Visual Profiler
 #define ENABLE_VISUAL_PROFILING 1
@@ -238,7 +238,8 @@ static void RenderPerformanceOverlay(FRenderCollector& RenderCollector, FFrameTi
 		L"Octree nodes: {} / Visited: {}\n"
 		L"Object AABB tests: {}\n"
 		L"Cull query: {:.3f} ms\n"
-		L"Tree builds (total): {}",
+		L"Tree builds (total): {}\n"
+        L"Partial updates: {} / Batches: {}",
 		MonitorWidth, MonitorHeight,
 		ViewWidth, ViewHeight,
 		FPS, FrameTimeMs,
@@ -253,7 +254,9 @@ static void RenderPerformanceOverlay(FRenderCollector& RenderCollector, FFrameTi
 		SpatialWorld ? SpatialWorld->GetSpatialNodeCount() : 0,
 		SpatialStats.VisitedNodes, SpatialStats.TestedEntries,
 		SpatialWorld ? QueryStat.LastDurationMs : 0.0f,
-		SpatialWorld ? SpatialWorld->GetSpatialBuildCount() : 0
+		SpatialWorld ? SpatialWorld->GetSpatialBuildCount() : 0,
+        SpatialWorld ? SpatialWorld->GetSpatialUpdateCount() : 0,
+        SpatialWorld ? SpatialWorld->GetSpatialUpdateBatchCount() : 0
 	);
 
 	// 텍스트 전체의 픽셀 Width Height

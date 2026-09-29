@@ -24,7 +24,10 @@ public:
 	void Tick(float deltaTime);
 	void Render(float deltaTime, FRenderCollector& outCollector);
 
-	void MarkSpatialDirty() { OctreeManager.MarkDirty(); }
+    void MarkSpatialDirty() { OctreeManager.MarkDirty(); }
+    void MarkPrimitiveSpatialDirty(UPrimitiveComponent* Primitive) { OctreeManager.MarkPrimitiveDirty(Primitive); }
+    uint32 GetSpatialUpdateCount() const { return OctreeManager.GetUpdateCount(); }
+    uint32 GetSpatialUpdateBatchCount() const { return OctreeManager.GetUpdateBatchCount(); }
 	void QueryPickTargets(const FPickingRay& Ray, TArray<UPrimitiveComponent*>& OutTargets);
 	UPrimitiveComponent* RayCastClosest(const FPickingRay& Ray);
 	const FSpatialQueryStats& GetCullingStats() const { return OctreeManager.GetCullingStats(); }

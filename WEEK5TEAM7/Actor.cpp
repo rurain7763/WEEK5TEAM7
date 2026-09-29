@@ -102,8 +102,7 @@ void AActor::AddComponent(UActorComponent* actorComponent)
 
 	mComponents.Add(actorComponent);
 	actorComponent->SetOwner(this);
-	if (UPrimitiveComponent* Primitive = actorComponent->Cast<UPrimitiveComponent>())
-        Primitive->MarkSpatialDirty();
+	if (actorComponent->Cast<UPrimitiveComponent>()) MarkSpatialDirty();
 }
 
 void AActor::AddRootSceneComponent(USceneComponent* sceneComponent)
@@ -129,8 +128,8 @@ bool AActor::RemoveComponent(uint32 componentUUID)
 	}
 
 	//mComponents.RemoveAt(componentIndex, 1);
-	if (UPrimitiveComponent* Primitive = mComponents[componentIndex]->Cast<UPrimitiveComponent>())
-        Primitive->MarkSpatialDirty();
+	// 분리 후 즉시 삭제될 수 있으므로 부분 갱신 목록 대신 전체 등록을 무효화합니다.
+	if (mComponents[componentIndex]->Cast<UPrimitiveComponent>()) MarkSpatialDirty();
 	mComponents.RemoveAtSwap(componentIndex);
 
 	return true;
