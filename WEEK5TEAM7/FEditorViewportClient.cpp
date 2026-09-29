@@ -97,7 +97,7 @@ AActor* FEditorViewportClient::PerformMousePicking(const FRect& ViewportRect, fl
 	mRayFar = FarPoint;
 
 	float NearlistT = FLT_MAX;
-	const FPickingRay PickingRay(NearPoint, FarPoint);
+	const FPickingRay PickingRay(NearPoint, FarPoint, mCamera.Transform.GetLocation());
 
 	// 충돌 판정은 컴포넌트가 스스로 한다. 여기서는 어느 것이 가장 가까운지만 고른다.
 

@@ -1,3 +1,4 @@
+#include "Camera.h"
 #include "UStaticMeshComponent.h"
 #include "FAssetManager.h"
 #include "RenderInfo.h"
@@ -95,21 +96,24 @@ void UStaticMeshComponent::Render(FRenderCollector& RenderCollector)
 
 	const FTransform& Transform = GetTransform();
 
-    for (int32 SectionIndex = 0; SectionIndex < mMeshAsset->GetSections().Num(); ++SectionIndex)
+    const uint32 LOD = RenderCollector.Camera ? GetLODForView(RenderCollector.Camera->Transform.GetLocation()) : 0;
+    const auto& Sections = mMeshAsset->GetSections(LOD);
+    for (int32 SectionIndex = 0; SectionIndex < Sections.Num(); ++SectionIndex)
     {
-        const FStaticMeshSection& Section = mMeshAsset->GetSections()[SectionIndex];
+        const FStaticMeshSection& Section = Sections[SectionIndex];
+        if (Section.IndexCount == 0) continue;
 
         TSharedPtr<FMaterialAsset> Material = mMaterialAssets[SectionIndex];
 
         uint16 PipelineID = Material ? Material->GetPipelineID() : 1;
         uint32 MaterialID = Material ? Material->GetMaterialID() : 0;
-        uint32 MeshID = mMeshAsset ? mMeshAsset->GetMeshID() : 0;
+        uint32 MeshID = mMeshAsset->GetMeshID(LOD);
 
         FRenderInfo& RenderInfo = RenderCollector.RenderInfos.Emplace();
         RenderInfo.SortKey = MakeRenderSortKey(PipelineID, MaterialID, MeshID);
         RenderInfo.Pipeline = Material ? Material->GetPipeline() : nullptr;
-        RenderInfo.VertexBuffer = mMeshAsset->GetVertexBuffer();
-        RenderInfo.IndexBuffer = mMeshAsset->GetIndexBuffer();
+        RenderInfo.VertexBuffer = mMeshAsset->GetVertexBuffer(LOD);
+        RenderInfo.IndexBuffer = mMeshAsset->GetIndexBuffer(LOD);
         RenderInfo.StartIndex = Section.FirstIndex;
         RenderInfo.IndexCount = Section.IndexCount;
         RenderInfo.Texture = Material ? Material->GetDiffuseTexture() : nullptr;
@@ -136,7 +140,7 @@ bool UStaticMeshComponent::RayCastComponent(const FPickingRay& PickingRay, float
     // 전체 삼각형 순회 대신 공유 트리에서 후보를 찾고 해당 삼각형만 검사합니다.
     // 반환 T는 원래 Near~Far 구간의 비율(0~1)이므로 호출자의 최단 거리 비교에 그대로 사용합니다.
     // 향후 외부 BVH가 최단 거리를 제공하면 네 번째 인자로 BestWorldDistance / PickingRay.Length를 전달합니다.
-    return mMeshAsset->RayCastLocal(LocalRay, OutHitT);
+    return mMeshAsset->RayCastLocal(LocalRay, OutHitT, nullptr, 1.0f, GetLODForView(PickingRay.ViewOrigin));
 }
 
 FAABB UStaticMeshComponent::GetBoundingBox() const
@@ -177,9 +181,19 @@ void UStaticMeshComponent::SetMesh(const TSharedPtr<FStaticMeshAsset>& InMesh)
     for (int32 i = 0; i < Sections.Num(); i++)
     {
         auto& Section = Sections[i];
-        mMaterialAssets[i] = FAssetManager::Get().GetAssetAs<FMaterialAsset>(Section.MaterialAssetID, true);
+        mMaterialAssets[i] = Section.MaterialAssetID.IsValid() ? FAssetManager::Get().GetAssetAs<FMaterialAsset>(Section.MaterialAssetID, true) : nullptr;
     }
     mMeshAsset = InMesh;
 
     MarkBoundsDirty();
+}
+
+uint32 UStaticMeshComponent::GetLODForView(const FVector& ViewOrigin) const
+{
+    if (!mMeshAsset) return 0;
+    // 강제 선택은 카메라 거리와 무관하므로 중심 변환과 거리 계산을 생략합니다.
+    if (mMeshAsset->GetLODSelection().ForcedLOD >= 0) return mMeshAsset->SelectLOD(0);
+    const FAABB& Bounds = mMeshAsset->GetLocalBoundingBox();
+    const FVector Center = GetTransform().MakeMatrix().TransformPosition(Bounds.Min * .5f + Bounds.Max * .5f);
+    return mMeshAsset->SelectLOD((Center - ViewOrigin).LengthSquared());
 }
