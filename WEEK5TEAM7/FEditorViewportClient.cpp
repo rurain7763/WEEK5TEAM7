@@ -97,22 +97,97 @@ AActor* FEditorViewportClient::PerformMousePicking(const FRect& ViewportRect, fl
 	mRayFar = FarPoint;
 
 	float NearlistT = FLT_MAX;
-	AActor* NearestActor = nullptr;
 	const FPickingRay PickingRay(NearPoint, FarPoint);
 
 	// 충돌 판정은 컴포넌트가 스스로 한다. 여기서는 어느 것이 가장 가까운지만 고른다.
-	for (UPrimitiveComponent* PickTarget : RenderCollector.PickTargets)
+
+	if (RenderCollector.BVH == nullptr || !RenderCollector.BVH->IsValid())
 	{
-		float HitT = FLT_MAX;
-		if (!PickTarget->RayCastComponent(PickingRay, HitT))
+		return nullptr;
+	}
+
+	const FRay Ray = PickingRay.ToRay();
+
+	AActor* NearestActor = nullptr;
+
+	struct FBVHNodeStackEntry
+	{
+		FBVHNode* Node;
+		float EnterT;
+	};
+
+	float RootT;
+	if (!RayIntersectsAABB(Ray, PickingRay.Length, RenderCollector.BVH->GetRootNode()->BoundingBox, RootT))
+	{
+		return nullptr;
+	}
+
+	TArray<FBVHNodeStackEntry> BVHStk;
+	BVHStk.Add({ RenderCollector.BVH->GetRootNode(), RootT });
+
+	while (BVHStk.Num())
+	{
+		FBVHNodeStackEntry Entry = BVHStk.Last();
+		BVHStk.Pop();
+
+		float MaxDistance = PickingRay.Length;
+		if (NearestActor != nullptr)
+		{
+			MaxDistance = FMath::Min(MaxDistance, NearlistT * PickingRay.Length);
+		}
+
+		if (Entry.EnterT > MaxDistance)
 		{
 			continue;
 		}
 
-		if (HitT < NearlistT)
+		if (Entry.Node->IsLeaf())
 		{
-			NearlistT = HitT;
-			NearestActor = PickTarget->GetOwner();  // 가장 가까운 액터를 반환
+			for (int32 i = 0; i < Entry.Node->ItemRange.Count; ++i)
+			{
+				UPrimitiveComponent* Object = RenderCollector.BVH->GetPayload(Entry.Node->ItemRange.Offset + i);
+
+				float HitT = FLT_MAX;
+				if (!Object->RayCastComponent(PickingRay, HitT))
+				{
+					continue;
+				}
+
+				if (HitT < NearlistT)
+				{
+					NearlistT = HitT;
+					NearestActor = Object->GetOwner();  // 가장 가까운 액터를 반환
+				}
+			}
+		}
+		else
+		{
+			float LeftT, RightT;
+
+			bool bHitLeft = RayIntersectsAABB(Ray, MaxDistance, Entry.Node->Left->BoundingBox, LeftT);
+			bool bHitRight = RayIntersectsAABB(Ray, MaxDistance, Entry.Node->Right->BoundingBox, RightT);
+
+			if (bHitLeft && bHitRight)
+			{
+				if (LeftT < RightT)
+				{
+					BVHStk.Add({ Entry.Node->Right, RightT });
+					BVHStk.Add({ Entry.Node->Left, LeftT });
+				}
+				else
+				{
+					BVHStk.Add({ Entry.Node->Left, LeftT });
+					BVHStk.Add({ Entry.Node->Right, RightT });
+				}
+			}
+			else if (bHitLeft)
+			{
+				BVHStk.Add({ Entry.Node->Left, LeftT });
+			}
+			else if (bHitRight)
+			{
+				BVHStk.Add({ Entry.Node->Right, RightT });
+			}
 		}
 	}
 

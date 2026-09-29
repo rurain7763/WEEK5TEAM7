@@ -18,9 +18,11 @@
 #include "Circle.h"
 #include "Plane.h"
 #include "ShowFlags.h"
+#include "World.h"
 
 UPrimitiveComponent::UPrimitiveComponent()
 {
+	SetRenderable(true);
 }
 
 /*
@@ -61,17 +63,19 @@ void UPrimitiveComponent::Render(FRenderCollector& RenderCollector)
 {
 }
 
-void UPrimitiveComponent::RegisterPickTarget(FRenderCollector& RenderCollector)
-{
-	if (RenderCollector.bNeedPickTargets)
-	{
-		RenderCollector.PickTargets.Add(this);
-	}
-}
-
 FAABB UPrimitiveComponent::GetBoundingBox() const
 {
 	return FAABB();
+}
+
+void UPrimitiveComponent::MarkBoundsDirty()
+{
+	AActor* Owner = GetOwner();
+	UWorld* World = Owner ? Owner->GetWorld() : nullptr;
+	if (World)
+	{
+		World->MarkBoundsDirty(this);
+	}
 }
 
 const TArray<FVertex>& UPrimitiveComponent::GetMeshVertices() const
@@ -86,13 +90,6 @@ const TArray<uint32>& UPrimitiveComponent::GetMeshIndices() const
 
 bool UPrimitiveComponent::RayCastComponent(const FPickingRay& PickingRay, float& OutHitT) const
 {
-	// AABB 충돌체를 이용한 광선-메시 충돌 최적화
-	const FAABB BoundingBox = GetBoundingBox();
-	if (!RayIntersectsAABB(PickingRay.ToRay(), PickingRay.Length, BoundingBox))
-	{
-		return false;
-	}
-
 	// 메시 충돌체를 이용한 광선-삼각형 충돌 판정
 	const TArray<FVertex>& vertices = GetMeshVertices();
 	const TArray<uint32>& indices = GetMeshIndices();

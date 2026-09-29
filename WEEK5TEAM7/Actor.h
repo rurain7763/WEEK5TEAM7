@@ -30,7 +30,6 @@ public:
 	virtual void CreateEditorComponents();
 
 	const FTransform& GetTransform() const;
-	FTransform& GetTransform();
 
 	virtual void Tick(float deltaTime);
 	virtual void Render(FRenderCollector& RenderCollector);
@@ -42,11 +41,16 @@ public:
 	void SetRotation(FRotator rotation);
 	void SetScale(FVector scale);
 
+	inline UWorld* GetWorld() const { return mWorld; }
+
 private:
 	int32 getComponentIndex(int32 componentUUID) const;
 
 private:
-	
+	friend class UWorld;
+
+	UWorld* mWorld = nullptr;
+
 	USceneComponent* mRootComponent = nullptr;
 	TArray<UActorComponent*> mComponents;
 	bool mbPressed = false;

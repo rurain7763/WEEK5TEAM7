@@ -116,10 +116,12 @@ struct FFrustum
 	FPlane& Far() { return Planes[5]; }
 	const FPlane& Far() const { return Planes[5]; }
 
-	bool Intersects(const FAABB& BoundingBox) const
+	// NOTE: -1 = Outside, 0 = Intersecting, 1 = Inside
+	int32 Intersects(const FAABB& BoundingBox) const
 	{
 		const FVector Center = (BoundingBox.Min + BoundingBox.Max) * 0.5f;
 		const FVector Extent = (BoundingBox.Max - BoundingBox.Min) * 0.5f;
+		bool bIntersecting = false;
 
 		for (int i = 0; i < 6; ++i)
 		{
@@ -128,19 +130,21 @@ struct FFrustum
 			FVector AbsNormal = FVector(FGenericPlatformMath::Abs(Plane.Normal.x), FGenericPlatformMath::Abs(Plane.Normal.y), FGenericPlatformMath::Abs(Plane.Normal.z));
 
 			// 박스의 반경을 평면 법선에 투영
-			const float Radius = Extent.x * AbsNormal.x +
-				Extent.y * AbsNormal.y +
-				Extent.z * AbsNormal.z;
-
+			const float Radius = Extent.x * AbsNormal.x + Extent.y * AbsNormal.y + Extent.z * AbsNormal.z;
 			const float Distance = Plane.DistanceToPoint(Center);
 
 			if (Distance < -Radius)
 			{
-				return false;
+				return -1;
+			}
+
+			if (Distance < Radius)
+			{
+				bIntersecting = true;
 			}
 		}
 
-		return true;
+		return bIntersecting ? 0 : 1;
 	}
 
 	static FFrustum Create(const FMatrix& ViewProjection)

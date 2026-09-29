@@ -7,12 +7,6 @@
 #include "EngineMathLibrary.h"
 #include "FLogManager.h"
 
-void UStaticMeshComponent::Initialize(const FString& InAssetPathFileName, FVector Location,
-    FRotator Rotation, FVector Scale)
-{
-    USceneComponent::Initialize(Location, Rotation, Scale);
-}
-
 void UStaticMeshComponent::SerializeClass(json::JSON& outJson) const
 {
     USceneComponent::SerializeClass(outJson);
@@ -99,13 +93,6 @@ void UStaticMeshComponent::Render(FRenderCollector& RenderCollector)
         return;
     }
 
-
-	const FAABB BoundingBox = GetBoundingBox();
-	if (!RenderCollector.Frustum.Intersects(BoundingBox))
-	{
-		return;
-	}
-
 	const FTransform& Transform = GetTransform();
 
     for (int32 SectionIndex = 0; SectionIndex < mMeshAsset->GetSections().Num(); ++SectionIndex)
@@ -118,7 +105,7 @@ void UStaticMeshComponent::Render(FRenderCollector& RenderCollector)
         uint32 MaterialID = Material ? Material->GetMaterialID() : 0;
         uint32 MeshID = mMeshAsset ? mMeshAsset->GetMeshID() : 0;
 
-        FRenderInfo RenderInfo;
+        FRenderInfo& RenderInfo = RenderCollector.RenderInfos.Emplace();
         RenderInfo.SortKey = MakeRenderSortKey(PipelineID, MaterialID, MeshID);
         RenderInfo.Pipeline = Material ? Material->GetPipeline() : nullptr;
         RenderInfo.VertexBuffer = mMeshAsset->GetVertexBuffer();
@@ -131,8 +118,6 @@ void UStaticMeshComponent::Render(FRenderCollector& RenderCollector)
         RenderInfo.Color = Material ? FVector4(Material->GetDiffuseColor().x, Material->GetDiffuseColor().y, Material->GetDiffuseColor().z, Material->GetOpacity()) : Color;
         RenderInfo.UseVertexColor = Material == nullptr;
         RenderInfo.ObjectInternalIndex = mOwner->InternalIndex;
-
-        RenderCollector.RenderInfos.Add(RenderInfo);
     }
 }
 
@@ -164,6 +149,7 @@ void UStaticMeshComponent::SetMesh(const TSharedPtr<FStaticMeshAsset>& InMesh)
 		mMeshAsset = nullptr;
 		mMaterialAssets.Empty();
 		mUVOffsets.Empty();
+        MarkBoundsDirty();
 		return;
     }
 
@@ -176,4 +162,6 @@ void UStaticMeshComponent::SetMesh(const TSharedPtr<FStaticMeshAsset>& InMesh)
         mMaterialAssets[i] = FAssetManager::Get().GetAssetAs<FMaterialAsset>(Section.MaterialAssetID, true);
     }
     mMeshAsset = InMesh;
+
+    MarkBoundsDirty();
 }

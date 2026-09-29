@@ -4,6 +4,7 @@
 #include "SceneComponent.h"
 #include "UTextComponent.h"
 #include "ObjectFactory.h"
+#include "World.h"
 #include <format>
 
 AActor::~AActor()
@@ -99,7 +100,13 @@ void AActor::AddComponent(UActorComponent* actorComponent)
 	assert(getComponentIndex(actorComponent->UUID) == -1);
 
 	mComponents.Add(actorComponent);
+
 	actorComponent->SetOwner(this);
+
+	if (mWorld)
+	{
+		mWorld->RegisterComponent(actorComponent);
+	}
 }
 
 void AActor::AddRootSceneComponent(USceneComponent* sceneComponent)
@@ -124,7 +131,11 @@ bool AActor::RemoveComponent(uint32 componentUUID)
 		return false;
 	}
 
-	//mComponents.RemoveAt(componentIndex, 1);
+	if (mWorld)
+	{
+		mWorld->UnregisterComponent(mComponents[componentIndex]);
+	}
+
 	mComponents.RemoveAtSwap(componentIndex);
 
 	return true;
@@ -155,18 +166,6 @@ const FTransform& AActor::GetTransform() const
 	}
 }
 
-FTransform& AActor::GetTransform()
-{
-	if (mRootComponent)
-	{
-		return mRootComponent->GetTransform();
-	}
-	else
-	{
-		throw std::runtime_error(std::format("{}: Actor has no root component", GetClass()->Name));
-	}
-}
-
 void AActor::Tick(float deltaTime)
 {
 	for (UActorComponent* component : mComponents)
@@ -180,12 +179,6 @@ void AActor::Render(FRenderCollector& RenderCollector)
 	for (UActorComponent* component : mComponents)
 	{
 		component->Render(RenderCollector);
-
-		// 마우스 클릭 시에만 픽킹 대상을 수집하여 매 프레임 불필요한 가상함수 호출 및 배열 삽입 방지
-		if (RenderCollector.bNeedPickTargets)
-		{
-			component->RegisterPickTarget(RenderCollector);
-		}
 	}
 }
 
