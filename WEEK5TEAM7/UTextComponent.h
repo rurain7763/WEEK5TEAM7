@@ -236,7 +236,10 @@ class UText3DComponent : public USceneComponent
 	REFLECT_CLASS(UText3DComponent, USceneComponent)
 
 public:
-	UText3DComponent() = default;
+	UText3DComponent()
+	{
+		SetRenderable(true);
+	}
 
 	void SerializeClass(json::JSON& outJson) const override
 	{

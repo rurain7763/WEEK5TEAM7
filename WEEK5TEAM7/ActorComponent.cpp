@@ -38,7 +38,3 @@ void UActorComponent::GetRenderInfos(TArray<FRenderInfo>* outRenderInfos) const
 	// assert(false);
 }
 
-void UActorComponent::RegisterPickTarget(FRenderCollector& RenderCollector)
-{
-	// 충돌체가 없는 컴포넌트는 픽킹 대상이 아니다.
-}

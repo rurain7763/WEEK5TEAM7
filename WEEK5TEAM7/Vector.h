@@ -1,5 +1,6 @@
 #pragma once
 
+#include "VectorRegister.h"
 #include "MathUtility.h"
 
 struct FVector2

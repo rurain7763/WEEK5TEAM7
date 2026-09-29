@@ -221,7 +221,7 @@ inline bool RayIntersectsTriangle(const FVector& Origin, const FVector& Dir, con
 	// OutU, OutV 정확환 클릭지점을 확인하려면 필요
 }
 
-inline bool RayIntersectsAABB(const FRay& Ray, float Distance, const FAABB& AABB)
+inline bool RayIntersectsAABB(const FRay& Ray, float Distance, const FAABB& AABB, float& OutT)
 {
 	if (Distance < 0.f)
 	{
@@ -231,6 +231,7 @@ inline bool RayIntersectsAABB(const FRay& Ray, float Distance, const FAABB& AABB
 	float Enter = 0.f;
 	float Exit = Distance;
 
+	OutT = -1.f;
 	for (int32 i = 0; i < 3; i++)
 	{
 		if (Ray.Direction[i] == 0.f)
@@ -254,6 +255,8 @@ inline bool RayIntersectsAABB(const FRay& Ray, float Distance, const FAABB& AABB
 		if (AxisExit < Exit) Exit = AxisExit;
 		if (Enter > Exit) return false;
 	}
+
+	OutT = Enter;
 
 	return true;
 }

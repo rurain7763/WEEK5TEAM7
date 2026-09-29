@@ -7,12 +7,6 @@
 #include "EngineMathLibrary.h"
 #include "FLogManager.h"
 
-void UStaticMeshComponent::Initialize(const FString& InAssetPathFileName, FVector Location,
-    FRotator Rotation, FVector Scale)
-{
-    USceneComponent::Initialize(Location, Rotation, Scale);
-}
-
 void UStaticMeshComponent::SerializeClass(json::JSON& outJson) const
 {
     USceneComponent::SerializeClass(outJson);
@@ -99,13 +93,6 @@ void UStaticMeshComponent::Render(FRenderCollector& RenderCollector)
         return;
     }
 
-
-	const FAABB BoundingBox = GetBoundingBox();
-	if (!RenderCollector.Frustum.Intersects(BoundingBox))
-	{
-		return;
-	}
-
 	const FTransform& Transform = GetTransform();
 
     for (int32 SectionIndex = 0; SectionIndex < mMeshAsset->GetSections().Num(); ++SectionIndex)
@@ -118,7 +105,7 @@ void UStaticMeshComponent::Render(FRenderCollector& RenderCollector)
         uint32 MaterialID = Material ? Material->GetMaterialID() : 0;
         uint32 MeshID = mMeshAsset ? mMeshAsset->GetMeshID() : 0;
 
-        FRenderInfo RenderInfo;
+        FRenderInfo& RenderInfo = RenderCollector.RenderInfos.Emplace();
         RenderInfo.SortKey = MakeRenderSortKey(PipelineID, MaterialID, MeshID);
         RenderInfo.Pipeline = Material ? Material->GetPipeline() : nullptr;
         RenderInfo.VertexBuffer = mMeshAsset->GetVertexBuffer();
@@ -131,9 +118,25 @@ void UStaticMeshComponent::Render(FRenderCollector& RenderCollector)
         RenderInfo.Color = Material ? FVector4(Material->GetDiffuseColor().x, Material->GetDiffuseColor().y, Material->GetDiffuseColor().z, Material->GetOpacity()) : Color;
         RenderInfo.UseVertexColor = Material == nullptr;
         RenderInfo.ObjectInternalIndex = mOwner->InternalIndex;
-
-        RenderCollector.RenderInfos.Add(RenderInfo);
     }
+}
+
+bool UStaticMeshComponent::RayCastComponent(const FPickingRay& PickingRay, float& OutHitT) const
+{
+    if (!mMeshAsset) return false;
+
+    const FMatrix& InvWorld = GetTransform().InverseMatrix();
+    if (InvWorld == FMatrix::Zero) return false;
+
+    // 에셋의 트리는 로컬 좌표계이므로 월드 Ray의 양 끝점을 역행렬로 변환합니다.
+    // 변환된 끝점으로 방향과 길이를 다시 구하면 비균일·음수 스케일에도 대응합니다.
+    const FPickingRay LocalRay(InvWorld.TransformPosition(PickingRay.Near),
+        InvWorld.TransformPosition(PickingRay.Far));
+
+    // 전체 삼각형 순회 대신 공유 트리에서 후보를 찾고 해당 삼각형만 검사합니다.
+    // 반환 T는 원래 Near~Far 구간의 비율(0~1)이므로 호출자의 최단 거리 비교에 그대로 사용합니다.
+    // 향후 외부 BVH가 최단 거리를 제공하면 네 번째 인자로 BestWorldDistance / PickingRay.Length를 전달합니다.
+    return mMeshAsset->RayCastLocal(LocalRay, OutHitT);
 }
 
 FAABB UStaticMeshComponent::GetBoundingBox() const
@@ -164,6 +167,7 @@ void UStaticMeshComponent::SetMesh(const TSharedPtr<FStaticMeshAsset>& InMesh)
 		mMeshAsset = nullptr;
 		mMaterialAssets.Empty();
 		mUVOffsets.Empty();
+        MarkBoundsDirty();
 		return;
     }
 
@@ -176,4 +180,6 @@ void UStaticMeshComponent::SetMesh(const TSharedPtr<FStaticMeshAsset>& InMesh)
         mMaterialAssets[i] = FAssetManager::Get().GetAssetAs<FMaterialAsset>(Section.MaterialAssetID, true);
     }
     mMeshAsset = InMesh;
+
+    MarkBoundsDirty();
 }
