@@ -6,6 +6,7 @@
 #include "JsonUtil.h"
 #include "EngineMathLibrary.h"
 #include "FLogManager.h"
+#include "FInstrumentor.h"
 
 void UStaticMeshComponent::Initialize(const FString& InAssetPathFileName, FVector Location,
     FRotator Rotation, FVector Scale)
@@ -101,22 +102,23 @@ void UStaticMeshComponent::Render(FRenderCollector& RenderCollector)
 
 
 	const FTransform& Transform = GetTransform();
+    const FStaticMeshAsset& Mesh = mMeshAsset->GetLODMesh(LODLevel);
 
-    for (int32 SectionIndex = 0; SectionIndex < mMeshAsset->GetSections().Num(); ++SectionIndex)
+    for (int32 SectionIndex = 0; SectionIndex < Mesh.GetSections().Num(); ++SectionIndex)
     {
-        const FStaticMeshSection& Section = mMeshAsset->GetSections()[SectionIndex];
+        const FStaticMeshSection& Section = Mesh.GetSections()[SectionIndex];
 
         TSharedPtr<FMaterialAsset> Material = mMaterialAssets[SectionIndex];
 
         uint16 PipelineID = Material ? Material->GetPipelineID() : 1;
         uint32 MaterialID = Material ? Material->GetMaterialID() : 0;
-        uint32 MeshID = mMeshAsset ? mMeshAsset->GetMeshID() : 0;
+        uint32 MeshID = Mesh.GetMeshID();
 
         FRenderInfo RenderInfo;
         RenderInfo.SortKey = MakeRenderSortKey(PipelineID, MaterialID, MeshID);
         RenderInfo.Pipeline = Material ? Material->GetPipeline() : nullptr;
-        RenderInfo.VertexBuffer = mMeshAsset->GetVertexBuffer();
-        RenderInfo.IndexBuffer = mMeshAsset->GetIndexBuffer();
+        RenderInfo.VertexBuffer = Mesh.GetVertexBuffer();
+        RenderInfo.IndexBuffer = Mesh.GetIndexBuffer();
         RenderInfo.StartIndex = Section.FirstIndex;
         RenderInfo.IndexCount = Section.IndexCount;
         RenderInfo.Texture = Material ? Material->GetDiffuseTexture() : nullptr;
@@ -128,6 +130,17 @@ void UStaticMeshComponent::Render(FRenderCollector& RenderCollector)
 
         RenderCollector.RenderInfos.Add(RenderInfo);
     }
+}
+
+bool UStaticMeshComponent::RayCastAfterBounds(const FPickingRay& Ray, float MaxHitT, float& OutHitT) const
+{
+    PROFILE_SCOPE("Picking/LocalMeshOctree");
+    if (!mMeshAsset) return false;
+    const FMatrix& Inverse = GetTransform().InverseMatrix();
+    if (Inverse == FMatrix::Zero) return false;
+    // 양 끝점을 변환하면 비균일·음수 스케일에서도 구간 비율 T는 보존됩니다.
+    const FPickingRay LocalRay(Inverse.TransformPosition(Ray.Near), Inverse.TransformPosition(Ray.Far));
+    return mMeshAsset->GetLODMesh(LODLevel).RayCastLocal(LocalRay, OutHitT, nullptr, MaxHitT);
 }
 
 FAABB UStaticMeshComponent::GetBoundingBox() const
@@ -168,7 +181,8 @@ void UStaticMeshComponent::SetMesh(const TSharedPtr<FStaticMeshAsset>& InMesh)
     for (int32 i = 0; i < Sections.Num(); i++)
     {
         auto& Section = Sections[i];
-        mMaterialAssets[i] = FAssetManager::Get().GetAssetAs<FMaterialAsset>(Section.MaterialAssetID, true);
+		mMaterialAssets[i] = Section.MaterialAssetID.IsValid()
+            ? FAssetManager::Get().GetAssetAs<FMaterialAsset>(Section.MaterialAssetID, true) : nullptr;
     }
     mMeshAsset = InMesh;
 }

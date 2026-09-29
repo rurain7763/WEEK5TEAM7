@@ -46,8 +46,10 @@ class FSpatialOctree
 public:
     // GridSize는 객체 중심 배치의 기준 간격입니다. 0이면 기존 루트 크기 정책을 사용합니다.
     // 기본 1은 현재 테스트 씬의 월드 단위 격자에 맞춘 값이며 자동 추정값이 아닙니다.
-    void Build(const TArray<FSpatialEntry>& InEntries, float GridSize = 1.0f)
+    void Build(const TArray<FSpatialEntry>& InEntries, float GridSize = 1.0f,
+        uint32 InMaxDepth = 10, const FAABB* RootBounds = nullptr)
     {
+        BuildMaxDepth = (std::min)(InMaxDepth, uint32{32});
         Entries.Empty();
         // 유효하지 않은 경계는 등록하지 않습니다. 조회 중에는 다시 검증하지 않습니다.
         for (const FSpatialEntry& Entry : InEntries)
@@ -82,6 +84,8 @@ public:
         // 극단적인 좌표에서 루트 확장이 넘치면 기존 합집합 경계를 사용합니다.
         if (!IsValidBounds(Cube)) Cube = Bounds;
         Cube = MakeAlignedRoot(Bounds, Cube, GridSize);
+        // 메시 로컬 경계처럼 호출자가 지정한 루트 경계를 사용할 수 있습니다.
+        if (RootBounds && IsValidBounds(*RootBounds) && Contains(*RootBounds, Bounds)) Cube = *RootBounds;
         Root = BuildNode(Cube, Indices, 0);
     }
 
@@ -137,15 +141,16 @@ public:
         VisitRay(Ray, Stats, [&Out](uint32 Index, float&) { Out.Add(Index); }, bUseTree);
     }
 
-    // 방문자는 실제 충돌을 확인한 경우에만 월드 단위 최단 거리를 줄입니다.
+    // 거리는 입력 Ray의 좌표계 단위입니다. 방문자는 실제 충돌 시에만 제한을 줄입니다.
     template<typename Visitor>
     void VisitRay(const FPickingRay& Ray, FSpatialQueryStats& Stats,
-        Visitor Visit, bool bUseTree = true) const
+        Visitor Visit, bool bUseTree = true, float MaxDistance = (std::numeric_limits<float>::max)()) const
     {
         Stats = {};
         FRayPrecomp Prepared;
         if (!Prepared.Initialize(Ray)) return;
-        float BestDistance = Ray.Length;
+        if (!std::isfinite(MaxDistance) || MaxDistance < 0) return;
+        float BestDistance = (std::min)(Ray.Length, MaxDistance);
         if (bUseTree)
         {
             float Enter;
@@ -214,7 +219,7 @@ public:
 
 private:
     static constexpr uint32 Invalid = ~uint32{ 0 };
-    static constexpr uint32 MaxDepth = 10;
+    uint32 BuildMaxDepth = 10;
     static constexpr int32 LeafCapacity = 32;
     struct FNode
     {
@@ -341,7 +346,7 @@ private:
         Node.SubtreeEntryCount = static_cast<uint32>(Indices.Num());
         const uint32 Index = Nodes.Add(Node);
         NodeUpdateData.Add({ CellBounds, ParentIndex });
-        if (Indices.Num() <= LeafCapacity || Depth >= MaxDepth)
+        if (Indices.Num() <= LeafCapacity || Depth >= BuildMaxDepth)
         {
             Nodes[Index].FirstEntry = static_cast<uint32>(EntryIndices.Num());
             Nodes[Index].EntryCount = static_cast<uint32>(Indices.Num());

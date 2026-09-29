@@ -39,8 +39,11 @@ public:
 	// 맞으면 true를 돌려주고 OutHitT에 광선의 매개변수(Near가 0, Far가 1)를 채운다.
 	// 값이 작을수록 카메라에 가까우므로 그대로 비교해서 가장 가까운 대상을 고를 수 있다.
 	// 기본 구현은 AABB로 먼저 거르고 메시의 삼각형과 판정한다.
-	// 다른 충돌 모양이 필요한 컴포넌트는 이 함수를 재정의한다.
+	// 다른 충돌 모양은 아래 RayCastAfterBounds를 재정의한다.
 	virtual bool RayCastComponent(const FPickingRay& PickingRay, float& OutHitT) const;
+    // 월드 경계 검사를 통과한 호출용입니다. MaxHitT는 원래 Ray 구간의 0~1 비율입니다.
+    // 다른 충돌 형상을 구현할 때는 이 함수를 재정의하여 두 호출 경로에 함께 적용합니다.
+    virtual bool RayCastAfterBounds(const FPickingRay& PickingRay, float MaxHitT, float& OutHitT) const;
 private:
     friend class FWorldOctreeManager;
     // 등록 슬롯과 재구축 세대를 통해 전체 검색 없이 자신을 찾습니다.

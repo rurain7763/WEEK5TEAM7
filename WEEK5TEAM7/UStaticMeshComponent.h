@@ -21,12 +21,16 @@ public:
 	virtual void Render(FRenderCollector& RenderCollector) override;
 
 	FAABB GetBoundingBox() const override;
+    bool RayCastAfterBounds(const FPickingRay& PickingRay, float MaxHitT, float& OutHitT) const override;
+    // 거리 정책 없이 수동으로 선택합니다. 렌더링과 Picking이 같은 메시를 사용합니다.
+    void SetLODLevel(uint32 Level) { LODLevel = Level < 3 ? Level : 0; }
+    uint32 GetLODLevel() const { return LODLevel; }
 
 	const TArray<FVertex>& GetMeshVertices() const override
 	{
 		if (mMeshAsset)
 		{
-			return mMeshAsset->GetVertices();
+			return mMeshAsset->GetLODMesh(LODLevel).GetVertices();
 		}
 
 		return UPrimitiveComponent::GetMeshVertices();
@@ -36,7 +40,7 @@ public:
 	{
 		if (mMeshAsset)
 		{
-			return mMeshAsset->GetIndices();
+			return mMeshAsset->GetLODMesh(LODLevel).GetIndices();
 		}
 
 		return UPrimitiveComponent::GetMeshIndices();
@@ -59,6 +63,7 @@ public:
 	void SetUVOffset(int32 index, const FVector2& InUVOffset) { mUVOffsets[index] = InUVOffset; }
 
 private:
+    uint32 LODLevel = 0;
 	FVector4 Color = FVector4(1.f, 1.f, 1.f, 1.f);
 	TSharedPtr<FStaticMeshAsset> mMeshAsset;
 	TArray<TSharedPtr<FMaterialAsset>> mMaterialAssets;

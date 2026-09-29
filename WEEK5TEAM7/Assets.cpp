@@ -124,6 +124,50 @@ FStaticMeshAsset::FStaticMeshAsset(const FGuid& InAssetID, const FName& InAssetN
 	
 	VertexBuffer = InRenderer.CreateVertexBuffer(InBuildData.Vertices.Data(), static_cast<uint32>(InBuildData.Vertices.Num()));
 	IndexBuffer = InRenderer.CreateIndexBuffer(InBuildData.Indices.Data(), static_cast<uint32>(InBuildData.Indices.Num()));
+    PreparePickingOctree(PickingDepths[0]);
+}
+
+void FStaticMeshAsset::PreparePickingOctree(uint32 Depth)
+{
+    if (PickingDepth == Depth) return;
+    PickingOctree.Build(Vertices, Indices, BoundingBox, Depth);
+    PickingDepth = Depth;
+}
+
+bool FStaticMeshAsset::SetLODMesh(uint32 Level, const TSharedPtr<FStaticMeshAsset>& Mesh)
+{
+    if (Level < 1 || Level > 2 || bUsedAsLOD) return false;
+    if (Mesh)
+    {
+        // 순환 소유를 막고 섹션 인덱스별 재질 대응을 유지합니다.
+        if (Mesh.get() == this || Mesh->LODMeshes[0] || Mesh->LODMeshes[1]
+            || Mesh->Sections.Num() != Sections.Num()) return false;
+        // 이미 다른 깊이로 공유 중인 에셋을 재구축하여 기존 사용자 설정을 바꾸지 않습니다.
+        if (Mesh->bUsedAsLOD && Mesh->PickingDepth != PickingDepths[Level]) return false;
+        for (int32 I = 0; I < Sections.Num(); ++I)
+            if (Mesh->Sections[I].MaterialName != Sections[I].MaterialName) return false;
+        // 월드 트리는 원본 경계를 계속 사용하므로 저해상도 메시도 그 안에 있어야 합니다.
+        if (Mesh->Vertices.IsEmpty() || Mesh->Indices.IsEmpty()) return false;
+        for (uint32 Axis = 0; Axis < 3; ++Axis)
+            if (Mesh->BoundingBox.Min[Axis] < BoundingBox.Min[Axis]
+                || Mesh->BoundingBox.Max[Axis] > BoundingBox.Max[Axis]) return false;
+        Mesh->PreparePickingOctree(PickingDepths[Level]);
+        Mesh->bUsedAsLOD = true;
+    }
+    LODMeshes[Level - 1] = Mesh;
+    return true;
+}
+
+const FStaticMeshAsset& FStaticMeshAsset::GetLODMesh(uint32 Level) const
+{
+    if (Level >= 1 && Level <= 2 && LODMeshes[Level - 1]) return *LODMeshes[Level - 1];
+    return *this;
+}
+
+bool FStaticMeshAsset::RayCastLocal(const FPickingRay& Ray, float& OutHitT,
+    FSpatialQueryStats* OutStats, float MaxHitT) const
+{
+    return PickingOctree.RayCast(Ray, Vertices, Indices, OutHitT, OutStats, MaxHitT);
 }
 
 Microsoft::WRL::ComPtr<ID3D11Buffer> FStaticMeshAsset::GetVertexBuffer() const

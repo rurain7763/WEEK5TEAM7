@@ -10,6 +10,7 @@
 #include "FObjImporter.h"
 #include "FGuid.h"
 #include "FMeshDescription.h"
+#include "FMeshPickingOctree.h"
 #include "FLogManager.h"
 #include <d3d11.h>
 #include <wrl/client.h>
@@ -69,7 +70,22 @@ public:
 	inline const TArray<uint32>& GetIndices() const { return Indices; }
 	inline uint32 GetMeshID() const { return MeshID; }
 
+    // 준비한 저해상도 에셋을 연결합니다. 슬롯 0은 원본이며 중첩 LOD 연결은 허용하지 않습니다.
+    bool SetLODMesh(uint32 Level, const TSharedPtr<FStaticMeshAsset>& Mesh);
+    const FStaticMeshAsset& GetLODMesh(uint32 Level) const;
+    // 깊이는 선형 계산하지 않고 LOD별로 독립 설정합니다. 변경 후 에셋을 다시 준비합니다.
+    inline static constexpr uint32 PickingDepths[3] = { 5, 4, 1 };
+    bool RayCastLocal(const FPickingRay& Ray, float& OutHitT,
+        FSpatialQueryStats* OutStats = nullptr, float MaxHitT = 1.0f) const;
+    uint32 GetPickingNodeCount() const { return PickingOctree.GetNodeCount(); }
+
 private:
+    void PreparePickingOctree(uint32 Depth);
+    FMeshPickingOctree PickingOctree;
+    uint32 PickingDepth = ~uint32{0};
+    // 연결 대상은 원본 정점·GPU 버퍼·Octree를 함께 공유합니다.
+    TSharedPtr<FStaticMeshAsset> LODMeshes[2];
+    bool bUsedAsLOD = false;
 	TSharedPtr<FVertexBuffer> VertexBuffer;
 	
 	TSharedPtr<FIndexBuffer> IndexBuffer;

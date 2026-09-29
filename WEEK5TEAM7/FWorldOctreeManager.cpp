@@ -127,7 +127,8 @@ UPrimitiveComponent* FWorldOctreeManager::RayCastClosest(const FPickingRay& Ray)
     Tree.VisitRay(Ray, PickingStats, [&](uint32 Index, float& BestDistance)
     {
         float HitT;
-        if (!Primitives[Index]->RayCastComponent(Ray, HitT)
+        // 트리에서 객체 경계 검사를 마쳤으므로 중복 검사 없이 최단 구간 제한을 전달합니다.
+        if (!Primitives[Index]->RayCastAfterBounds(Ray, BestDistance / Ray.Length, HitT)
             || !std::isfinite(HitT) || HitT < 0 || HitT > 1) return;
         // 메시의 매개변수를 AABB 검사와 동일한 월드 거리로 변환합니다.
         const float Distance = HitT * Ray.Length;
