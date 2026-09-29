@@ -1,4 +1,5 @@
 #include "Renderer.h"
+#include "FInstrumentor.h"
 
 constexpr uint32 MaxLineInstances = 1024;
 
@@ -25,6 +26,7 @@ namespace
 void URenderer::Create(HWND hWindow)
 {
 	CreateDeviceAndSwapChain(hWindow);
+    MeshConstantBatch.Initialize(Device, DeviceContext);
 	CreateFrameBuffer();
 	CreateDepthStencilBuffer();
 
@@ -181,6 +183,7 @@ void URenderer::ReleaseFrameBuffer()
 void URenderer::Release()
 {
 	DeviceContext->ClearState();
+    MeshConstantBatch.Reset();
 
 	WorldGridPipeline.reset();
 	WorldAxisPipeline.reset();
@@ -367,7 +370,7 @@ TSharedPtr<FDepthStencil> URenderer::CreateDepthStencil(uint32 Width, uint32 Hei
 	return DepthStencil;
 }
 
-void URenderer::BindPipeline(const TSharedPtr<FRenderPipeline>& Pipeline, uint32 StencilRef)
+void URenderer::BindPipeline(const TSharedPtr<FRenderPipeline>& Pipeline, uint32 StencilRef, bool bBatchConstants)
 {
 	// RSSetState는 드로우 직전마다 갈아치워지므로 뷰 모드 선택은 여기서 해야 한다.
 	// 이 모드를 지원하지 않는 파이프라인(2D/기즈모)은 Lit 상태로 폴백된다.
@@ -415,10 +418,12 @@ void URenderer::BindPipeline(const TSharedPtr<FRenderPipeline>& Pipeline, uint32
 		CurrentPixelShader = Pipeline->PixelShader;
 	}
 
-	const int32 NewCBCount = Pipeline->ConstantBuffers.Num();
+    // 묶음 업로드 경로는 b0을 별도로 설정하므로 카메라 등 b1 이후만 파이프라인에서 가져옵니다.
+    const int32 FirstCB = bBatchConstants ? 1 : 0;
+	const int32 NewCBCount = (std::max)(Pipeline->ConstantBuffers.Num(), FirstCB);
 
-	bool bShouldSetCBs = NewCBCount > CurrentCBCount;
-	for (int32 i = 0; !bShouldSetCBs && i < CurrentCBCount; i++)
+	bool bShouldSetCBs = NewCBCount > CurrentCBCount || (!bBatchConstants && bObjectConstantsRanged);
+	for (int32 i = FirstCB; !bShouldSetCBs && i < CurrentCBCount; i++)
 	{
 		if (i >= NewCBCount || CurrentCBs[i] != Pipeline->ConstantBuffers[i])
 		{
@@ -430,16 +435,20 @@ void URenderer::BindPipeline(const TSharedPtr<FRenderPipeline>& Pipeline, uint32
 	{
 		const int32 BindCount = FPlatformMath::Max(NewCBCount, CurrentCBCount);
 
-		for (int32 i = 0; i < BindCount; ++i)
+		for (int32 i = FirstCB; i < BindCount; ++i)
 		{
 			CurrentCBs[i] = i < NewCBCount ? Pipeline->ConstantBuffers[i] : nullptr;
 		}
 
-		DeviceContext->VSSetConstantBuffers(0, BindCount, CurrentCBs);
-		DeviceContext->PSSetConstantBuffers(0, BindCount, CurrentCBs);
+        if (BindCount > FirstCB)
+        {
+		    DeviceContext->VSSetConstantBuffers(FirstCB, BindCount - FirstCB, CurrentCBs + FirstCB);
+		    DeviceContext->PSSetConstantBuffers(FirstCB, BindCount - FirstCB, CurrentCBs + FirstCB);
+        }
 
 		CurrentCBCount = NewCBCount;
 	}
+    if (!bBatchConstants) bObjectConstantsRanged = false;
 
 	const int32 NewSRVCount = Pipeline->ShaderResourceViews.Num();
 
@@ -671,11 +680,83 @@ void URenderer::Draw(UINT VertexCount) const
 	++DrawCallCount;
 }
 
-void URenderer::RenderPrimitiveIndexed(const TSharedPtr<FRenderPipeline>& Pipeline, const FRenderInfo& RenderInfo, uint32 StencilRef)
+bool URenderer::UploadMeshConstants(const TArray<FRenderInfo>& RenderInfos)
 {
-	BindPipeline(Pipeline, StencilRef);
+    return MeshConstantBatch.Upload<FConstants>(RenderInfos.Num(), [&RenderInfos](uint32 Index)
+    {
+        const FRenderInfo& Info = RenderInfos[Index];
+        return FConstants{ Info.Model, Info.Color, Info.UVOffset, Info.UseVertexColor, Info.Texture ? 1 : 0 };
+    });
+}
 
-	BindVertexBuffer(RenderInfo.VertexBuffer.Get(), Pipeline->Stride);
+void URenderer::BindMeshConstants(uint32 Index)
+{
+    CurrentCBs[0] = MeshConstantBatch.Bind(Index);
+    bObjectConstantsRanged = true;
+}
+
+void URenderer::RenderMeshes(const TArray<FRenderInfo>& RenderInfos, const TSharedPtr<FRenderPipeline>& DefaultPipeline, const FMatrix& ViewProjection)
+{
+    MeshPipelineApplyCount = 0;
+    bool bUseBatch = false;
+    if (bBatchMeshConstants && !RenderInfos.IsEmpty())
+    {
+        PROFILE_SCOPE("Viewport/GraphicsRender/UploadMeshConstants");
+        bUseBatch = UploadMeshConstants(RenderInfos);
+    }
+    FInstrumentationTimer DrawTimer(bUseBatch ? "Viewport/GraphicsRender/DrawMeshesBatched" : "Viewport/GraphicsRender/DrawMeshesLegacy");
+    FRenderPipeline* LastPipeline = nullptr;
+    FTexture2DAsset* LastTexture = nullptr;
+    uint32 DrawIndex = 0;
+    for (const FRenderInfo& Info : RenderInfos)
+    {
+        const auto& Pipeline = Info.Pipeline ? Info.Pipeline : DefaultPipeline;
+        const bool bPipelineChanged = Pipeline.get() != LastPipeline;
+        const bool bBindingChanged = bPipelineChanged || Info.Texture.get() != LastTexture;
+        if (bPipelineChanged)
+        {
+            Pipeline->UpdateConstantBuffer(1, ViewProjection);
+            Pipeline->SetSamplerState(0, D3D11_FILTER_MIN_MAG_MIP_LINEAR, D3D11_TEXTURE_ADDRESS_WRAP, D3D11_TEXTURE_ADDRESS_WRAP);
+        }
+        if (bBindingChanged)
+        {
+            if (Info.Texture) Pipeline->SetShaderResource(0, Info.Texture->GetSRV());
+            else Pipeline->ClearShaderResource();
+        }
+        if (!bUseBatch)
+        {
+            const FConstants Constants{ Info.Model, Info.Color, Info.UVOffset, Info.UseVertexColor, Info.Texture ? 1 : 0 };
+            Pipeline->UpdateConstantBuffer(0, Constants);
+        }
+        // 이 루프 안에서는 파이프라인 상태·뷰 모드·스텐실 참조가 고정되며 외부 렌더 코드가 실행되지 않습니다.
+        // b0 내용만 갱신하는 것은 바인딩 대상의 변경이 아닙니다. VB/IB는 아래에서 매번 따로 비교합니다.
+        if (!bReuseMeshBindings || bBindingChanged)
+        {
+            BindPipeline(Pipeline, 0, bUseBatch);
+            ++MeshPipelineApplyCount;
+        }
+        if (bUseBatch) BindMeshConstants(DrawIndex);
+        DrawMeshGeometry(Info, Pipeline->Stride);
+        LastPipeline = Pipeline.get();
+        LastTexture = Info.Texture.get();
+        ++DrawIndex;
+    }
+}
+
+void URenderer::RenderPrimitiveIndexed(const TSharedPtr<FRenderPipeline>& Pipeline, const FRenderInfo& RenderInfo, uint32 StencilRef, int32 BatchIndex)
+{
+    const bool bBatchConstants = BatchIndex >= 0;
+	BindPipeline(Pipeline, StencilRef, bBatchConstants);
+    if (bBatchConstants)
+    {
+        BindMeshConstants(static_cast<uint32>(BatchIndex));
+    }
+	DrawMeshGeometry(RenderInfo, Pipeline->Stride);
+}
+
+void URenderer::DrawMeshGeometry(const FRenderInfo& RenderInfo, uint32 Stride)
+{
+	BindVertexBuffer(RenderInfo.VertexBuffer.Get(), Stride);
 
 	if (RenderInfo.IndexBuffer)
 	{

@@ -1,4 +1,5 @@
 #include "GraphicsManager.h"
+#include "FInstrumentor.h"
 #include "Renderer.h"
 #include "Camera.h"
 #include "Console.h"
@@ -205,73 +206,21 @@ void FGraphicsManager::RenderHighLight(const TArray<UPrimitiveComponent*>& Primi
 
 void FGraphicsManager::Render()
 {
-	/*PROFILE_SCOPE("Viewport/GraphicsRender");
-
-	{
-		PROFILE_SCOPE("Viewport/GraphicsRender/RenderLines");
-		mRenderer->RenderLines(mRenderCollector.LineInfos);
+    PROFILE_SCOPE("Viewport/GraphicsRender");
+    {
+        PROFILE_SCOPE("Viewport/GraphicsRender/RenderLines");
+        mRenderer->RenderLines(mRenderCollector.LineInfos);
+    }
+    {
+        PROFILE_SCOPE("Viewport/GraphicsRender/sort");
+        std::sort(mRenderCollector.RenderInfos.begin(), mRenderCollector.RenderInfos.end());
+    }
+    {
+        PROFILE_SCOPE("Viewport/GraphicsRender/SubmitMeshes");
+        mRenderer->RenderMeshes(mRenderCollector.RenderInfos, mMeshPipeline, mViewUnifiedProjectionMatrix);
 	}
-<<<<<<< HEAD
-	
-=======
->>>>>>> d90503aa70a2aaaf6105d82bba53fedbbdd3db8c
-
 	{
-		PROFILE_SCOPE("Viewport/GraphicsRender/sort");
-		std::sort(mRenderCollector.RenderInfos.begin(), mRenderCollector.RenderInfos.end());
-	}*/
-	mRenderer->RenderLines(mRenderCollector.LineInfos);
-	std::sort(mRenderCollector.RenderInfos.begin(), mRenderCollector.RenderInfos.end());
-
-	mMeshPipeline->ClearShaderResource();
-	mMeshPipeline->ClearSamplerState();
-	mMeshPipeline->UpdateConstantBuffer(1, mViewUnifiedProjectionMatrix);
-	mMeshPipeline->SetSamplerState(0, D3D11_FILTER_MIN_MAG_MIP_LINEAR, D3D11_TEXTURE_ADDRESS_WRAP, D3D11_TEXTURE_ADDRESS_WRAP);
-
-	TSharedPtr<FRenderPipeline> LastPipeline = nullptr;
-	TSharedPtr<FTexture2DAsset> LastTexture = nullptr;
-	bool bFirst = true;
-
-	for (const FRenderInfo& RenderInfo : mRenderCollector.RenderInfos)
-	{
-		TSharedPtr<FRenderPipeline> ActivePipeline = RenderInfo.Pipeline ? RenderInfo.Pipeline : mMeshPipeline;
-
-		if (ActivePipeline != LastPipeline)
-		{
-			ActivePipeline->UpdateConstantBuffer(1, mViewUnifiedProjectionMatrix);
-			ActivePipeline->SetSamplerState(0, D3D11_FILTER_MIN_MAG_MIP_LINEAR, D3D11_TEXTURE_ADDRESS_WRAP, D3D11_TEXTURE_ADDRESS_WRAP);
-			LastPipeline = ActivePipeline;
-		}
-
-		if (bFirst || RenderInfo.Texture != LastTexture || ActivePipeline != LastPipeline)
-		{
-			if (RenderInfo.Texture)
-			{
-				ActivePipeline->SetShaderResource(0, RenderInfo.Texture->GetSRV());
-			}
-			else
-			{
-				ActivePipeline->ClearShaderResource();
-			}
-			LastTexture = RenderInfo.Texture;
-			bFirst = false;
-		}
-
-		// 오브젝트 고유 상수버퍼 갱신
-		FConstants Constants{};
-		Constants.Matrix = RenderInfo.Model;
-		Constants.Color = RenderInfo.Color;
-		Constants.UseVertexColor = RenderInfo.UseVertexColor;
-		Constants.HasTexture = RenderInfo.Texture ? 1 : 0;
-		Constants.UVOffset = RenderInfo.UVOffset;
-
-		ActivePipeline->UpdateConstantBuffer(0, Constants);
-
-		mRenderer->RenderPrimitiveIndexed(ActivePipeline, RenderInfo);
-	}
-
-	{
-		//PROFILE_SCOPE("Viewport/GraphicsRender/RenderQuad");
+		PROFILE_SCOPE("Viewport/GraphicsRender/RenderQuad");
 
 		for (const FRenderQuadInfo& QuadInfo : mRenderCollector.GetOpaqueQuadInfos())
 		{
