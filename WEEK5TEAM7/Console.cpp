@@ -1,5 +1,7 @@
 #include "Console.h"
 #include "FLogManager.h"
+#include "Renderer.h"
+#include "FInstrumentor.h"
 #include "ImGui/imgui.h"
 #include "ImGui/imgui_internal.h"
 #include "ImGui/imgui_impl_dx11.h"
@@ -212,6 +214,10 @@ ConsoleWindow::ConsoleWindow()
 	Commands.push_back("STAT RENDER");
 	Commands.push_back("STAT ALL");
 	Commands.push_back("STAT NONE");
+    Commands.push_back("RENDER CBBATCH ON");
+    Commands.push_back("RENDER CBBATCH OFF");
+    Commands.push_back("RENDER BINDREUSE ON");
+    Commands.push_back("RENDER BINDREUSE OFF");
 	AutoScroll = true;
 	ScrollToBottom = false;
 }
@@ -359,6 +365,18 @@ void ConsoleWindow::ExecCommand(const char* command_line)
 			UE_LOG("%3d: %s\n", i, History[i]);
 		}
 	}
+    else if (Stricmp(command_line, "RENDER BINDREUSE ON") == 0 || Stricmp(command_line, "RENDER BINDREUSE OFF") == 0)
+    {
+        URenderer::bReuseMeshBindings = Stricmp(command_line, "RENDER BINDREUSE ON") == 0;
+        FInstrumentor::Get().WriteRenderOptionMarker("Render Bind Reuse", URenderer::bReuseMeshBindings);
+        UE_LOG("Mesh binding reuse: %s", URenderer::bReuseMeshBindings ? "ON" : "OFF");
+    }
+    else if (Stricmp(command_line, "RENDER CBBATCH ON") == 0 || Stricmp(command_line, "RENDER CBBATCH OFF") == 0)
+    {
+        URenderer::bBatchMeshConstants = Stricmp(command_line, "RENDER CBBATCH ON") == 0;
+        FInstrumentor::Get().WriteRenderBatchMarker(URenderer::bBatchMeshConstants);
+        UE_LOG("Mesh constant batch: %s (unsupported devices use the legacy path)", URenderer::bBatchMeshConstants ? "ON" : "OFF");
+    }
 	else if (Stricmp(command_line, "STAT FPS") == 0)
 	{
 		if (bShowStatFPS)

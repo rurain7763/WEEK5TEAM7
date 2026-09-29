@@ -9,8 +9,10 @@
 
 AActor::~AActor()
 {
+    if (mWorld) mWorld->RemoveActor(UUID);
 	for (UActorComponent* removeComponent : mComponents)
 	{
+        removeComponent->mOwner = nullptr;
 		FObjectFactory::DestroyObject(removeComponent);
 	}
 }
@@ -102,6 +104,7 @@ void AActor::AddComponent(UActorComponent* actorComponent)
 	mComponents.Add(actorComponent);
 
 	actorComponent->SetOwner(this);
+    RefreshComponentTickRegistration(actorComponent);
 
 	if (mWorld)
 	{
@@ -136,6 +139,10 @@ bool AActor::RemoveComponent(uint32 componentUUID)
 		mWorld->UnregisterComponent(mComponents[componentIndex]);
 	}
 
+    ActiveTickComponents.Remove(mComponents[componentIndex]);
+    if (mWorld) mWorld->RefreshTickRegistration(this);
+    if (mComponents[componentIndex] == mRootComponent) mRootComponent = nullptr;
+    mComponents[componentIndex]->mOwner = nullptr;
 	mComponents.RemoveAtSwap(componentIndex);
 
 	return true;
@@ -168,10 +175,17 @@ const FTransform& AActor::GetTransform() const
 
 void AActor::Tick(float deltaTime)
 {
-	for (UActorComponent* component : mComponents)
-	{
-		component->Tick(deltaTime);
-	}
+    // 파생 Actor가 Tick을 재정의하면 Super::Tick을 호출하여 활성 컴포넌트도 실행합니다.
+    ActiveTickComponents.Tick(deltaTime);
+}
+
+void AActor::RefreshComponentTickRegistration(UActorComponent* Component)
+{
+    // SetOwner만 호출한 미등록 컴포넌트는 실행하지 않습니다. 검색은 등록 변경 시에만 발생합니다.
+    if (Component->GetOwner() != this || mComponents.Find(Component) == -1) return;
+    if (Component->ShouldTick()) ActiveTickComponents.Add(Component);
+    else ActiveTickComponents.Remove(Component);
+    if (mWorld) mWorld->RefreshTickRegistration(this);
 }
 
 void AActor::Render(FRenderCollector& RenderCollector)
