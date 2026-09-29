@@ -1,4 +1,5 @@
 #include "Renderer.h"
+#include "NvapiHelpers.h"
 
 constexpr uint32 MaxLineInstances = 1024;
 
@@ -124,6 +125,9 @@ void URenderer::CreateDeviceAndSwapChain(HWND hWindow)
 	{
 		DxgiDevice->SetMaximumFrameLatency(1);
 	}
+
+	// NVIDIA Reflex Low Latency Boost: GPU 클럭 램핑 지연을 없애고 시작부터 최고 클럭(P0)으로 강제 고정
+	NvAPI_Status reflexStatus = nvapi_example::EnableLowLatency(Device, true /* boost */);
 
 	SwapChain->GetDesc(&SwapChainDesc);
 	Width = SwapChainDesc.BufferDesc.Width;
