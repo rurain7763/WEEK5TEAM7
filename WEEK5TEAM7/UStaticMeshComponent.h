@@ -11,7 +11,6 @@ public:
 	UStaticMeshComponent() = default;
 
 	using UPrimitiveComponent::Initialize;
-	void Initialize(const FString& InAssetPathFileName, FVector Location, FRotator Rotation, FVector Scale);
 
 	virtual ~UStaticMeshComponent() = default;
 
@@ -21,6 +20,8 @@ public:
 	virtual void Render(FRenderCollector& RenderCollector) override;
 
 	FAABB GetBoundingBox() const override;
+	// 기존 Picking의 가상 함수 호출을 메시 에셋의 로컬 Octree로 연결합니다.
+	bool RayCastComponent(const FPickingRay& PickingRay, float& OutHitT) const override;
 
 	const TArray<FVertex>& GetMeshVertices() const override
 	{
@@ -57,6 +58,13 @@ public:
 
 	FVector2 GetUVOffset(int32 index) const { return mUVOffsets[index]; }
 	void SetUVOffset(int32 index, const FVector2& InUVOffset) { mUVOffsets[index] = InUVOffset; }
+
+protected:
+	virtual void OnTransformChanged() override
+	{
+		mbAABBDirty = true;
+		Super::OnTransformChanged();
+	}
 
 private:
 	FVector4 Color = FVector4(1.f, 1.f, 1.f, 1.f);

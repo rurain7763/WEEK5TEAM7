@@ -9,6 +9,7 @@ enum EActorComponentFlags
 {
 	EditorOnly = 1 << 0, // 에디터에서만 존재하는 컴포넌트. 게임에서는 제거된다.
 	DoNotSerialize = 1 << 1, // 직렬화하지 않는다. (에디터에서만 존재하는 컴포넌트는 기본적으로 직렬화하지 않는다.)
+	Renderable = 1 << 2, // 렌더링 가능한 컴포넌트. (UPrimitiveComponent 등)
 };
 
 class UActorComponent : public UObject
@@ -25,10 +26,6 @@ public:
 	virtual void Tick(float deltaTime);
 	virtual void Render(FRenderCollector& RenderCollector);
 	virtual void GetRenderInfos(TArray<FRenderInfo>* outRenderInfos) const;
-
-	// 이 컴포넌트가 마우스 픽킹 대상이면 컬렉터에 자신을 등록한다.
-	// 기본은 등록하지 않는다. 충돌체가 있는 컴포넌트만 재정의한다.
-	virtual void RegisterPickTarget(FRenderCollector& RenderCollector);
 
 	inline void SetEditorOnly(bool bEditorOnly) 
 	{ 
@@ -57,6 +54,20 @@ public:
 	}
 
 	inline bool ShouldSerialize() const { return (mComponentFlags & EActorComponentFlags::DoNotSerialize) == 0; }
+
+	inline void SetRenderable(bool bRenderable)
+	{
+		if (bRenderable)
+		{
+			mComponentFlags |= EActorComponentFlags::Renderable;
+		}
+		else
+		{
+			mComponentFlags &= ~EActorComponentFlags::Renderable;
+		}
+	}
+
+	inline bool IsRenderable() const { return (mComponentFlags & EActorComponentFlags::Renderable) != 0; }
 
 protected:
 	AActor* mOwner;

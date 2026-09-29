@@ -6,6 +6,7 @@
 #include "Assets.h"
 #include "TArray.h"
 #include "FFrustum.h"
+#include "FBVH.h"
 #include <algorithm>
 
 class FCamera;
@@ -93,7 +94,7 @@ public:
 
 	TArray<FRenderInfo> RenderInfos; // 메시 패스
 	TArray<FRenderLineInfo> LineInfos; // 라인 패스
-	TArray<UPrimitiveComponent*> PickTargets;
+	FBVH<UPrimitiveComponent*>* BVH = nullptr;
 
 	inline void AddQuadInfo(const FRenderQuadInfo& QuadInfo)
 	{
@@ -145,10 +146,10 @@ public:
 
 	inline void Clear()
 	{
+		BVH = nullptr;
 		bNeedPickTargets = false;
 		RenderInfos.Reset(DEFAULT_RESERVE_MEM);
 		LineInfos.Reset(DEFAULT_RESERVE_MEM);
-		PickTargets.Reset(DEFAULT_RESERVE_MEM);
 		OpaqueQuadInfos.Reset(DEFAULT_RESERVE_MEM);
 		TransparentQuadInfos.Reset(DEFAULT_RESERVE_MEM);
 		OverlayQuadInfos.Reset(DEFAULT_RESERVE_MEM);

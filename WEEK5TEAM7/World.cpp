@@ -6,6 +6,8 @@
 #include "JsonUtil.h"
 #include "Console.h"
 #include "ObjectFactory.h"
+#include "PrimitiveComponent.h"
+#include "FBVH.h"
 
 UWorld::~UWorld()
 {
@@ -66,24 +68,81 @@ void UWorld::AddActor(AActor* actor)
 	assert(actor != nullptr);
 	assert(getActorIndex(actor->UUID) == -1);
 
+	actor->mWorld = this;
+	for (UActorComponent* component : actor->GetComponents())
+	{
+		RegisterComponent(component);
+	}
+
 	mActors.Add(actor);
 
 	// TODO: 전처리를 통해 에디터 모드가 아니면 아래 코드를 컴파일하지 않게 막아야함.
 	actor->CreateEditorComponents();
 }
 
-bool UWorld::RemoveActor(uint32 componentUUID)
+bool UWorld::RemoveActor(uint32 uuid)
 {
-	int32 componentIndex = getActorIndex(componentUUID);
-	if (componentIndex == -1)
+	int32 ActorIndex = getActorIndex(uuid);
+	if (ActorIndex == -1)
 	{
 		return false;
 	}
+	
+	AActor* ActorToRemove = mActors[ActorIndex];
+	for (UActorComponent* component : ActorToRemove->GetComponents())
+	{
+		UnregisterComponent(component);
+	}
+	ActorToRemove->mWorld = nullptr;
 
-	//mActors.RemoveAt(componentIndex, 1);
-	mActors.RemoveAtSwap(componentIndex);
+	mActors.RemoveAtSwap(ActorIndex);
 
 	return true;
+}
+
+void UWorld::RegisterComponent(UActorComponent* Component)
+{
+	UPrimitiveComponent* PrimitiveComponent = Component->Cast<UPrimitiveComponent>();
+	if (PrimitiveComponent)
+	{
+		mPrimitiveComponents.Add(PrimitiveComponent);
+		mbBVHDirty = true;
+	}
+	else if (Component->IsRenderable())
+	{
+		mNonPrimitiveRenderableComponents.Add(Component);
+	}
+}
+
+void UWorld::UnregisterComponent(UActorComponent* Component)
+{
+	UPrimitiveComponent* PrimitiveComponent = Component->Cast<UPrimitiveComponent>();
+	if (PrimitiveComponent)
+	{
+		int32 index = mPrimitiveComponents.Find(PrimitiveComponent);
+		if (index != -1)
+		{
+			mPrimitiveComponents.RemoveAtSwap(index);
+			mbBVHDirty = true;
+		}
+	}
+	else if (Component->IsRenderable())
+	{
+		int32 index = mNonPrimitiveRenderableComponents.Find(Component);
+		if (index != -1)
+		{
+			mNonPrimitiveRenderableComponents.RemoveAtSwap(index);
+		}
+	}
+}
+
+void UWorld::MarkBoundsDirty(UActorComponent* Component)
+{
+	UPrimitiveComponent* PrimitiveComponent = Component->Cast<UPrimitiveComponent>();
+	if (PrimitiveComponent)
+	{
+		mBVH.Refit(PrimitiveComponent, PrimitiveComponent->GetBoundingBox());
+	}
 }
 
 void UWorld::Tick(float deltaTime)
@@ -92,14 +151,63 @@ void UWorld::Tick(float deltaTime)
 	{
 		actor->Tick(deltaTime);
 	}
+
+	if (mbBVHDirty)
+	{
+		mBVH.Release();
+		for (UPrimitiveComponent* primitiveComponent : mPrimitiveComponents)
+		{
+			mBVH.AddItem(primitiveComponent, primitiveComponent->GetBoundingBox());
+		}
+		mBVH.Build();
+		mbBVHDirty = false;
+	}
 }
 
 void UWorld::Render(float deltaTime, FRenderCollector& outCollector)
 {
-	for (AActor* actor : mActors)
+	for (UActorComponent* Component : mNonPrimitiveRenderableComponents)
 	{
-		actor->Render(outCollector);
+		Component->Render(outCollector);
 	}
+
+	if (mBVH.IsValid())
+	{
+		TArray<FBVHNode*> NodeStack;
+		NodeStack.Add(mBVH.GetRootNode());
+		while (NodeStack.Num() > 0)
+		{
+			FBVHNode* CurrentNode = NodeStack.Last();
+			NodeStack.Pop();
+
+			if (CurrentNode == nullptr)
+			{
+				continue;
+			}
+
+			int32 CollisionResult = outCollector.Frustum.Intersects(CurrentNode->BoundingBox);
+			if (CollisionResult == -1)
+			{
+				continue;
+			}
+
+			if (CollisionResult == 1 || CurrentNode->IsLeaf())
+			{
+				for (int32 i = 0; i < CurrentNode->ItemRange.Count; ++i)
+				{
+					UPrimitiveComponent* Object = mBVH.GetPayload(CurrentNode->ItemRange.Offset + i);
+					Object->Render(outCollector);
+				}
+			}
+			else
+			{
+				NodeStack.Add(CurrentNode->Left);
+				NodeStack.Add(CurrentNode->Right);
+			}
+		}
+	}
+
+	outCollector.BVH = &mBVH;
 }
 
 int32 UWorld::getActorIndex(uint32 actorUUID) const

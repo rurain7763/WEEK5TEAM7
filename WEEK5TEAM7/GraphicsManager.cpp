@@ -8,7 +8,7 @@
 #include "ObjectFactory.h"
 #include "UTextComponent.h"
 #include "FEditorViewportClient.h"
-#include "FInstrumentor.h"
+//#include "FInstrumentor.h"
 #include <algorithm>
 
 // 선분 하나당 정점 2개. 축 6개 + 앞으로 붙을 그리드까지 감당할 만큼 잡아둔다
@@ -76,7 +76,7 @@ FGraphicsManager::~FGraphicsManager()
 
 void FGraphicsManager::Prepare(const FCamera* mCamera, float viewportWidth, float viewportHeight, const FViewport& Viewport, const EViewModeIndex InViewMode, const EViewportType InViewportType)
 {
-	PROFILE_SCOPE("Viewport/Prepare");
+	//PROFILE_SCOPE("Viewport/Prepare");
 
 	mViewportType = InViewportType;
 	const bool bIsOrtho = (InViewportType != EViewportType::Perspective);
@@ -123,7 +123,7 @@ void FGraphicsManager::Prepare(const FCamera* mCamera, float viewportWidth, floa
 
 void FGraphicsManager::RenderHighLight(const TArray<UPrimitiveComponent*>& Primitives)
 {
-	PROFILE_SCOPE("Viewport/RenderHighLight");
+	//PROFILE_SCOPE("Viewport/RenderHighLight");
 
 	if (Primitives.Num() == 0)
 	{
@@ -205,17 +205,23 @@ void FGraphicsManager::RenderHighLight(const TArray<UPrimitiveComponent*>& Primi
 
 void FGraphicsManager::Render()
 {
-	PROFILE_SCOPE("Viewport/GraphicsRender");
+	/*PROFILE_SCOPE("Viewport/GraphicsRender");
 
 	{
 		PROFILE_SCOPE("Viewport/GraphicsRender/RenderLines");
 		mRenderer->RenderLines(mRenderCollector.LineInfos);
 	}
+<<<<<<< HEAD
+	
+=======
+>>>>>>> d90503aa70a2aaaf6105d82bba53fedbbdd3db8c
 
 	{
 		PROFILE_SCOPE("Viewport/GraphicsRender/sort");
 		std::sort(mRenderCollector.RenderInfos.begin(), mRenderCollector.RenderInfos.end());
-	}
+	}*/
+	mRenderer->RenderLines(mRenderCollector.LineInfos);
+	std::sort(mRenderCollector.RenderInfos.begin(), mRenderCollector.RenderInfos.end());
 
 	mMeshPipeline->ClearShaderResource();
 	mMeshPipeline->ClearSamplerState();
@@ -263,8 +269,9 @@ void FGraphicsManager::Render()
 
 		mRenderer->RenderPrimitiveIndexed(ActivePipeline, RenderInfo);
 	}
+
 	{
-		PROFILE_SCOPE("Viewport/GraphicsRender/RenderQuad");
+		//PROFILE_SCOPE("Viewport/GraphicsRender/RenderQuad");
 
 		for (const FRenderQuadInfo& QuadInfo : mRenderCollector.GetOpaqueQuadInfos())
 		{
