@@ -188,7 +188,7 @@ void FGizmo::Render(AActor* TargetActor, const FVector& CameraPosition, const FR
 {
     HandleScreenSegments.Empty();
 
-    PROFILE_SCOPE("Viewport/GraphicsMgr/RenderGizmo");
+    //PROFILE_SCOPE("Viewport/GraphicsMgr/RenderGizmo");
 
     if (!TargetActor) 
 	{ 

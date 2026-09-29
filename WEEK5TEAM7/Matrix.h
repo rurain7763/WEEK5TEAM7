@@ -6,6 +6,8 @@
 #include "enum.h"
 #include <utility>
 
+#include "MatrixRegister.h"
+
 struct FMatrix { 
 	float M[4][4];
 
@@ -47,14 +49,35 @@ struct FMatrix {
 	FMatrix operator* (const FMatrix& Other) const
 	{
 		FMatrix result = {};
-
+		/*
 		for (int row = 0; row < 4;++row) {
 			for (int col = 0;col < 4;++col) {
 				for (int k = 0;k < 4;++k) {
 					result.M[row][col] += M[row][k] * Other.M[k][col];
 				}
 			}
+		}*/
+
+		const FVectorRegister B0 = VectorSIMD::Load(Other.M[0]);
+		const FVectorRegister B1 = VectorSIMD::Load(Other.M[1]);
+		const FVectorRegister B2 = VectorSIMD::Load(Other.M[2]);
+		const FVectorRegister B3 = VectorSIMD::Load(Other.M[3]);
+
+		for (uint32 Row = 0; Row < 4; ++Row)
+		{
+			const FVectorRegister A = VectorSIMD::Load(M[Row]);
+
+			const FVectorRegister AX = VectorSIMD::Shuffle<0, 0, 0, 0>(A, A);
+			const FVectorRegister AY = VectorSIMD::Shuffle<1, 1, 1, 1>(A, A);
+			const FVectorRegister AZ = VectorSIMD::Shuffle<2, 2, 2, 2>(A, A);
+			const FVectorRegister AW = VectorSIMD::Shuffle<3, 3, 3, 3>(A, A);
+		
+			const FVectorRegister XY = VectorSIMD::Add(VectorSIMD::Mul(AX, B0), VectorSIMD::Mul(AY, B1));
+			const FVectorRegister ZW = VectorSIMD::Add(VectorSIMD::Mul(AZ, B2), VectorSIMD::Mul(AW, B3));
+
+			VectorSIMD::Store(result.M[Row], VectorSIMD::Add(XY, ZW));
 		}
+
 		return result;
 	}
 
@@ -159,6 +182,7 @@ struct FMatrix {
 
 	FMatrix Transpose() const
 	{ 
+#if 0
 		FMatrix result = {};
 		for (int row = 0; row < 4; ++row) {
 			for (int col = 0; col < 4; ++col) {
@@ -166,6 +190,9 @@ struct FMatrix {
 			}
 		}
 		return result;
+#else
+		return FMatrixRegister::Load(*this).Transpose().ToFMatrix();
+#endif
 	}
 
 	static FMatrix Scale(float n)
@@ -303,6 +330,7 @@ struct FMatrix {
 	// the affine fast path used by object transforms.
 	[[nodiscard]] FMatrix Inverse() const
 	{
+#if 0
 		const float m00 = M[0][0], m01 = M[0][1], m02 = M[0][2], m03 = M[0][3];
 		const float m10 = M[1][0], m11 = M[1][1], m12 = M[1][2], m13 = M[1][3];
 		const float m20 = M[2][0], m21 = M[2][1], m22 = M[2][2], m23 = M[2][3];
@@ -354,6 +382,9 @@ struct FMatrix {
 		R.M[3][3] = (m20 * S3 - m21 * S1 + m22 * S0) * Inv;
 
 		return R;
+#else
+		return FMatrixRegister::Load(*this).Inverse().ToFMatrix();
+#endif
 	}
 
 	// 아핀 행렬(마지막 열이 0,0,0,1)의 역행렬.
@@ -403,11 +434,33 @@ struct FMatrix {
 // 행벡터 규약: V * M. 투영 시 동차 좌표 w까지 유지한다.
 inline FVector4 operator*(const FVector4& V, const FMatrix& M)
 {
+#if 0
 	return FVector4(
 		V.x * M.M[0][0] + V.y * M.M[1][0] + V.z * M.M[2][0] + V.w * M.M[3][0],
 		V.x * M.M[0][1] + V.y * M.M[1][1] + V.z * M.M[2][1] + V.w * M.M[3][1],
 		V.x * M.M[0][2] + V.y * M.M[1][2] + V.z * M.M[2][2] + V.w * M.M[3][2],
 		V.x * M.M[0][3] + V.y * M.M[1][3] + V.z * M.M[2][3] + V.w * M.M[3][3]);
+#else
+	FVector4 result;
+
+	const FVectorRegister B0 = VectorSIMD::Load(M.M[0]);
+	const FVectorRegister B1 = VectorSIMD::Load(M.M[1]);
+	const FVectorRegister B2 = VectorSIMD::Load(M.M[2]);
+	const FVectorRegister B3 = VectorSIMD::Load(M.M[3]);
+
+	const FVectorRegister A = VectorSIMD::Load(V.v);
+
+	const FVectorRegister AX = VectorSIMD::Shuffle<0, 0, 0, 0>(A, A);
+	const FVectorRegister AY = VectorSIMD::Shuffle<1, 1, 1, 1>(A, A);
+	const FVectorRegister AZ = VectorSIMD::Shuffle<2, 2, 2, 2>(A, A);
+	const FVectorRegister AW = VectorSIMD::Shuffle<3, 3, 3, 3>(A, A);
+
+	const FVectorRegister XY = VectorSIMD::Add(VectorSIMD::Mul(AX, B0), VectorSIMD::Mul(AY, B1));
+	const FVectorRegister ZW = VectorSIMD::Add(VectorSIMD::Mul(AZ, B2), VectorSIMD::Mul(AW, B3));
+
+	VectorSIMD::Store(result.v, VectorSIMD::Add(XY, ZW));
+	return result;
+#endif
 }
 
 inline const FMatrix FMatrix::Identity = {
