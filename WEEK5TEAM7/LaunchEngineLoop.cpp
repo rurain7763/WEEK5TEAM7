@@ -36,6 +36,8 @@
 #include "ShowFlags.h"
 #include "FFrustum.h"
 #include "FInstrumentor.h"
+#include <timeapi.h>
+#pragma comment(lib, "winmm.lib")
 
 #if IS_OBJ_VIEWER
 #include "FObjViewer.h"
@@ -45,6 +47,9 @@ void FEngineLoop::Init(HINSTANCE hInstance, WNDPROC WndProc)
 {
 	PROFILE_BEGIN_SESSION("Engine", "engine-loop-profile.json");
 	PROFILE_FUNCTION();
+
+	timeBeginPeriod(1);
+	SetPriorityClass(GetCurrentProcess(), HIGH_PRIORITY_CLASS);
 
 	// Initialize window infos
 	WCHAR WindowClass[] = L"JungleWindowClass";
@@ -538,6 +543,8 @@ void FEngineLoop::End()
 
 		delete mGraphicsManager;
 	}
+
+	timeEndPeriod(1);
 
 	PROFILE_END_SESSION();
 }

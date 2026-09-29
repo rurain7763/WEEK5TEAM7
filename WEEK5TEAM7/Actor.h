@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 #include "Object.h"
 #include "ActorComponent.h"
@@ -42,11 +42,14 @@ public:
 	void SetRotation(FRotator rotation);
 	void SetScale(FVector scale);
 
+	void SetWorld(UWorld* InWorld) { mWorld = InWorld; }
+	UWorld* GetWorld() const { return mWorld; }
+
 private:
 	int32 getComponentIndex(int32 componentUUID) const;
 
 private:
-	
+	UWorld* mWorld = nullptr;
 	USceneComponent* mRootComponent = nullptr;
 	TArray<UActorComponent*> mComponents;
 	bool mbPressed = false;

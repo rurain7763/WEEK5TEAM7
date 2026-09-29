@@ -119,6 +119,12 @@ void URenderer::CreateDeviceAndSwapChain(HWND hWindow)
 		FeatureLevels, ARRAYSIZE(FeatureLevels), D3D11_SDK_VERSION,
 		&SwapChainDesc, &SwapChain, &Device, nullptr, &DeviceContext);
 
+	Microsoft::WRL::ComPtr<IDXGIDevice1> DxgiDevice;
+	if (SUCCEEDED(Device->QueryInterface(IID_PPV_ARGS(&DxgiDevice))))
+	{
+		DxgiDevice->SetMaximumFrameLatency(1);
+	}
+
 	SwapChain->GetDesc(&SwapChainDesc);
 	Width = SwapChainDesc.BufferDesc.Width;
 	Height = SwapChainDesc.BufferDesc.Height;
