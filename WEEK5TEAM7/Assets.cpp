@@ -124,6 +124,12 @@ FStaticMeshAsset::FStaticMeshAsset(const FGuid& InAssetID, const FName& InAssetN
 	
 	VertexBuffer = InRenderer.CreateVertexBuffer(InBuildData.Vertices.Data(), static_cast<uint32>(InBuildData.Vertices.Num()));
 	IndexBuffer = InRenderer.CreateIndexBuffer(InBuildData.Indices.Data(), static_cast<uint32>(InBuildData.Indices.Num()));
+    LocalOctree.Build(Vertices, Indices, BoundingBox, LocalOctreeMaxDepth);
+}
+
+bool FStaticMeshAsset::RayCastLocal(const FPickingRay& Ray, float& OutHitT, FMeshOctreeQueryStats* OutStats, float MaxHitT) const
+{
+    return LocalOctree.RayCast(Ray, Vertices, Indices, OutHitT, OutStats, MaxHitT);
 }
 
 Microsoft::WRL::ComPtr<ID3D11Buffer> FStaticMeshAsset::GetVertexBuffer() const
