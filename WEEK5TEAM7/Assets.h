@@ -241,31 +241,19 @@ private:
 class FMaterialAsset : public FAsset
 {
 public:
-	FMaterialAsset(const FGuid& InAssetID, const FName& InAssetName, const FVector& InAmbientColor, const FVector& InDiffuseColor, 
-		const FVector& InSpecularColor, const FGuid& InDiffuseTexture, const FGuid& InSpecularTexture, const FGuid& InNormalTexture, const float InOpacity)
-		: FAsset(InAssetID, InAssetName, EAssetType::Material)
-		, AmbientColor(InAmbientColor)
-		, DiffuseColor(InDiffuseColor)
-		, SpecularColor(InSpecularColor)
-		, DiffuseTexture(InDiffuseTexture)
-		, SpecularTexture(InSpecularTexture)
-		, NormalTexture(InNormalTexture)
-		, Opacity(InOpacity)
-		, MaterialID(NextMaterialID++)
-	{
-	}
+	FMaterialAsset(const FGuid& InAssetID, const FName& InAssetName, const FVector& InAmbientColor, const FVector& InDiffuseColor, const FVector& InSpecularColor, const FGuid& InDiffuseTexture, const FGuid& InSpecularTexture, const FGuid& InNormalTexture, const float InOpacity);
 
 	const FVector& GetDiffuseColor() const { return DiffuseColor; }
 	const float& GetOpacity() const { return Opacity; }
 
 	inline bool HasDiffuseTexture() const { return DiffuseTexture.IsValid(); }
-	TSharedPtr<FTexture2DAsset> GetDiffuseTexture() const;
+	inline TSharedPtr<FTexture2DAsset> GetDiffuseTexture() const { return DiffuseTextureAsset; }
 
 	inline bool HasSpecularTexture() const { return SpecularTexture.IsValid(); }
-	TSharedPtr<FTexture2DAsset> GetSpecularTexture() const;
+	inline TSharedPtr<FTexture2DAsset> GetSpecularTexture() const { return SpecularTextureAsset; }
 
 	inline bool HasNormalTexture() const { return NormalTexture.IsValid(); }
-	TSharedPtr<FTexture2DAsset> GetNormalTexture() const;
+	inline TSharedPtr<FTexture2DAsset> GetNormalTexture() const { return NormalTextureAsset; }
 
 	inline uint32 GetMaterialID() const { return MaterialID; }
 
@@ -275,12 +263,20 @@ public:
 
 private:
 	TSharedPtr<FRenderPipeline> Pipeline = nullptr;
+	
 	FVector AmbientColor;
 	FVector DiffuseColor;
 	FVector SpecularColor;
+	
 	FGuid DiffuseTexture;
+	TSharedPtr<FTexture2DAsset> DiffuseTextureAsset;
+	
 	FGuid SpecularTexture;
+	TSharedPtr<FTexture2DAsset> SpecularTextureAsset;
+
 	FGuid NormalTexture;
+	TSharedPtr<FTexture2DAsset> NormalTextureAsset;
+
 	float Opacity;
 	uint32 MaterialID = 0;
 	inline static uint32 NextMaterialID = 1;

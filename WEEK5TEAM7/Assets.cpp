@@ -388,19 +388,25 @@ const FVector4& FSpriteAtlasAsset::GetFrameSubUV(int32 FrameIndex) const
 	return FrameSubUVs[static_cast<uint32>(FrameIndex)];
 }
 
-TSharedPtr<FTexture2DAsset> FMaterialAsset::GetDiffuseTexture() const
+FMaterialAsset::FMaterialAsset(const FGuid& InAssetID, const FName& InAssetName, const FVector& InAmbientColor, const FVector& InDiffuseColor, const FVector& InSpecularColor, const FGuid& InDiffuseTexture, const FGuid& InSpecularTexture, const FGuid& InNormalTexture, const float InOpacity)
+	: FAsset(InAssetID, InAssetName, EAssetType::Material)
+	, AmbientColor(InAmbientColor)
+	, DiffuseColor(InDiffuseColor)
+	, SpecularColor(InSpecularColor)
+	, DiffuseTexture(InDiffuseTexture)
+	, SpecularTexture(InSpecularTexture)
+	, NormalTexture(InNormalTexture)
+	, Opacity(InOpacity)
+	, MaterialID(NextMaterialID++)
 {
-	return FAssetManager::Get().GetAssetAs<FTexture2DAsset>(DiffuseTexture, true);
+	DiffuseTextureAsset = FAssetManager::Get().GetAssetAs<FTexture2DAsset>(DiffuseTexture, true);
+	SpecularTextureAsset = FAssetManager::Get().GetAssetAs<FTexture2DAsset>(SpecularTexture, true);
+	NormalTextureAsset = FAssetManager::Get().GetAssetAs<FTexture2DAsset>(NormalTexture, true);
 }
 
-TSharedPtr<FTexture2DAsset> FMaterialAsset::GetSpecularTexture() const
+uint16 FMaterialAsset::GetPipelineID() const
 {
-	return FAssetManager::Get().GetAssetAs<FTexture2DAsset>(SpecularTexture, true);
-}
-
-TSharedPtr<FTexture2DAsset> FMaterialAsset::GetNormalTexture() const
-{
-	return FAssetManager::Get().GetAssetAs<FTexture2DAsset>(NormalTexture, true);
+	return Pipeline ? Pipeline->GetPipelineID() : 1;
 }
 
 TSharedPtr<FAsset> FMaterialAssetLoader::LoadAsset(const FGuid& AssetID, const FName& AssetName, FArchive& Ar)
@@ -438,8 +444,4 @@ void FMaterialAssetLoader::UnloadAsset(TSharedPtr<FAsset> Asset)
 	// NOTE: Nothing to do for now
 }
 
-uint16 FMaterialAsset::GetPipelineID() const
-{
-	return Pipeline ? Pipeline->GetPipelineID() : 1;
-}
 

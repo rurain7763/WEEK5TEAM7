@@ -707,6 +707,7 @@ void URenderer::RenderQuad2D(const FRenderQuad2DInfo& Info)
 	BindVertexBuffer(nullptr, 0);
 
 	DeviceContext->Draw(6, 0);
+	++DrawCallCount;
 }
 
 void URenderer::RenderLine2D(const FVector2& Start, const FVector2& End, const FVector4& Color, float Thickness)
