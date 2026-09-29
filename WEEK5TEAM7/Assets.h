@@ -10,6 +10,7 @@
 #include "FObjImporter.h"
 #include "FGuid.h"
 #include "FMeshDescription.h"
+#include "FMeshPickingOctree.h"
 #include "FLogManager.h"
 #include <d3d11.h>
 #include <wrl/client.h>
@@ -68,8 +69,13 @@ public:
 	inline const TArray<FVertex>& GetVertices() const { return Vertices; }
 	inline const TArray<uint32>& GetIndices() const { return Indices; }
 	inline uint32 GetMeshID() const { return MeshID; }
+    // 동일 에셋을 사용하는 컴포넌트들은 이 로컬 트리 하나를 공유합니다.
+    const FMeshPickingOctree& GetLocalOctree() const { return LocalOctree; }
+    bool RayCastLocal(const FPickingRay& Ray, float& OutHitT, FMeshOctreeQueryStats* OutStats = nullptr, float MaxHitT = 1.0f) const;
+    inline static constexpr uint32 LocalOctreeMaxDepth = 8;
 
 private:
+    FMeshPickingOctree LocalOctree;
 	TSharedPtr<FVertexBuffer> VertexBuffer;
 	
 	TSharedPtr<FIndexBuffer> IndexBuffer;

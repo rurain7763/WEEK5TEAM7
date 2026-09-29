@@ -21,6 +21,8 @@ public:
 	virtual void Render(FRenderCollector& RenderCollector) override;
 
 	FAABB GetBoundingBox() const override;
+	// 기존 Picking의 가상 함수 호출을 메시 에셋의 로컬 Octree로 연결합니다.
+	bool RayCastComponent(const FPickingRay& PickingRay, float& OutHitT) const override;
 
 	const TArray<FVertex>& GetMeshVertices() const override
 	{
