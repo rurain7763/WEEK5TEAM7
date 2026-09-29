@@ -6,11 +6,18 @@
 #include "JsonUtil.h"
 #include "Console.h"
 #include "ObjectFactory.h"
+#include "PrimitiveComponent.h"
+#include "UTextComponent.h"
+#include "ShowFlags.h"
 
 UWorld::~UWorld()
 {
+	mPrimitiveComponents.Empty();
+	mText3DComponents.Empty();
+
 	for (AActor* removeActor : mActors)
 	{
+		removeActor->SetWorld(nullptr);
 		FObjectFactory::DestroyObject(removeActor);
 	}
 }
@@ -61,27 +68,96 @@ void UWorld::DeserializeClass(const json::JSON& inJson)
 	}
 }
 
+void UWorld::RegisterComponent(UActorComponent* component)
+{
+	if (!component) return;
+
+	if (UPrimitiveComponent* PrimComp = component->Cast<UPrimitiveComponent>())
+	{
+		mPrimitiveComponents.Add(PrimComp);
+	}
+	else if (UText3DComponent* TextComp = component->Cast<UText3DComponent>())
+	{
+		mText3DComponents.Add(TextComp);
+	}
+}
+
+void UWorld::UnregisterComponent(UActorComponent* component)
+{
+	if (!component) return;
+
+	if (UPrimitiveComponent* PrimComp = component->Cast<UPrimitiveComponent>())
+	{
+		for (int32 i = 0; i < mPrimitiveComponents.Num(); ++i)
+		{
+			if (mPrimitiveComponents[i] == PrimComp)
+			{
+				mPrimitiveComponents.RemoveAtSwap(i);
+				break;
+			}
+		}
+	}
+	else if (UText3DComponent* TextComp = component->Cast<UText3DComponent>())
+	{
+		for (int32 i = 0; i < mText3DComponents.Num(); ++i)
+		{
+			if (mText3DComponents[i] == TextComp)
+			{
+				mText3DComponents.RemoveAtSwap(i);
+				break;
+			}
+		}
+	}
+}
+
+void UWorld::RegisterActorComponents(AActor* actor)
+{
+	if (!actor) return;
+
+	for (UActorComponent* component : actor->GetComponents())
+	{
+		RegisterComponent(component);
+	}
+}
+
+void UWorld::UnregisterActorComponents(AActor* actor)
+{
+	if (!actor) return;
+
+	for (UActorComponent* component : actor->GetComponents())
+	{
+		UnregisterComponent(component);
+	}
+}
+
 void UWorld::AddActor(AActor* actor)
 {
 	assert(actor != nullptr);
 	assert(getActorIndex(actor->UUID) == -1);
 
+	actor->SetWorld(this);
 	mActors.Add(actor);
 
 	// TODO: 전처리를 통해 에디터 모드가 아니면 아래 코드를 컴파일하지 않게 막아야함.
 	actor->CreateEditorComponents();
+
+	RegisterActorComponents(actor);
 }
 
-bool UWorld::RemoveActor(uint32 componentUUID)
+bool UWorld::RemoveActor(uint32 actorUUID)
 {
-	int32 componentIndex = getActorIndex(componentUUID);
-	if (componentIndex == -1)
+	int32 actorIndex = getActorIndex(actorUUID);
+	if (actorIndex == -1)
 	{
 		return false;
 	}
 
-	//mActors.RemoveAt(componentIndex, 1);
-	mActors.RemoveAtSwap(componentIndex);
+	AActor* actor = mActors[actorIndex];
+	UnregisterActorComponents(actor);
+	actor->SetWorld(nullptr);
+
+	//mActors.RemoveAt(actorIndex, 1);
+	mActors.RemoveAtSwap(actorIndex);
 
 	return true;
 }
@@ -96,9 +172,24 @@ void UWorld::Tick(float deltaTime)
 
 void UWorld::Render(float deltaTime, FRenderCollector& outCollector)
 {
-	for (AActor* actor : mActors)
+	if (FShowFlags::Get().IsEnabled(EShowFlag::Primitive))
 	{
-		actor->Render(outCollector);
+		for (UPrimitiveComponent* PrimComp : mPrimitiveComponents)
+		{
+			PrimComp->Render(outCollector);
+			if (outCollector.bNeedPickTargets)
+			{
+				PrimComp->RegisterPickTarget(outCollector);
+			}
+		}
+	}
+
+	if (FShowFlags::Get().IsEnabled(EShowFlag::UUIDText))
+	{
+		for (UText3DComponent* TextComp : mText3DComponents)
+		{
+			TextComp->Render(outCollector);
+		}
 	}
 }
 

@@ -1,4 +1,5 @@
 #include "Actor.h"
+#include "World.h"
 #include "JsonUtil.h"
 #include "RenderInfo.h"
 #include "SceneComponent.h"
@@ -100,6 +101,11 @@ void AActor::AddComponent(UActorComponent* actorComponent)
 
 	mComponents.Add(actorComponent);
 	actorComponent->SetOwner(this);
+
+	if (mWorld)
+	{
+		mWorld->RegisterComponent(actorComponent);
+	}
 }
 
 void AActor::AddRootSceneComponent(USceneComponent* sceneComponent)
@@ -122,6 +128,12 @@ bool AActor::RemoveComponent(uint32 componentUUID)
 	if (componentIndex == -1)
 	{
 		return false;
+	}
+
+	UActorComponent* component = mComponents[componentIndex];
+	if (mWorld)
+	{
+		mWorld->UnregisterComponent(component);
 	}
 
 	//mComponents.RemoveAt(componentIndex, 1);
