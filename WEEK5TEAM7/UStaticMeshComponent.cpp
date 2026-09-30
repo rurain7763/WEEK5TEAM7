@@ -84,15 +84,21 @@ void UStaticMeshComponent::DeserializeClass(const json::JSON& inJson)
 
 void UStaticMeshComponent::Render(FRenderCollector& RenderCollector)
 {
+    Super::Render(RenderCollector);
+
     if (!mMeshAsset)
     {
         return;
     }
 
 	const FTransform& Transform = GetTransform();
-
     const uint32 LOD = RenderCollector.Camera ? GetLODForView(RenderCollector.Camera->Transform.GetLocation()) : 0;
     const auto& Sections = mMeshAsset->GetSections(LOD);
+
+	mRenderProxy->SetCollector(RenderCollector);
+	mRenderProxy->ReserveRenderInfos(Sections.Num());
+
+	int32 ActiveSectionCount = 0;
     for (int32 SectionIndex = 0; SectionIndex < Sections.Num(); ++SectionIndex)
     {
         const FStaticMeshSection& Section = Sections[SectionIndex];
@@ -100,7 +106,7 @@ void UStaticMeshComponent::Render(FRenderCollector& RenderCollector)
 
         const TSharedPtr<FMaterialAsset>& Material = mMaterialAssets[SectionIndex];
 
-		FRenderInfo& RenderInfo = RenderCollector.RenderInfos.Emplace();
+		FRenderInfo& RenderInfo = mRenderProxy->GetRenderInfo(ActiveSectionCount++);
         if (Material)
         {
 		    const FVector& DiffuseColor = Material->GetDiffuseColor();
@@ -140,6 +146,8 @@ void UStaticMeshComponent::Render(FRenderCollector& RenderCollector)
 			RenderInfo.ObjectInternalIndex = mOwner->InternalIndex;
         }
     }
+
+	mRenderProxy->SetActiveRenderInfoNum(ActiveSectionCount);
 }
 
 bool UStaticMeshComponent::RayCastComponent(const FPickingRay& PickingRay, float& OutHitT) const
@@ -185,24 +193,26 @@ void UStaticMeshComponent::SetMesh(const TSharedPtr<FStaticMeshAsset>& InMesh)
 
     if (!InMesh)
     {
-		mMeshAsset = nullptr;
-		mMaterialAssets.Empty();
-		mUVOffsets.Empty();
-        MarkBoundsDirty();
-		return;
+        mMeshAsset = nullptr;
+        mMaterialAssets.Empty();
+        mUVOffsets.Empty();
+        mRenderProxy->ReleaseRenderInfos();
     }
-
-    const auto& Sections = InMesh->GetSections();
-    mMaterialAssets.SetNum(Sections.Num());
-    mUVOffsets.SetNum(Sections.Num());
-    for (int32 i = 0; i < Sections.Num(); i++)
+    else
     {
-        auto& Section = Sections[i];
-        mMaterialAssets[i] = Section.MaterialAssetID.IsValid() ? FAssetManager::Get().GetAssetAs<FMaterialAsset>(Section.MaterialAssetID, true) : nullptr;
+        const auto& Sections = InMesh->GetSections();
+        mMaterialAssets.SetNum(Sections.Num());
+        mUVOffsets.SetNum(Sections.Num());
+        for (int32 i = 0; i < Sections.Num(); i++)
+        {
+            auto& Section = Sections[i];
+            mMaterialAssets[i] = Section.MaterialAssetID.IsValid() ? FAssetManager::Get().GetAssetAs<FMaterialAsset>(Section.MaterialAssetID, true) : nullptr;
+        }
+        mMeshAsset = InMesh;
     }
-    mMeshAsset = InMesh;
 
     MarkBoundsDirty();
+    MarkRenderDirty();
 }
 
 uint32 UStaticMeshComponent::GetLODForView(const FVector& ViewOrigin) const

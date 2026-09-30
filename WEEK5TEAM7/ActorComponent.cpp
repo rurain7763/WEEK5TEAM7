@@ -5,11 +5,13 @@
 UActorComponent::UActorComponent()
 	: mOwner(nullptr)
 {
+	mRenderProxy = new FRenderProxy();
 }
 
 UActorComponent::~UActorComponent()
 {
 	SetTickable(false);
+	delete mRenderProxy;
 }
 
 void UActorComponent::SetOwner(AActor* owner)
@@ -43,8 +45,7 @@ void UActorComponent::Tick(float deltaTime)
 
 void UActorComponent::Render(FRenderCollector& RenderCollector)
 {
-	// Todo: Do nothing, must override, some components may not call Update()
-	// assert(false);
+	mRenderDirty = false;
 }
 
 void UActorComponent::GetRenderInfos(TArray<FRenderInfo>* outRenderInfos) const
@@ -52,3 +53,21 @@ void UActorComponent::GetRenderInfos(TArray<FRenderInfo>* outRenderInfos) const
 	// Todo: Do nothing, must override, some components may not call GetRenderInfos()
 	// assert(false);
 }
+
+void UActorComponent::MarkRenderDirty()
+{
+	if (mRenderDirty)
+	{
+		return;
+	}
+
+	mRenderDirty = true;
+	AActor* Owner = GetOwner();
+	UWorld* World = Owner ? Owner->GetWorld() : nullptr;
+	if (World)
+	{
+		World->RequestRenderUpdate(this);
+	}
+}
+
+

@@ -7,6 +7,7 @@
 #include "TArray.h"
 #include "FFrustum.h"
 #include "FBVH.h"
+#include "TRangePool.h"
 #include <algorithm>
 
 class FCamera;
@@ -94,7 +95,6 @@ public:
 	FFrustum Frustum;
 	bool bNeedPickTargets = false;
 
-	TArray<FRenderInfo> RenderInfos; // 메시 패스
 	TArray<FRenderLineInfo> LineInfos; // 라인 패스
 	FBVH<UPrimitiveComponent*>* BVH = nullptr;
 
@@ -126,7 +126,7 @@ public:
 	{
 		BVH = nullptr;
 		bNeedPickTargets = false;
-		RenderInfos.Reset(DEFAULT_RESERVE_MEM);
+		VisibleRenderInfoIndices.Reset(DEFAULT_RESERVE_MEM);
 		LineInfos.Reset(DEFAULT_RESERVE_MEM);
 		OpaqueQuadInfos.Reset(DEFAULT_RESERVE_MEM);
 		TransparentQuadInfos.Reset(DEFAULT_RESERVE_MEM);
@@ -138,11 +138,97 @@ public:
 	inline const TArray<FRenderQuadInfo>& GetTransparentQuadInfos() const { return TransparentQuadInfos; }
 	inline const TArray<FRenderQuadInfo>& GetOverlayQuadInfos() const { return OverlayQuadInfos; }
 	inline const TArray<FRenderQuad2DInfo>& GetQuad2DInfos() const { return Quad2DInfos; }
+	
+	inline const TRangePool<FRenderInfo>& GetRenderInfoPool() const { return RenderInfoPool; }
+	inline TArray<int32>& GetVisibleRenderInfoIndices() { return VisibleRenderInfoIndices; }
 
 private:
+	friend class FRenderProxy;
+
+	TRangePool<FRenderInfo> RenderInfoPool;
+	TArray<int32> VisibleRenderInfoIndices;
+
 	TArray<FRenderQuadInfo> OpaqueQuadInfos;
 	TArray<FRenderQuadInfo> TransparentQuadInfos;
 	TArray<FRenderQuadInfo> OverlayQuadInfos;
 
 	TArray<FRenderQuad2DInfo> Quad2DInfos;
+};
+
+class FRenderProxy
+{
+public:
+	FRenderProxy() = default;
+	~FRenderProxy()
+	{
+		ReleaseRenderInfos();
+	}
+
+	inline void SetCollector(FRenderCollector& InCollector)
+	{
+		if (Collector == &InCollector)
+		{
+			return;
+		}
+
+		ReleaseRenderInfos();
+		Collector = &InCollector;
+	}
+
+	inline void ReserveRenderInfos(int32 Count)
+	{
+		if (RenderInfoBlock.IsValid())
+		{
+			if (RenderInfoBlock.Size >= Count)
+			{
+				return;
+			}
+
+			Collector->RenderInfoPool.Release(RenderInfoBlock);
+		}
+
+		RenderInfoBlock = Collector->RenderInfoPool.Allocate(Count);
+		ActiveRenderInfoNum = 0;
+	}
+
+	inline void ReleaseRenderInfos()
+	{
+		if (!RenderInfoBlock.IsValid())
+		{
+			return;
+		}
+
+		Collector->RenderInfoPool.Release(RenderInfoBlock);
+		RenderInfoBlock = {};
+		ActiveRenderInfoNum = 0;
+	}
+
+	inline void SetActiveRenderInfoNum(int32 Count)
+	{
+		ActiveRenderInfoNum = Count;
+	}
+
+	inline FRenderInfo& GetRenderInfo(uint32 Index)
+	{
+		return Collector->RenderInfoPool.Get(RenderInfoBlock, Index);
+	}
+
+	inline void Submit()
+	{
+		if (!RenderInfoBlock.IsValid())
+		{
+			return;
+		}
+
+		for (uint32 i = 0; i < ActiveRenderInfoNum; ++i)
+		{
+			Collector->VisibleRenderInfoIndices.Emplace(RenderInfoBlock.Index + i);
+		}
+	}
+
+private:
+	FRenderCollector* Collector = nullptr;
+
+	FRangePoolBlock RenderInfoBlock;
+	uint32 ActiveRenderInfoNum = 0;
 };

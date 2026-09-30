@@ -133,6 +133,7 @@ void UWorld::RegisterComponent(UActorComponent* Component)
 	if (PrimitiveComponent)
 	{
 		mPrimitiveComponents.Add(PrimitiveComponent);
+		mShouldRenderComponents.Add(Component);
 		mbBVHDirty = true;
 	}
 	else if (Component->IsRenderable())
@@ -154,6 +155,12 @@ void UWorld::UnregisterComponent(UActorComponent* Component)
 			mPrimitiveComponents.RemoveAtSwap(index);
 			mbBVHDirty = true;
 		}
+
+		index = mShouldRenderComponents.Find(Component);
+		if (index != -1)
+		{
+			mShouldRenderComponents.RemoveAtSwap(index);
+		}
 	}
 	else if (Component->IsRenderable())
 	{
@@ -161,6 +168,12 @@ void UWorld::UnregisterComponent(UActorComponent* Component)
 		if (index != -1)
 		{
 			mNonPrimitiveRenderableComponents.RemoveAtSwap(index);
+		}
+
+		index = mShouldRenderComponents.Find(Component);
+		if (index != -1)
+		{
+			mShouldRenderComponents.RemoveAtSwap(index);
 		}
 	}
 }
@@ -235,6 +248,11 @@ void UWorld::MarkBoundsDirty(UActorComponent* Component)
 	}
 }
 
+void UWorld::RequestRenderUpdate(UActorComponent* Component)
+{
+	mShouldRenderComponents.Add(Component);
+}
+
 void UWorld::Tick(float deltaTime)
 {
 	// 전체 Actor/Component 목록을 훑지 않고 실제 갱신 대상만 순회합니다.
@@ -261,6 +279,12 @@ void UWorld::Render(float deltaTime, FRenderCollector& outCollector)
 	{
 		Component->Render(outCollector);
 	}
+	
+	for (UActorComponent* Component : mShouldRenderComponents)
+	{
+		Component->Render(outCollector);
+	}
+	mShouldRenderComponents.Empty();
 
 	if (FShowFlags::Get().IsEnabled(EShowFlag::Primitive))
 	{
@@ -289,7 +313,7 @@ void UWorld::Render(float deltaTime, FRenderCollector& outCollector)
 					for (int32 i = 0; i < CurrentNode->ItemRange.Count; ++i)
 					{
 						UPrimitiveComponent* Object = mBVH.GetPayload(CurrentNode->ItemRange.Offset + i);
-						Object->Render(outCollector);
+						Object->GetRenderProxy()->Submit();
 					}
 				}
 				else
@@ -300,7 +324,7 @@ void UWorld::Render(float deltaTime, FRenderCollector& outCollector)
 			}
 		}
 	}
-	
+
 	outCollector.BVH = &mBVH;
 }
 

@@ -212,15 +212,24 @@ void FGraphicsManager::Render()
         mRenderer->RenderLines(mRenderCollector.LineInfos);
     }
 
+	const auto& RenderInfoPool = mRenderCollector.GetRenderInfoPool();
+	const auto& RenderInfos = RenderInfoPool.GetPool();
+	auto& VisibleRenderInfoIndices = mRenderCollector.GetVisibleRenderInfoIndices();
+
     {
         PROFILE_SCOPE("Viewport/GraphicsRender/sort");
-        std::sort(mRenderCollector.RenderInfos.begin(), mRenderCollector.RenderInfos.end());
+      //  std::sort(mRenderCollector.RenderInfos.begin(), mRenderCollector.RenderInfos.end());
+        std::sort(VisibleRenderInfoIndices.begin(), VisibleRenderInfoIndices.end(), [&RenderInfoPool, &RenderInfos, &VisibleRenderInfoIndices](int32 A, int32 B) { 
+			return RenderInfos[A].SortKey < RenderInfos[B].SortKey;
+		});
     }
 
 	{
 		PROFILE_SCOPE("Viewport/GraphicsRender/SubmitMeshes");
-		for (const FRenderInfo& Info : mRenderCollector.RenderInfos)
+		for (const int32 Index : VisibleRenderInfoIndices)
 		{
+			const FRenderInfo& Info = RenderInfos[Index];
+
 			const auto& Pipeline = Info.Pipeline ? Info.Pipeline : mMeshPipeline;
 			Pipeline->UpdateConstantBuffer(1, mViewUnifiedProjectionMatrix);
 			Pipeline->UpdateConstantBuffer(0, FConstants{ Info.Model, Info.Color, Info.UVOffset, Info.UseVertexColor, Info.Texture ? 1 : 0 });
