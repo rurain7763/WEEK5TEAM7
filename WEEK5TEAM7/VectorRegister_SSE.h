@@ -191,6 +191,36 @@ namespace VectorSIMD
 
 	}
 
+	inline FVectorRegister CompareGT(FVectorRegister A, FVectorRegister B)
+	{
+		return _mm_cmpgt_ps(A, B);
+	}
+
+	inline FVectorRegister CompareGE(FVectorRegister A, FVectorRegister B)
+	{
+		return _mm_cmpge_ps(A, B);
+	}
+
+	inline FVectorRegister CompareLT(FVectorRegister A, FVectorRegister B)
+	{
+		return _mm_cmplt_ps(A, B);
+	}
+
+	inline FVectorRegister CompareLE(FVectorRegister A, FVectorRegister B)
+	{
+		return _mm_cmple_ps(A, B);
+	}
+
+	inline int32 MoveMask(FVectorRegister Mask)
+	{
+		return _mm_movemask_ps(Mask);
+	}
+
+	inline FVectorRegister Select(FVectorRegister Mask, FVectorRegister TrueValue, FVectorRegister FalseValue)
+	{
+		return Or(And(Mask, TrueValue), AndNot(Mask, FalseValue));
+	}
+
 	// Matrix 관련
 	inline void Transpose(FVectorRegister& A, FVectorRegister& B, FVectorRegister& C, FVectorRegister& D)
 	{
