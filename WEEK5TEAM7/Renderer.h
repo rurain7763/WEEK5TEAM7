@@ -481,17 +481,7 @@ public:
 	void RenderPrimitive(Microsoft::WRL::ComPtr<ID3D11Buffer> Buffer, UINT NumVertices, const FMatrix& Model);
 	void RenderPrimitive(Microsoft::WRL::ComPtr<ID3D11Buffer> Buffer, UINT NumVertices, const FMatrix& Model, const FVector4& Color);
 	void RenderPrimitiveIndexed(const FRenderInfo& RenderInfo, uint32 StencilRef = 0);
-	void RenderPrimitiveIndexed(const TSharedPtr<FRenderPipeline>& Pipeline, const FRenderInfo& RenderInfo, uint32 StencilRef = 0, int32 BatchIndex = -1);
-
-    // 정렬 완료 후 한 번 업로드하고, 이후 Draw에서는 해당 인덱스의 상수 구간을 선택합니다.
-    bool UploadMeshConstants(const TArray<FRenderInfo>& RenderInfos);
-    bool IsMeshConstantBatchSupported() const { return MeshConstantBatch.IsSupported(); }
-    uint32 GetMeshConstantUploadMapCount() const { return MeshConstantBatch.GetUploadMapCount(); }
-    inline static bool bBatchMeshConstants = false;
-    inline static bool bReuseMeshBindings = true;
-    // 이 호출 안에서만 연속된 파이프라인·텍스처 바인딩을 재사용합니다. 다른 패스로 넘어가면 재사용하지 않습니다.
-    void RenderMeshes(const TArray<FRenderInfo>& RenderInfos, const TSharedPtr<FRenderPipeline>& DefaultPipeline, const FMatrix& ViewProjection);
-    uint32 GetMeshPipelineApplyCount() const { return MeshPipelineApplyCount; }
+	void RenderPrimitiveIndexed(const TSharedPtr<FRenderPipeline>& Pipeline, const FRenderInfo& RenderInfo, uint32 StencilRef = 0);
 
 	void RenderQuad2D(const FRenderQuad2DInfo& Info);
 	void RenderLine2D(const FVector2& Start, const FVector2& End, const FVector4& Color, float Thickness = 1.0f);
