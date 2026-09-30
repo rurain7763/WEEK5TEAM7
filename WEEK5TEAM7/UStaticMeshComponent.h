@@ -17,7 +17,10 @@ public:
 	virtual void DeserializeClass(const json::JSON& inJson) override;
 
 	virtual void Render(FRenderCollector& RenderCollector) override;
+	virtual void UpdateLODForView(const FVector& ViewOrigin, FRenderCollector& RenderCollector) override;
 	virtual void Tick(float DeltaTime) override;
+
+	inline uint32 GetLODIndex() const { return mLODIndex; }
 
 	FAABB GetBoundingBox() const override;
     uint32 GetLODForView(const FVector& ViewOrigin) const;

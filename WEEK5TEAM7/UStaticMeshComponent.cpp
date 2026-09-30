@@ -11,19 +11,28 @@
 
 UStaticMeshComponent::UStaticMeshComponent()
 {
-    // 비교 실험용: 가시성과 무관하게 모든 정적 메시를 기존 Tickable 목록에 등록합니다.
-    SetTickable(true);
+    SetTickable(false);
 }
 
 void UStaticMeshComponent::Tick(float DeltaTime)
 {
     Super::Tick(DeltaTime);
-    if (!mMeshAsset || !mOwner || !mOwner->GetWorld()) return;
+}
 
-    const uint32 LOD = GetLODForView(mOwner->GetWorld()->GetLODViewOrigin());
-    // 같은 LOD의 버퍼를 편집 도구에서 재생성한 경우에도 프록시를 갱신합니다.
-    if (mLODIndex != LOD || mLODMeshID != mMeshAsset->GetMeshID(LOD))
-        SetMesh(mMeshAsset, LOD);
+void UStaticMeshComponent::UpdateLODForView(const FVector& ViewOrigin, FRenderCollector& RenderCollector)
+{
+    if (!mMeshAsset) return;
+
+    const uint32 DesiredLOD = GetLODForView(ViewOrigin);
+    const uint32 ResolvedLOD = mMeshAsset->HasLOD(DesiredLOD) ? DesiredLOD : 0;
+    const uint32 MeshID = mMeshAsset->GetMeshID(ResolvedLOD);
+
+    if (mLODIndex != ResolvedLOD || mLODMeshID != MeshID)
+    {
+        mLODIndex = ResolvedLOD;
+        mLODMeshID = MeshID;
+        Render(RenderCollector);
+    }
 }
 
 void UStaticMeshComponent::SerializeClass(json::JSON& outJson) const
@@ -253,7 +262,16 @@ uint32 UStaticMeshComponent::GetLODForView(const FVector& ViewOrigin) const
     if (!mMeshAsset) return 0;
     // 강제 선택은 카메라 거리와 무관하므로 중심 변환과 거리 계산을 생략합니다.
     if (mMeshAsset->GetLODSelection().ForcedLOD >= 0) return mMeshAsset->SelectLOD(0);
-    const FAABB& Bounds = mMeshAsset->GetLocalBoundingBox();
-    const FVector Center = GetTransform().MakeMatrix().TransformPosition(Bounds.Min * .5f + Bounds.Max * .5f);
+
+    FVector Center;
+    if (!mbAABBDirty)
+    {
+        Center = (mCachedWorldAABB.Min + mCachedWorldAABB.Max) * 0.5f;
+    }
+    else
+    {
+        const FAABB& Bounds = mMeshAsset->GetLocalBoundingBox();
+        Center = GetTransform().MakeMatrix().TransformPosition(Bounds.Min * .5f + Bounds.Max * .5f);
+    }
     return mMeshAsset->SelectLOD((Center - ViewOrigin).LengthSquared());
 }
