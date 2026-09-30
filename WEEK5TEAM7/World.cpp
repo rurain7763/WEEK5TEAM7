@@ -10,6 +10,8 @@
 #include "FBVH.h"
 #include "FInstrumentor.h"
 #include "UTextComponent.h"
+#include "ShowFlags.h"
+#include "FHiZOcclusionManager.h"
 
 UWorld::~UWorld()
 {
@@ -168,6 +170,8 @@ void UWorld::MarkBoundsDirty(UActorComponent* Component)
 	if (PrimitiveComponent)
 	{
 		mBVH.Refit(PrimitiveComponent, PrimitiveComponent->GetBoundingBox());
+		mBVH.GetAllBoundingBoxes(mCachedEntryAABBs);
+		mbAABBsDirty = true;
 	}
 }
 
@@ -193,7 +197,9 @@ void UWorld::Tick(float deltaTime)
 			mBVH.AddItem(primitiveComponent, primitiveComponent->GetBoundingBox());
 		}
 		mBVH.Build();
+		mBVH.GetAllBoundingBoxes(mCachedEntryAABBs);
 		mbBVHDirty = false;
+		mbAABBsDirty = true;
 	}
 }
 
@@ -231,12 +237,19 @@ void UWorld::Render(float deltaTime, FRenderCollector& outCollector)
     }
     {
         PROFILE_SCOPE("World/CollectPrimitives");
+        const bool bOcclusionEnabled = FShowFlags::Get().IsEnabled(EShowFlag::OcclusionCulling);
         // 기존 BVH의 연속 범위를 사용하여 개별 가시 객체 배열을 복사하지 않습니다.
 		for (const auto& Range : VisibleRanges)
 		{
 			for (int32 I = 0; I < Range.Count; ++I)
 			{
-				mBVH.GetPayload(Range.Offset + I)->Render(outCollector);
+				int32 EntryIndex = Range.Offset + I;
+				if (bOcclusionEnabled && FHiZOcclusionManager::Get().IsOccluded(EntryIndex))
+				{
+					FHiZOcclusionManager::Get().IncrementCulledCount();
+					continue;
+				}
+				mBVH.GetPayload(EntryIndex)->Render(outCollector);
 			}
 		}
     }

@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 #include "Object.h"
 #include "Actor.h"
@@ -32,6 +32,10 @@ public:
 	void Tick(float deltaTime);
 	void Render(float deltaTime, FRenderCollector& outCollector);
 
+	bool IsAABBsDirty() const { return mbAABBsDirty; }
+	void SetAABBsClean() { mbAABBsDirty = false; }
+	const TArray<FAABB>& GetCachedEntryAABBs() const { return mCachedEntryAABBs; }
+
 private:
 	int32 getActorIndex(uint32 actorUUID) const;
 
@@ -59,6 +63,8 @@ private:
     TMap<UActorComponent*, FComponentRegistration> ComponentRegistrations;
 	
 	bool mbBVHDirty = true;
+	bool mbAABBsDirty = true;
+	TArray<FAABB> mCachedEntryAABBs;
 	FBVH<UPrimitiveComponent*> mBVH;
     TArray<FBVHNode*> QueryStack;
     TArray<FBVHItemRange> VisibleRanges;

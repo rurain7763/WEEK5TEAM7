@@ -135,6 +135,25 @@ public:
 		return Entries[Index].Payload;
 	}
 
+	inline int32 GetNumEntries() const
+	{
+		return Entries.Num();
+	}
+
+	inline const FAABB& GetBoundingBox(int32 Index) const
+	{
+		return Entries[Index].BoundingBox;
+	}
+
+	inline void GetAllBoundingBoxes(TArray<FAABB>& OutBoxes) const
+	{
+		OutBoxes.SetNum(Entries.Num());
+		for (int32 i = 0; i < Entries.Num(); ++i)
+		{
+			OutBoxes[i] = Entries[i].BoundingBox;
+		}
+	}
+
 	inline FBVHNode* GetRootNode() const { return RootNode; }
 	inline bool IsValid() const { return RootNode != nullptr; }
 

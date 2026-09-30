@@ -35,6 +35,7 @@
 #include "FEditorUIManager.h"
 #include "ShowFlags.h"
 #include "FFrustum.h"
+#include "FHiZOcclusionManager.h"
 #include "FInstrumentor.h"
 #include <timeapi.h>
 #pragma comment(lib, "winmm.lib")
@@ -222,16 +223,23 @@ static void RenderPerformanceOverlay(FRenderCollector& RenderCollector, FFrameTi
 	auto PickStat = FInstrumentor::Get().GetRealtimeStats("MousePicking");
 
 	const bool bCullingEnabled = FShowFlags::Get().IsEnabled(EShowFlag::FrustumCulling);
+	const bool bOcclusionEnabled = FShowFlags::Get().IsEnabled(EShowFlag::OcclusionCulling);
+	const uint32 CulledByHiZ = FHiZOcclusionManager::Get().GetCulledCount();
+	const uint32 TotalObjects = FHiZOcclusionManager::Get().GetTotalTestedCount();
 
 	std::wstring PerformanceText = std::format(
 		L"Resolution: {}x{} (Viewport: {}x{})\n"
 		L"FPS: {:.1f} ({:.2f} ms)\n"
+		L"Frustum Culling: {}\n"
+		L"Hi-Z Occlusion: {} (Culled: {} / Total: {})\n"
 		L"Last Picking: {:.3f} ms\n"
 		L"Picking Count: {}\n"
 		L"Total Picking Time: {:.3f} ms",
 		MonitorWidth, MonitorHeight,
 		ViewWidth, ViewHeight,
 		FPS, FrameTimeMs,
+		bCullingEnabled ? L"ON" : L"OFF",
+		bOcclusionEnabled ? L"ON" : L"OFF", CulledByHiZ, TotalObjects,
 		PickStat.LastDurationMs,
 		PickStat.CallCount,
 		PickStat.TotalDurationMs
@@ -328,6 +336,21 @@ void FEngineLoop::Tick(bool bPumpMessages)
 	}
 
 	mGraphicsManager->GetRenderer()->ResetDrawCallCount();
+
+	// Check if World AABBs are dirty and update GPU StructuredBuffer
+	UWorld* CurrentWorld = mSceneManager ? mSceneManager->GetCurrentWorld() : nullptr;
+	if (CurrentWorld && CurrentWorld->IsAABBsDirty())
+	{
+		FHiZOcclusionManager::Get().UpdateAABBs(
+			mGraphicsManager->GetRenderer()->GetDevice(),
+			mGraphicsManager->GetRenderer()->GetDeviceContext(),
+			CurrentWorld->GetCachedEntryAABBs()
+		);
+		CurrentWorld->SetAABBsClean();
+	}
+
+	// Begin frame: read back previous frame's GPU culling results (zero-stall)
+	FHiZOcclusionManager::Get().BeginFrame(mGraphicsManager->GetRenderer()->GetDeviceContext());
 
 	{
 		PROFILE_SCOPE("Frame/Viewports");

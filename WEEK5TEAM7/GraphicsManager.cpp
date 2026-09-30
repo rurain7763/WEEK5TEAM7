@@ -11,6 +11,7 @@
 #include "FEditorViewportClient.h"
 //#include "FInstrumentor.h"
 #include <algorithm>
+#include "FHiZOcclusionManager.h"
 
 // 선분 하나당 정점 2개. 축 6개 + 앞으로 붙을 그리드까지 감당할 만큼 잡아둔다
 static constexpr uint32 LINE_VERTEX_CAPACITY = 8192;
@@ -252,45 +253,15 @@ void FGraphicsManager::Render()
             LastTexture = Info.Texture;
         }
 	}
+	
+	// Hi-Z Occlusion Culling: Downsamples depth buffer into Hi-Z pyramid and tests scene AABBs
+	if (FShowFlags::Get().IsEnabled(EShowFlag::OcclusionCulling) && mViewportType == EViewportType::Perspective)
 	{
-		PROFILE_SCOPE("Viewport/GraphicsRender/RenderQuad");
-
-		for (const FRenderQuadInfo& QuadInfo : mRenderCollector.GetOpaqueQuadInfos())
+		PROFILE_SCOPE("Viewport/GraphicsRender/HiZOcclusion");
+		TSharedPtr<FDepthStencil> CurrentDepthStencil = mRenderer->GetBindedDepthStencil();
+		if (CurrentDepthStencil)
 		{
-			mRenderer->RenderQuad(QuadInfo);
-		}
-
-		if (FShowFlags::Get().IsEnabled(EShowFlag::Grid))
-		{
-			FMatrix GridWorldMatrix = FMatrix::Identity;
-
-			if (mViewportType == EViewportType::Front)
-			{
-				GridWorldMatrix = FMatrix::RotateY(90);
-			}
-			else if (mViewportType == EViewportType::Side)
-			{
-				GridWorldMatrix = FMatrix::RotateX(90);
-			}
-
-			// Match the grid's world-space half-width of 0.001.
-			mRenderer->RenderWorldAxis(mViewMatrix, mProjectionMatrix, FVector4(0.f, 0.f, 1.f, 1.f), FVector3(0.f, 0.f, 1.f), 0.002f);
-			mRenderer->RenderWorldGrid(GridWorldMatrix * mViewUnifiedProjectionMatrix, mCameraLocation, GridGap);
-		}
-
-		for (const FRenderQuadInfo& QuadInfo : mRenderCollector.GetTransparentQuadInfos())
-		{
-			mRenderer->RenderQuad(QuadInfo);
-		}
-
-		for (const FRenderQuadInfo& QuadInfo : mRenderCollector.GetOverlayQuadInfos())
-		{
-			mRenderer->RenderQuad(QuadInfo);
-		}
-
-		for (const FRenderQuad2DInfo& Quad2DInfo : mRenderCollector.GetQuad2DInfos())
-		{
-			mRenderer->RenderQuad2D(Quad2DInfo);
+			FHiZOcclusionManager::Get().GenerateHiZAndDispatchCull(mRenderer, CurrentDepthStencil, mViewUnifiedProjectionMatrix);
 		}
 	}
 

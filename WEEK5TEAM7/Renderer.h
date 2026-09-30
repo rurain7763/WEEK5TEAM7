@@ -322,6 +322,7 @@ struct FDepthStencil
 	Microsoft::WRL::ComPtr<ID3D11Texture2D> Texture;
 	Microsoft::WRL::ComPtr<ID3D11DepthStencilView> DSV;
 	Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> SRV;
+	Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> DepthSRV;
 	UINT Width;
 	UINT Height;
 };
