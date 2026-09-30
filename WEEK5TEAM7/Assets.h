@@ -92,6 +92,10 @@ public:
     const FMeshLODSettings& GetLODSettings() const { return AppliedLODSettings; }
     const FMeshLODSelection& GetLODSelection() const { return LODSelection; }
     void SetLODSelection(const FMeshLODSelection& Settings);
+    // 설정/버퍼 변경은 편집 시에만 발생하며 월드는 이 세대로 캐시를 무효화합니다.
+    static uint64 GetLODChangeVersion() { return LODChangeVersion; }
+    static uint64 GetLODResourceChangeVersion() { return LODResourceChangeVersion; }
+    uint64 GetLODResourceVersion() const { return LODResourceVersion; }
     double GetLastLODBuildMs() const { return LastLODBuildMs; }
     double GetLastOctreeBuildMs() const { return LastOctreeBuildMs; }
     const FString& GetLODError() const { return LODError; }
@@ -104,6 +108,9 @@ public:
 private:
     const FGeneratedMeshLOD* GetGeneratedLOD(uint32 LOD) const { return LOD >= 1 && LOD <= 2 ? GeneratedLODs[LOD-1].get() : nullptr; }
     TSharedPtr<FGeneratedMeshLOD> GeneratedLODs[2];
+    inline static uint64 LODChangeVersion = 1;
+    inline static uint64 LODResourceChangeVersion = 1;
+    uint64 LODResourceVersion = 0;
     FMeshLODSettings AppliedLODSettings;
     FMeshLODSelection LODSelection;
 #if ENABLE_MESH_LOD_TUNING
