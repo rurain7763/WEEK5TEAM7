@@ -9,9 +9,13 @@
 #include "PrimitiveComponent.h"
 #include "FBVH.h"
 #include "UTextComponent.h"
+#include "UTextComponent.h"
+#include "ShowFlags.h"
 
 UWorld::~UWorld()
 {
+	mPrimitiveComponents.Empty();
+
 	for (AActor* removeActor : mActors)
 	{
 		removeActor->mWorld = nullptr;
@@ -62,6 +66,26 @@ void UWorld::DeserializeClass(const json::JSON& inJson)
 		}
 		AActor* actor = static_cast<AActor*>(FObjectFactory::LoadObject(classInfo, actorJson));
 		AddActor(actor);
+	}
+}
+
+void UWorld::RegisterActorComponents(AActor* actor)
+{
+	if (!actor) return;
+
+	for (UActorComponent* component : actor->GetComponents())
+	{
+		RegisterComponent(component);
+	}
+}
+
+void UWorld::UnregisterActorComponents(AActor* actor)
+{
+	if (!actor) return;
+
+	for (UActorComponent* component : actor->GetComponents())
+	{
+		UnregisterComponent(component);
 	}
 }
 
@@ -238,42 +262,45 @@ void UWorld::Render(float deltaTime, FRenderCollector& outCollector)
 		Component->Render(outCollector);
 	}
 
-	if (mBVH.IsValid())
+	if (FShowFlags::Get().IsEnabled(EShowFlag::Primitive))
 	{
-		TArray<FBVHNode*> NodeStack;
-		NodeStack.Add(mBVH.GetRootNode());
-		while (NodeStack.Num() > 0)
+		if (mBVH.IsValid())
 		{
-			FBVHNode* CurrentNode = NodeStack.Last();
-			NodeStack.Pop();
-
-			if (CurrentNode == nullptr)
+			TArray<FBVHNode*> NodeStack;
+			NodeStack.Add(mBVH.GetRootNode());
+			while (NodeStack.Num() > 0)
 			{
-				continue;
-			}
+				FBVHNode* CurrentNode = NodeStack.Last();
+				NodeStack.Pop();
 
-			int32 CollisionResult = outCollector.Frustum.Intersects(CurrentNode->BoundingBox);
-			if (CollisionResult == -1)
-			{
-				continue;
-			}
-
-			if (CollisionResult == 1 || CurrentNode->IsLeaf())
-			{
-				for (int32 i = 0; i < CurrentNode->ItemRange.Count; ++i)
+				if (CurrentNode == nullptr)
 				{
-					UPrimitiveComponent* Object = mBVH.GetPayload(CurrentNode->ItemRange.Offset + i);
-					Object->Render(outCollector);
+					continue;
 				}
-			}
-			else
-			{
-				NodeStack.Add(CurrentNode->Left);
-				NodeStack.Add(CurrentNode->Right);
+
+				int32 CollisionResult = outCollector.Frustum.Intersects(CurrentNode->BoundingBox);
+				if (CollisionResult == -1)
+				{
+					continue;
+				}
+
+				if (CollisionResult == 1 || CurrentNode->IsLeaf())
+				{
+					for (int32 i = 0; i < CurrentNode->ItemRange.Count; ++i)
+					{
+						UPrimitiveComponent* Object = mBVH.GetPayload(CurrentNode->ItemRange.Offset + i);
+						Object->Render(outCollector);
+					}
+				}
+				else
+				{
+					NodeStack.Add(CurrentNode->Left);
+					NodeStack.Add(CurrentNode->Right);
+				}
 			}
 		}
 	}
-
+	
 	outCollector.BVH = &mBVH;
 }
 
