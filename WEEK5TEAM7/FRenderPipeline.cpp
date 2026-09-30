@@ -191,30 +191,17 @@ void FRenderPipeline::SetShader(const FString& ShaderPath)
 
 void FRenderPipeline::SetShaderResource(uint32 Slot, Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> SRV)
 {
-	++BindingVersion;
 	if (Slot >= ShaderResourceViews.Num())
 	{
 		ShaderResourceViews.SetNum(Slot + 1);
 	}
+	if (ShaderResourceViews[Slot] == SRV.Get()) return;
+	// SRV는 버전 없이 Renderer의 기존 슬롯 캐시에서 비교하고 바인딩합니다.
 	ShaderResourceViews[Slot] = SRV.Get();
-	++BindingVersion;
-
-	if (DeviceContext)
-	{
-		ID3D11ShaderResourceView* RawSRV = SRV.Get();
-		DeviceContext->PSSetShaderResources(Slot, 1, &RawSRV);
-	}
 }
 
 void FRenderPipeline::ClearShaderResource()
 {
-	++BindingVersion;
-	if (DeviceContext && ShaderResourceViews.Num() > 0)
-	{
-		ID3D11ShaderResourceView* nullSRVs[16] = { nullptr };
-		uint32 Count = ShaderResourceViews.Num() < 16 ? ShaderResourceViews.Num() : 16;
-		DeviceContext->PSSetShaderResources(0, Count, nullSRVs);
-	}
 	ShaderResourceViews.Empty();
 }
 

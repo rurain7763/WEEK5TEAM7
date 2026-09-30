@@ -495,6 +495,38 @@ TSharedPtr<FDepthStencil> URenderer::CreateDepthStencil(uint32 Width, uint32 Hei
 
 void URenderer::BindPipeline(const FRenderPipeline* Pipeline, uint32 StencilRef)
 {
+	// SRV는 Pipeline 버전과 무관하게 기존 슬롯 캐시로 항상 비교합니다.
+	const int32 NewSRVCount = Pipeline->ShaderResourceViews.Num();
+
+	bool bShouldSetSRVs = NewSRVCount > CurrentSRVCount;
+	for (int32 i = 0; !bShouldSetSRVs && i < CurrentSRVCount; i++)
+	{
+		if (i >= NewSRVCount || CurrentSRVs[i] != Pipeline->ShaderResourceViews[i])
+		{
+			bShouldSetSRVs = true;
+		}
+	}
+
+	if (bShouldSetSRVs)
+	{
+		const int32 BindCount = FPlatformMath::Max(NewSRVCount, CurrentSRVCount);
+		for (int32 i = 0; i < BindCount; ++i)
+		{
+			CurrentSRVs[i] = i < NewSRVCount ? Pipeline->ShaderResourceViews[i] : nullptr;
+		}
+
+		DeviceContext->VSSetShaderResources(0, BindCount, CurrentSRVs);
+		DeviceContext->PSSetShaderResources(0, BindCount, CurrentSRVs);
+		CurrentSRVCount = NewSRVCount;
+	}
+
+	const uint32 Version = Pipeline->GetBindingVersion();
+	if (bReuseMeshBindings && LastPipeline == Pipeline && LastPipelineVersion == Version
+		&& CurrentStencilRef == StencilRef && LastPipelineViewMode == ViewModeIndex)
+	{
+		return;
+	}
+
 	// RSSetState는 드로우 직전마다 갈아치워지므로 뷰 모드 선택은 여기서 해야 한다.
 	// 이 모드를 지원하지 않는 파이프라인(2D/기즈모)은 Lit 상태로 폴백된다.
 	ID3D11RasterizerState* NewRasterizerState = Pipeline->GetRasterizerState(ViewModeIndex);
@@ -567,30 +599,6 @@ void URenderer::BindPipeline(const FRenderPipeline* Pipeline, uint32 StencilRef)
 		CurrentCBCount = NewCBCount;
 	}
 
-	const int32 NewSRVCount = Pipeline->ShaderResourceViews.Num();
-
-	bool bShouldSetSRVs = NewSRVCount > CurrentSRVCount;
-	for (int32 i = 0; !bShouldSetSRVs && i < CurrentSRVCount; i++)
-	{
-		if (i >= NewSRVCount || CurrentSRVs[i] != Pipeline->ShaderResourceViews[i])
-		{
-			bShouldSetSRVs = true;
-		}
-	}
-
-	if (bShouldSetSRVs)
-	{
-		const int32 BindCount = FPlatformMath::Max(NewSRVCount, CurrentSRVCount);
-		for (int32 i = 0; i < BindCount; ++i)
-		{
-			CurrentSRVs[i] = i < NewSRVCount ? Pipeline->ShaderResourceViews[i] : nullptr;
-		}
-
-		DeviceContext->VSSetShaderResources(0, BindCount, CurrentSRVs);
-		DeviceContext->PSSetShaderResources(0, BindCount, CurrentSRVs);
-		CurrentSRVCount = NewSRVCount;
-	}
-
 	const int32 NewSamplerCount = Pipeline->SamplerStates.Num();
 
 	bool bShouldSetSamplers = NewSamplerCount > CurrentSamplerStateCount;
@@ -612,6 +620,9 @@ void URenderer::BindPipeline(const FRenderPipeline* Pipeline, uint32 StencilRef)
 		DeviceContext->PSSetSamplers(0, BindCount, CurrentSamplerStates);
 		CurrentSamplerStateCount = NewSamplerCount;
 	}
+	LastPipeline = Pipeline;
+	LastPipelineVersion = Version;
+	LastPipelineViewMode = ViewModeIndex;
 }
 
 void URenderer::BindVertexBuffer(ID3D11Buffer* VertexBuffer, UINT Stride)

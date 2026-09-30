@@ -574,6 +574,10 @@ private:
 	// 와이어프레임 여부. Prepare에서 갱신하고 BindPipeline이 읽는다.
 	// RSSetState는 드로우 직전마다 덮어써지므로 플래그로 들고 있어야 한다.
 	EViewModeIndex ViewModeIndex = EViewModeIndex::VMI_Lit;
+	// 프레임 경계와 관계없이 실제 마지막으로 적용한 파이프라인을 기억합니다.
+	const FRenderPipeline* LastPipeline = nullptr;
+	uint32 LastPipelineVersion = 0;
+	EViewModeIndex LastPipelineViewMode = EViewModeIndex::VMI_Lit;
 
 	// NOTE: 최적화를 위한 RenderState 캐싱.
 	ID3D11RasterizerState* CurrentRasterizerState = nullptr;

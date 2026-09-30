@@ -229,9 +229,8 @@ void FGraphicsManager::Render()
 	{
 		PROFILE_SCOPE("Viewport/GraphicsRender/SubmitMeshes");
 
-		FRenderPipeline* LastPipeline = nullptr;
-		FTexture2DAsset* LastTexture = nullptr;
-		uint32 LastPipelineVersion = 0;
+		// 카메라 상수 갱신은 Renderer의 영속 바인딩 캐시와 별도로 뷰마다 수행합니다.
+		FRenderPipeline* LastViewPipeline = nullptr;
 
 		for (const int32 Index : VisibleRenderInfoIndices)
 		{
@@ -239,39 +238,26 @@ void FGraphicsManager::Render()
 
 			const auto& Pipeline = Info.Pipeline ? Info.Pipeline : mMeshPipeline.get();
 
-			const bool bPipelineChanged = Pipeline != LastPipeline;
-			const bool bBindingChanged = bPipelineChanged || Info.Texture != LastTexture;
-			if (bPipelineChanged)
+			if (Pipeline != LastViewPipeline)
 			{
 				Pipeline->UpdateConstantBuffer(1, mViewUnifiedProjectionMatrix);
 				Pipeline->SetSamplerState(0, D3D11_FILTER_MIN_MAG_MIP_LINEAR, D3D11_TEXTURE_ADDRESS_WRAP, D3D11_TEXTURE_ADDRESS_WRAP);
 			}
-			if (bBindingChanged)
-			{
-				if (Info.Texture) Pipeline->SetShaderResource(0, Info.Texture->GetSRV());
-				else Pipeline->ClearShaderResource();
-			}
-			// 설정 함수도 버전을 올리므로 샘플러와 텍스처 설정이 끝난 값을 비교합니다.
-			const uint32 PipelineVersion = Pipeline->GetBindingVersion();
-			const bool bShouldBindPipeline = !(
-				Pipeline == LastPipeline && Info.Texture == LastTexture
-				&& PipelineVersion == LastPipelineVersion);
+			if (Info.Texture) Pipeline->SetShaderResource(0, Info.Texture->GetSRV());
 			// 개별 Draw의 상수는 기존 동적 상수 버퍼에 Map/Unmap으로 갱신합니다.
 			const FConstants Constants{ Info.Model, Info.Color, Info.UVOffset, Info.UseVertexColor, Info.Texture ? 1 : 0 };
 			Pipeline->UpdateConstantBuffer(0, Constants);
 
 			if (Info.IndexBuffer)
 			{
-				mRenderer->RenderPrimitiveIndexed(Pipeline, Info, 0, bShouldBindPipeline);
+				mRenderer->RenderPrimitiveIndexed(Pipeline, Info);
 			}
 			else
 			{
-				mRenderer->RenderPrimitive(Pipeline, Info.VertexBuffer, Info.VertexCount, bShouldBindPipeline);
+				mRenderer->RenderPrimitive(Pipeline, Info.VertexBuffer, Info.VertexCount);
 			}
 
-			LastPipeline = Pipeline;
-			LastTexture = Info.Texture;
-			LastPipelineVersion = PipelineVersion;
+			LastViewPipeline = Pipeline;
 		}
 	}
 	
