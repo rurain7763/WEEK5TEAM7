@@ -89,11 +89,6 @@ void UStaticMeshComponent::Render(FRenderCollector& RenderCollector)
         return;
     }
 
-    if (!FShowFlags::Get().IsEnabled(EShowFlag::Primitive))
-    {
-        return;
-    }
-
 	const FTransform& Transform = GetTransform();
 
     const uint32 LOD = RenderCollector.Camera ? GetLODForView(RenderCollector.Camera->Transform.GetLocation()) : 0;

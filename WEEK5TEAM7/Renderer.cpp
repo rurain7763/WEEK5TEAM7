@@ -1,5 +1,6 @@
 #include "Renderer.h"
 #include "FInstrumentor.h"
+#include "NvapiHelpers.h"
 
 constexpr uint32 MaxLineInstances = 1024;
 
@@ -103,22 +104,31 @@ void URenderer::CreateDeviceAndSwapChain(HWND hWindow)
 	SwapChainDesc.BufferDesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
 	SwapChainDesc.SampleDesc.Count = 1;
 	SwapChainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
-	SwapChainDesc.BufferCount = 2;
+	SwapChainDesc.BufferCount = 3;
 	SwapChainDesc.OutputWindow = hWindow;
 	SwapChainDesc.Windowed = TRUE;
 	SwapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
 	SwapChainDesc.Flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING;
 
-	UINT CreateDeviceFlags = 0;
+	UINT CreateDeviceFlags = D3D11_CREATE_DEVICE_BGRA_SUPPORT | D3D11_CREATE_DEVICE_SINGLETHREADED;
 
 #if defined(_DEBUG)
 	CreateDeviceFlags |= D3D11_CREATE_DEVICE_DEBUG;
 #endif
 
 	D3D11CreateDeviceAndSwapChain(nullptr, D3D_DRIVER_TYPE_HARDWARE,
-		nullptr, D3D11_CREATE_DEVICE_BGRA_SUPPORT | CreateDeviceFlags,
+		nullptr, CreateDeviceFlags,
 		FeatureLevels, ARRAYSIZE(FeatureLevels), D3D11_SDK_VERSION,
 		&SwapChainDesc, &SwapChain, &Device, nullptr, &DeviceContext);
+
+	//Microsoft::WRL::ComPtr<IDXGIDevice1> DxgiDevice;
+	//if (SUCCEEDED(Device->QueryInterface(IID_PPV_ARGS(&DxgiDevice))))
+	//{
+	//	DxgiDevice->SetMaximumFrameLatency(1);
+	//}
+
+	// NVIDIA Reflex Low Latency Boost: GPU 클럭 램핑 지연을 없애고 시작부터 최고 클럭(P0)으로 강제 고정
+	NvAPI_Status reflexStatus = nvapi_example::EnableLowLatency(Device, true /* boost */);
 
 	SwapChain->GetDesc(&SwapChainDesc);
 	Width = SwapChainDesc.BufferDesc.Width;

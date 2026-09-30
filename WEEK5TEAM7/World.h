@@ -1,10 +1,13 @@
-﻿#pragma once
+#pragma once
 
 #include "Object.h"
 #include "Actor.h"
 #include "RenderInfo.h"
 #include "FFrustum.h"
 #include "TMap.h"
+
+class UPrimitiveComponent;
+class UText3DComponent;
 
 class UWorld final : public UObject
 {
@@ -27,7 +30,11 @@ public:
 
 	void MarkBoundsDirty(UActorComponent* component);
 
+	void RegisterActorComponents(AActor* actor);
+	void UnregisterActorComponents(AActor* actor);
+
 	TArray<AActor*>& GetActors() { return mActors; }
+	const TArray<UPrimitiveComponent*>& GetPrimitiveComponents() const { return mPrimitiveComponents; }
 
 	void Tick(float deltaTime);
 	void Render(float deltaTime, FRenderCollector& outCollector);

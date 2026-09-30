@@ -1,4 +1,5 @@
 #include "Actor.h"
+#include "World.h"
 #include "JsonUtil.h"
 #include "RenderInfo.h"
 #include "SceneComponent.h"
