@@ -4,6 +4,7 @@
 #include "Actor.h"
 #include "RenderInfo.h"
 #include "FFrustum.h"
+#include "TMap.h"
 
 class UWorld final : public UObject
 {
@@ -21,6 +22,8 @@ public:
 
 	void RegisterComponent(UActorComponent* Component);
 	void UnregisterComponent(UActorComponent* component);
+	// Tickable 변경 시에만 활성 목록을 갱신합니다.
+	void RefreshComponentTick(UActorComponent* Component);
 
 	void MarkBoundsDirty(UActorComponent* component);
 
@@ -32,6 +35,19 @@ public:
 private:
 	int32 getActorIndex(uint32 actorUUID) const;
 
+	struct FComponentTickList
+	{
+		void Add(UActorComponent* Component);
+		void Remove(UActorComponent* Component);
+		void Tick(float DeltaTime, int32 Count);
+
+		TArray<UActorComponent*> Components;
+		// 등록/해제할 때만 사용하며 프레임 순회 중에는 조회하지 않습니다.
+		TMap<UActorComponent*, uint32> Indices;
+		bool bTicking = false;
+		bool bNeedsCompaction = false;
+	};
+
 private:
 	enum
 	{
@@ -40,6 +56,8 @@ private:
 	
 	// Todo: Must reserve
 	TArray<AActor*> mActors;
+	FComponentTickList mTickableComponents;
+	FComponentTickList mUUIDTickableComponents;
 	TArray<UPrimitiveComponent*> mPrimitiveComponents;
 	TArray<UActorComponent*> mNonPrimitiveRenderableComponents; // Primitive는 아닌데 렌더링 기능이 있는 컴포넌트.
 	
