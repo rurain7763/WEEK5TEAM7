@@ -30,6 +30,9 @@ public:
 
 	void MarkBoundsDirty(UActorComponent* component);
 
+	// NOTE: 이번 프레임에 렌더링 대상이 된 컴포넌트를 등록. Unique 체크를 하지 않으므로, 렌더링 대상이 된 컴포넌트는 반드시 한 번만 등록해야함.
+	void RequestRenderUpdate(UActorComponent* component);
+
 	void RegisterActorComponents(AActor* actor);
 	void UnregisterActorComponents(AActor* actor);
 
@@ -67,6 +70,7 @@ private:
 	FComponentTickList mUUIDTickableComponents;
 	TArray<UPrimitiveComponent*> mPrimitiveComponents;
 	TArray<UActorComponent*> mNonPrimitiveRenderableComponents; // Primitive는 아닌데 렌더링 기능이 있는 컴포넌트.
+	TArray<UActorComponent*> mShouldRenderComponents; // 이번 프레임에 렌더링 대상이 된 컴포넌트. 렌더링 후 Clear()로 비워야 함.
 
 	bool mbBVHDirty = true;
 	FBVH<UPrimitiveComponent*> mBVH;
