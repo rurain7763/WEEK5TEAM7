@@ -1,5 +1,6 @@
 #pragma once
 #include <immintrin.h>
+#include "Core.h"
 
 
 #if defined(__x86_64__) || defined(_M_X64)

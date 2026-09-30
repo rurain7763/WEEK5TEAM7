@@ -19,6 +19,11 @@
 #include "PrimitiveComponent.h"
 #include "RayCast.h"
 
+#include <queue>
+#include <vector>
+#include <functional>
+#include <cmath>
+
 FEditorViewportClient::FEditorViewportClient(URenderer& InRenderer)
 	: mCamera(FTransform({ -2.0f, 1.0f, 1.0f }, { 0, 30, 0 }, { 1, 1, 1 }))
 	, mGizmo(InRenderer)
@@ -116,12 +121,24 @@ AActor* FEditorViewportClient::PerformMousePicking(const FRect& ViewportRect, fl
 		float EnterT;
 	};
 
+	struct FQueueEntry
+	{
+		FBVHNode* Node;
+		float EnterT;
+
+		bool operator>(const FQueueEntry& Other) const
+		{
+			return EnterT > Other.EnterT;
+		}
+	};
+
 	float RootT;
 	if (!RayIntersectsAABB(Ray, PickingRay.Length, RenderCollector.BVH->GetRootNode()->BoundingBox, RootT))
 	{
 		return nullptr;
 	}
 
+#if 0
 	TArray<FBVHNodeStackEntry> BVHStk;
 	BVHStk.Add({ RenderCollector.BVH->GetRootNode(), RootT });
 
@@ -190,6 +207,97 @@ AActor* FEditorViewportClient::PerformMousePicking(const FRect& ViewportRect, fl
 			}
 		}
 	}
+#else 
+
+	struct FQueueEntry
+	{
+		FBVHNode* Node;
+		float EnterT;
+
+		bool operator>(const FQueueEntry& Other) const
+		{
+			return EnterT > Other.EnterT;
+		}
+	};
+
+	FBVHNode* RootNode = RenderCollector.BVH->GetRootNode();
+	float BestDistance = PickingRay.Length;
+	std::priority_queue<FQueueEntry, std::vector<FQueueEntry>, std::greater<FQueueEntry>> Queue;
+	Queue.push({ RootNode, RootT });
+
+	while (!Queue.empty())
+	{
+		const FQueueEntry Entry = Queue.top();
+		Queue.pop();
+
+		// 가장 가까운 후보가 이미 현재 히트보다 멀면
+		// 이후 후보도 전부 더 멀기 때문에 종료할 수 있다.
+		if (Entry.EnterT > BestDistance)
+		{
+			break;
+		}
+
+		FBVHNode* Node = Entry.Node;
+
+		if (Node->IsLeaf())
+		{
+			for (int32 i = 0; i < Node->ItemRange.Count; ++i)
+			{
+				UPrimitiveComponent* Object =
+					RenderCollector.BVH->GetPayload(Node->ItemRange.Offset + i);
+
+				if (Object == nullptr)
+				{
+					continue;
+				}
+
+				float HitT = FLT_MAX;
+
+				if (!Object->RayCastComponent(PickingRay, HitT))
+				{
+					continue;
+				}
+
+				if (!std::isfinite(HitT) || HitT < 0.0f || HitT > 1.0f)
+				{
+					continue;
+				}
+
+				const float HitDistance = HitT * PickingRay.Length;
+
+				if (HitDistance < BestDistance)
+				{
+					BestDistance = HitDistance;
+					NearlistT = HitT;
+					NearestActor = Object->GetOwner();
+				}
+			}
+
+			continue;
+		}
+
+		float LeftT = FLT_MAX;
+		float RightT = FLT_MAX;
+
+		const float MaxDistance = BestDistance;
+
+		const bool bHitLeft = Node->Left != nullptr &&
+			RayIntersectsAABB(Ray, MaxDistance, Node->Left->BoundingBox, LeftT);
+
+		const bool bHitRight = Node->Right != nullptr &&
+			RayIntersectsAABB(Ray, MaxDistance, Node->Right->BoundingBox, RightT);
+
+		if (bHitLeft)
+		{
+			Queue.push({ Node->Left, LeftT });
+		}
+
+		if (bHitRight)
+		{
+			Queue.push({ Node->Right, RightT });
+		}
+	}
+#endif
 
 	return NearestActor;
 }

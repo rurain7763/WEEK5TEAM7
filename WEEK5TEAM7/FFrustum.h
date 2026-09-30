@@ -190,14 +190,14 @@ struct FFrustum
 			// 첫 패킷은 4개 평면, 두 번째 패킷은 Near/Far 2개 평면만 유효하다.
 			const int32 ValidMask = PacketIndex == 0 ? 0xF : 0x3;
 			const FVectorRegister NegativeRadius = VectorSIMD::Sub(Zero, Radius);
-			const int32 OutsideMask = _mm_movemask_ps(_mm_cmplt_ps(Distance, NegativeRadius)) & ValidMask;
+			const int32 OutsideMask = VectorSIMD::MoveMask(VectorSIMD::CompareLT(Distance, NegativeRadius)) & ValidMask;
 
 			if (OutsideMask != 0)
 			{
 				return -1;
 			}
 
-			const int32 IntersectingMask = _mm_movemask_ps(_mm_cmplt_ps(Distance, Radius)) & ValidMask;
+			const int32 IntersectingMask = VectorSIMD::MoveMask(VectorSIMD::CompareLT(Distance, Radius)) & ValidMask;
 			if (IntersectingMask != 0)
 			{
 				bIntersecting = true;

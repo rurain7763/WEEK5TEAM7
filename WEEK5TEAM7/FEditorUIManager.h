@@ -69,4 +69,6 @@ private:
 	float mViewportY;
 	float mViewportWidth;
 	float mViewportHeight;
+
+	bool bShowEditorUI = true;
 };

@@ -29,6 +29,11 @@ void FEditorUIManager::Render(FGuiReference& GuiReference)
 	ImGui_ImplWin32_NewFrame();
 	ImGui::NewFrame();
 
+	if (WindowApplication.Input.WasPressed('O'))
+	{
+		bShowEditorUI = !bShowEditorUI;
+	}
+
 	// Docking
 	const ImGuiViewport* viewport = ImGui::GetMainViewport();
 	const ImGuiID dockspaceID = ImGui::GetID("EditorDockSpace");
@@ -236,103 +241,109 @@ void FEditorUIManager::Render(FGuiReference& GuiReference)
 	}
 	ImGui::End();
 
+	if (bShowEditorUI)
 	{
-		PROFILE_SCOPE("Frame/EditorUI/RenderBottonBar");
-		RenderBottomBar();
-	}
 
-	ConsoleWindow& console = ConsoleWindow::Get();
-	if (console.bShowStatFPS || console.bShowStatMemory || console.bShowStatRender)
-	{
-		// Viewport 창 안쪽 좌상단에 붙는 입력을 받지 않는 오버레이 창
-		ImGui::SetNextWindowPos(ImVec2(mViewportX + 12.0f, mViewportY + 12.0f), ImGuiCond_Always);
-		ImGui::SetNextWindowBgAlpha(0.55f);
-
-		const ImGuiWindowFlags overlayFlags =
-			ImGuiWindowFlags_NoDecoration |
-			ImGuiWindowFlags_AlwaysAutoResize |
-			ImGuiWindowFlags_NoSavedSettings |
-			ImGuiWindowFlags_NoFocusOnAppearing |
-			ImGuiWindowFlags_NoNav |
-			ImGuiWindowFlags_NoInputs;
-
-		ImGui::Begin("##StatOverlay", nullptr, overlayFlags);
-		if (console.bShowStatFPS)
 		{
-			if (console.bShowStatMemory || console.bShowStatRender)
-			{
-				ImGui::Separator();
-			}
-
-			ImGui::TextColored(ImVec4(0.35f, 1.0f, 0.35f, 1.0f), "FPS");
-			ImGui::Text("FPS: %.1f", GuiReference.FrameTimer->GetFPS());
-			ImGui::Text("Frame: %.2f ms", GuiReference.FrameTimer->GetDeltaTime() * 1000.0f);
+			PROFILE_SCOPE("Frame/EditorUI/RenderBottonBar");
+			RenderBottomBar();
 		}
 
-		if (console.bShowStatMemory)
+		ConsoleWindow& console = ConsoleWindow::Get();
+		if (console.bShowStatFPS || console.bShowStatMemory || console.bShowStatRender)
 		{
-			if (console.bShowStatFPS || console.bShowStatRender)
+			// Viewport 창 안쪽 좌상단에 붙는 입력을 받지 않는 오버레이 창
+			ImGui::SetNextWindowPos(ImVec2(mViewportX + 12.0f, mViewportY + 12.0f), ImGuiCond_Always);
+			ImGui::SetNextWindowBgAlpha(0.55f);
+
+			const ImGuiWindowFlags overlayFlags =
+				ImGuiWindowFlags_NoDecoration |
+				ImGuiWindowFlags_AlwaysAutoResize |
+				ImGuiWindowFlags_NoSavedSettings |
+				ImGuiWindowFlags_NoFocusOnAppearing |
+				ImGuiWindowFlags_NoNav |
+				ImGuiWindowFlags_NoInputs;
+
+			ImGui::Begin("##StatOverlay", nullptr, overlayFlags);
+			if (console.bShowStatFPS)
 			{
-				ImGui::Separator();
+				if (console.bShowStatMemory || console.bShowStatRender)
+				{
+					ImGui::Separator();
+				}
+
+				ImGui::TextColored(ImVec4(0.35f, 1.0f, 0.35f, 1.0f), "FPS");
+				ImGui::Text("FPS: %.1f", GuiReference.FrameTimer->GetFPS());
+				ImGui::Text("Frame: %.2f ms", GuiReference.FrameTimer->GetDeltaTime() * 1000.0f);
 			}
 
-			ImGui::TextColored(ImVec4(0.35f, 0.8f, 1.0f, 1.0f), "Memory");
-			ImGui::Text("Total allocated memory count: %d", UEngineStatics::sTotalAllocationCount);
-			ImGui::Text("Total allocated memory size: %d bytes", UEngineStatics::sTotalAllocationBytes);
+			if (console.bShowStatMemory)
+			{
+				if (console.bShowStatFPS || console.bShowStatRender)
+				{
+					ImGui::Separator();
+				}
 
-			const FAssetStats Stats = GuiReference.AssetManager->GetStats();
+				ImGui::TextColored(ImVec4(0.35f, 0.8f, 1.0f, 1.0f), "Memory");
+				ImGui::Text("Total allocated memory count: %d", UEngineStatics::sTotalAllocationCount);
+				ImGui::Text("Total allocated memory size: %d bytes", UEngineStatics::sTotalAllocationBytes);
 
-			ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.35f, 1.0f), "Assets");
-			ImGui::Text("Registered: %u", Stats.RegisteredCount);
-			ImGui::Text("Loaded: %u", Stats.LoadedCount);
+				const FAssetStats Stats = GuiReference.AssetManager->GetStats();
 
-			ImGui::Text("Registered Static Mesh: %u", Stats.RegisteredStaticMesh);
-			ImGui::Text("Loaded Static Mesh: %u", Stats.LoadedStaticMesh);
-			ImGui::Text("Registered Static Texture 2D: %u", Stats.RegisteredTexture2D);
-			ImGui::Text("Loaded Static Texture 2D: %u", Stats.LoadedTexture2D);
-			ImGui::Text("Registered Static Material: %u", Stats.RegisteredMaterial);
-			ImGui::Text("Loaded Static Material: %u", Stats.LoadedMaterial);
+				ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.35f, 1.0f), "Assets");
+				ImGui::Text("Registered: %u", Stats.RegisteredCount);
+				ImGui::Text("Loaded: %u", Stats.LoadedCount);
+
+				ImGui::Text("Registered Static Mesh: %u", Stats.RegisteredStaticMesh);
+				ImGui::Text("Loaded Static Mesh: %u", Stats.LoadedStaticMesh);
+				ImGui::Text("Registered Static Texture 2D: %u", Stats.RegisteredTexture2D);
+				ImGui::Text("Loaded Static Texture 2D: %u", Stats.LoadedTexture2D);
+				ImGui::Text("Registered Static Material: %u", Stats.RegisteredMaterial);
+				ImGui::Text("Loaded Static Material: %u", Stats.LoadedMaterial);
+			}
+
+			if (console.bShowStatRender)
+			{
+				if (console.bShowStatFPS || console.bShowStatMemory)
+				{
+					ImGui::Separator();
+				}
+				ImGui::TextColored(ImVec4(0.35f, 0.8f, 0.5f, 1.0f), "Render");
+				ImGui::Text("Draw Calls: %u", GuiReference.GraphicsManager->GetRenderer()->GetDrawCallCount());
+
+				ImGui::Text("GPU Render: %.3f ms", GuiReference.GraphicsManager->GetGpuRenderTime());
+
+				UINT PrimitiveCount = 0;
+				for (TObjectIterator<UPrimitiveComponent> It(true); It; ++It)
+				{
+					++PrimitiveCount;
+				}
+				ImGui::Text("Primitives: %u", PrimitiveCount);
+
+				UINT SpotLightCount = 0;
+				for (TObjectIterator<USpotLightComponent> It(false); It; ++It)
+				{
+					++SpotLightCount;
+				}
+				ImGui::Text("Spot Lights: %u", SpotLightCount);
+			}
+			ImGui::End();
 		}
-
-		if (console.bShowStatRender)
-		{
-			if (console.bShowStatFPS || console.bShowStatMemory)
-			{
-				ImGui::Separator();
-			}
-			ImGui::TextColored(ImVec4(0.35f, 0.8f, 0.5f, 1.0f), "Render");
-			ImGui::Text("Draw Calls: %u", GuiReference.GraphicsManager->GetRenderer()->GetDrawCallCount());
-
-			ImGui::Text("GPU Render: %.3f ms", GuiReference.GraphicsManager->GetGpuRenderTime());
-
-			UINT PrimitiveCount = 0;
-			for (TObjectIterator<UPrimitiveComponent> It(true); It; ++It)
-			{
-				++PrimitiveCount;
-			}
-			ImGui::Text("Primitives: %u", PrimitiveCount);
-
-			UINT SpotLightCount = 0;
-			for (TObjectIterator<USpotLightComponent> It(false); It; ++It)
-			{
-				++SpotLightCount;
-			}
-			ImGui::Text("Spot Lights: %u", SpotLightCount);
-		}
-		ImGui::End();
-	}
-	ImGui::PopStyleVar();
-
 #if IS_OBJ_VIEWER
-	ConsoleWindow::Get().Process(BottomBarHeight);
-	mContentBrowser.Render(BottomBarHeight);
+		ConsoleWindow::Get().Process(BottomBarHeight);
+		mContentBrowser.Render(BottomBarHeight);
 #else
-	mControlWindow.Render(GuiReference);
-	mPropertyWindow.Render(GuiReference);
-	mOutlinerWindow.Render(GuiReference);
-	ConsoleWindow::Get().Process(BottomBarHeight);
-	mContentBrowser.Render(BottomBarHeight);
+		mControlWindow.Render(GuiReference);
+		mPropertyWindow.Render(GuiReference);
+		mOutlinerWindow.Render(GuiReference);
+		ConsoleWindow::Get().Process(BottomBarHeight);
+		mContentBrowser.Render(BottomBarHeight);
 #endif
+	}
+
+	// This matches the PushStyleVar() before the Viewport window.
+	// It must run even when the other editor UI is hidden.
+	ImGui::PopStyleVar();
 }
 
 void FEditorUIManager::RenderBottomBar()
