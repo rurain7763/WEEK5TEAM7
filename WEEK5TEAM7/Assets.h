@@ -10,6 +10,8 @@
 #include "FObjImporter.h"
 #include "FGuid.h"
 #include "FMeshDescription.h"
+#include "FMeshPickingOctree.h"
+#include "FMeshLODBuilder.h"
 #include "FLogManager.h"
 #include <d3d11.h>
 #include <wrl/client.h>
@@ -50,6 +52,16 @@ private:
 	std::filesystem::path FilePath;
 };
 
+struct FGeneratedMeshLOD
+{
+    FStaticMeshBuildData Data;
+    TSharedPtr<FVertexBuffer> VertexBuffer;
+    TSharedPtr<FIndexBuffer> IndexBuffer;
+    FMeshPickingOctree Octree;
+    uint32 MeshID = 0;
+    float SimplificationError = 0;
+};
+
 class FStaticMeshAsset : public FAsset
 {
 public:
@@ -58,18 +70,48 @@ public:
 	FStaticMeshAsset(const FGuid& InAssetID, const FName& InAssetName, URenderer& InRenderer, const FVertex* InVertices, uint32 InVertexCount, const uint32* InIndices, uint32 InIndexCount);
 	FStaticMeshAsset(const FGuid& InAssetID, const FName& InAssetName, URenderer& InRenderer, const FStaticMeshBuildData& InBuildData);
 
-	Microsoft::WRL::ComPtr<ID3D11Buffer> GetVertexBuffer() const;
-	uint32 GetVertexCount() const;
-	Microsoft::WRL::ComPtr<ID3D11Buffer> GetIndexBuffer() const;
-	uint32 GetIndexCount() const;
+	ID3D11Buffer* GetVertexBuffer(uint32 LOD = 0) const;
+	uint32 GetVertexCount(uint32 LOD = 0) const;
+	ID3D11Buffer* GetIndexBuffer(uint32 LOD = 0) const;
+	uint32 GetIndexCount(uint32 LOD = 0) const;
 	inline uint32 GetSubMeshCount() const { return Sections.Num(); }
 	inline const FAABB& GetLocalBoundingBox() const { return BoundingBox; }
-	inline const TArray<FStaticMeshSection>& GetSections() const { return Sections; }
-	inline const TArray<FVertex>& GetVertices() const { return Vertices; }
-	inline const TArray<uint32>& GetIndices() const { return Indices; }
-	inline uint32 GetMeshID() const { return MeshID; }
+	inline const TArray<FStaticMeshSection>& GetSections(uint32 LOD = 0) const { const auto* G = GetGeneratedLOD(LOD); return G ? G->Data.Sections : Sections; }
+	inline const TArray<FVertex>& GetVertices(uint32 LOD = 0) const { const auto* G = GetGeneratedLOD(LOD); return G ? G->Data.Vertices : Vertices; }
+	inline const TArray<uint32>& GetIndices(uint32 LOD = 0) const { const auto* G = GetGeneratedLOD(LOD); return G ? G->Data.Indices : Indices; }
+	inline uint32 GetMeshID(uint32 LOD = 0) const { const auto* G = GetGeneratedLOD(LOD); return G ? G->MeshID : MeshID; }
+    // 동일 에셋을 사용하는 컴포넌트들은 이 로컬 트리 하나를 공유합니다.
+    const FMeshPickingOctree& GetLocalOctree(uint32 LOD = 0) const { const auto* G = GetGeneratedLOD(LOD); return G ? G->Octree : LocalOctree; }
+    bool RayCastLocal(const FPickingRay& Ray, float& OutHitT, FMeshOctreeQueryStats* OutStats = nullptr, float MaxHitT = 1.0f, uint32 LOD = 0) const;
+    inline static constexpr uint32 LocalOctreeMaxDepth = 8;
+    // 모든 후보를 완성한 뒤 교체합니다. 실패하면 기존 데이터를 유지합니다.
+    bool RebuildLODs(URenderer& Renderer, const FMeshLODSettings& Settings);
+    bool RebuildLODOctrees(const FMeshLODSettings& Settings);
+    uint32 SelectLOD(float DistanceSquared) const { const uint32 LOD = LODSelection.Select(DistanceSquared); return GetGeneratedLOD(LOD) ? LOD : 0; }
+    const FMeshLODSettings& GetLODSettings() const { return AppliedLODSettings; }
+    const FMeshLODSelection& GetLODSelection() const { return LODSelection; }
+    void SetLODSelection(const FMeshLODSelection& Settings);
+    double GetLastLODBuildMs() const { return LastLODBuildMs; }
+    double GetLastOctreeBuildMs() const { return LastOctreeBuildMs; }
+    const FString& GetLODError() const { return LODError; }
+    bool HasLOD(uint32 LOD) const { return LOD == 0 || GetGeneratedLOD(LOD) != nullptr; }
+    float GetLODErrorMetric(uint32 LOD) const { const auto* G = GetGeneratedLOD(LOD); return G ? G->SimplificationError : 0; }
+#if ENABLE_MESH_LOD_TUNING
+    FMeshLODSettings& EditLODSettings() { return DraftLODSettings; }
+#endif
 
 private:
+    const FGeneratedMeshLOD* GetGeneratedLOD(uint32 LOD) const { return LOD >= 1 && LOD <= 2 ? GeneratedLODs[LOD-1].get() : nullptr; }
+    TSharedPtr<FGeneratedMeshLOD> GeneratedLODs[2];
+    FMeshLODSettings AppliedLODSettings;
+    FMeshLODSelection LODSelection;
+#if ENABLE_MESH_LOD_TUNING
+    FMeshLODSettings DraftLODSettings;
+#endif
+    double LastLODBuildMs = 0;
+    double LastOctreeBuildMs = 0;
+    FString LODError;
+    FMeshPickingOctree LocalOctree;
 	TSharedPtr<FVertexBuffer> VertexBuffer;
 	
 	TSharedPtr<FIndexBuffer> IndexBuffer;
@@ -235,35 +277,23 @@ private:
 class FMaterialAsset : public FAsset
 {
 public:
-	FMaterialAsset(const FGuid& InAssetID, const FName& InAssetName, const FVector& InAmbientColor, const FVector& InDiffuseColor, 
-		const FVector& InSpecularColor, const FGuid& InDiffuseTexture, const FGuid& InSpecularTexture, const FGuid& InNormalTexture, const float InOpacity)
-		: FAsset(InAssetID, InAssetName, EAssetType::Material)
-		, AmbientColor(InAmbientColor)
-		, DiffuseColor(InDiffuseColor)
-		, SpecularColor(InSpecularColor)
-		, DiffuseTexture(InDiffuseTexture)
-		, SpecularTexture(InSpecularTexture)
-		, NormalTexture(InNormalTexture)
-		, Opacity(InOpacity)
-		, MaterialID(NextMaterialID++)
-	{
-	}
+	FMaterialAsset(const FGuid& InAssetID, const FName& InAssetName, const FVector& InAmbientColor, const FVector& InDiffuseColor, const FVector& InSpecularColor, const FGuid& InDiffuseTexture, const FGuid& InSpecularTexture, const FGuid& InNormalTexture, const float InOpacity);
 
 	const FVector& GetDiffuseColor() const { return DiffuseColor; }
 	const float& GetOpacity() const { return Opacity; }
 
 	inline bool HasDiffuseTexture() const { return DiffuseTexture.IsValid(); }
-	TSharedPtr<FTexture2DAsset> GetDiffuseTexture() const;
+	inline const TSharedPtr<FTexture2DAsset>& GetDiffuseTexture() const { return DiffuseTextureAsset; }
 
 	inline bool HasSpecularTexture() const { return SpecularTexture.IsValid(); }
-	TSharedPtr<FTexture2DAsset> GetSpecularTexture() const;
+	inline const TSharedPtr<FTexture2DAsset>& GetSpecularTexture() const { return SpecularTextureAsset; }
 
 	inline bool HasNormalTexture() const { return NormalTexture.IsValid(); }
-	TSharedPtr<FTexture2DAsset> GetNormalTexture() const;
+	inline const TSharedPtr<FTexture2DAsset>& GetNormalTexture() const { return NormalTextureAsset; }
 
 	inline uint32 GetMaterialID() const { return MaterialID; }
 
-	inline TSharedPtr<FRenderPipeline> GetPipeline() const { return Pipeline; }
+	inline const TSharedPtr<FRenderPipeline>& GetPipeline() const { return Pipeline; }
 	inline void SetPipeline(const TSharedPtr<FRenderPipeline>& InPipeline) { Pipeline = InPipeline; }
 	uint16 GetPipelineID() const;
 
@@ -272,9 +302,16 @@ private:
 	FVector AmbientColor;
 	FVector DiffuseColor;
 	FVector SpecularColor;
+
 	FGuid DiffuseTexture;
+	TSharedPtr<FTexture2DAsset> DiffuseTextureAsset;
+
 	FGuid SpecularTexture;
+	TSharedPtr<FTexture2DAsset> SpecularTextureAsset;
+
 	FGuid NormalTexture;
+	TSharedPtr<FTexture2DAsset> NormalTextureAsset;
+	
 	float Opacity;
 	uint32 MaterialID = 0;
 	inline static uint32 NextMaterialID = 1;

@@ -10,10 +10,7 @@ class UPrimitiveComponent : public USceneComponent
 
 public:
 	UPrimitiveComponent();
-
-	//void Initialize(GraphicsManager* graphicsManager, EPrimitive ePrimitive);
-	//void Initialize(GraphicsManager* graphicsManager, EPrimitive ePrimitive, FVector location, FRotator rotation, FVector scale3D);
-
+	
 	using USceneComponent::Initialize;
 	void Initialize(EPrimitive ePrimitive);
 	void Initialize(EPrimitive ePrimitive, FVector location, FRotator rotation, FVector scale3D);
@@ -23,11 +20,7 @@ public:
 	virtual void SerializeClass(json::JSON& outJson) const override;
 	virtual void DeserializeClass(const json::JSON& inJson) override;
 
-	//virtual void Render();
 	virtual void Render(FRenderCollector& RenderCollector) override;
-
-	// 프리미티브는 전부 픽킹 대상이다.
-	virtual void RegisterPickTarget(FRenderCollector& RenderCollector) override;
 
 	virtual FAABB GetBoundingBox() const;
 	virtual const TArray<FVertex>& GetMeshVertices() const;
@@ -39,6 +32,15 @@ public:
 	// 기본 구현은 AABB로 먼저 거르고 메시의 삼각형과 판정한다.
 	// 다른 충돌 모양이 필요한 컴포넌트는 이 함수를 재정의한다.
 	virtual bool RayCastComponent(const FPickingRay& PickingRay, float& OutHitT) const;
+
+protected:
+	void MarkBoundsDirty();
+
+	virtual void OnTransformChanged() override
+	{
+		Super::OnTransformChanged();
+		MarkBoundsDirty();
+	}
 };
 
 

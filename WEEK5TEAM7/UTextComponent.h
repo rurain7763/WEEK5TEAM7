@@ -19,6 +19,7 @@ class UPlaneComponent : public UPrimitiveComponent
 public:
 	UPlaneComponent()
 	{
+        SetTickable(true);
 		mMeshAsset = FAssetManager::Get().GetAssetAs<FStaticMeshAsset>(FName("PlaneMesh"), true);
 	}
 
@@ -82,6 +83,7 @@ public:
 		QuadInfo.Model = PivotTransform.MakeMatrix();
 		QuadInfo.Color = FVector4(1.f, 1.f, 1.f, 1.f);
 		QuadInfo.TextureSRV = mTextureAsset ? mTextureAsset->GetSRV() : nullptr;
+		QuadInfo.TextureFormat = mTextureAsset ? mTextureAsset->GetFormat() : DXGI_FORMAT_UNKNOWN;
 		QuadInfo.SubUV = mSubUV + FVector4(mSubUVOffset.X, mSubUVOffset.Y, 0.f, 0.f);
 		QuadInfo.BlendMode = mBlendMode;
 		QuadInfo.EnableDepthTest = mEnableDepthTest;
@@ -143,6 +145,8 @@ class USpotLightComponent : public USceneComponent
 	REFLECT_CLASS(USpotLightComponent, USceneComponent)
 
 public:
+    USpotLightComponent() { SetTickable(true); }
+
 	void Tick(float DeltaTime) override
 	{
 		// NOTE: SpotLightComponent의 위치와 회전을 부모 액터에 맞춘다. 현재 Hierarchy가 없으므로 부모 액터의 위치와 회전만 가져와서 적용한다.
@@ -236,7 +240,24 @@ class UText3DComponent : public USceneComponent
 	REFLECT_CLASS(UText3DComponent, USceneComponent)
 
 public:
-	UText3DComponent() = default;
+	UText3DComponent()
+	{
+		SetRenderable(true);
+        SetTickable(true);
+	}
+
+    bool ShouldTick() const override
+    {
+        // UUID는 표시 보조 기능이므로 숨겨진 동안 갱신 대상에서도 제외합니다.
+        return IsTickable() && FShowFlags::Get().IsEnabled(EShowFlag::UUIDText);
+    }
+
+    void Tick(float DeltaTime) override
+    {
+        // 텍스트의 부모 위치 추적은 Tick에서 한 번 처리하고 각 Viewport에서는 결과를 사용합니다.
+        if (!mOwner || !mOwner->GetRootComponent()) return;
+        SetRelativeLocation(mOwner->GetTransform().GetLocation() + FVector(0.f, 0.f, 1.f));
+    }
 
 	void SerializeClass(json::JSON& outJson) const override
 	{
@@ -263,13 +284,6 @@ public:
 		}
 	}
 
-	void Tick(float DeltaTime) override
-	{
-		// NOTE: Text3DComponent의 위치와 회전을 부모 액터에 맞춘다. 현재 Hierarchy 매트릭스 구현이 없으므로 부모 액터의 위치와 회전만 가져와서 적용한다.
-		const FTransform& ParentTransform = mOwner->GetTransform();
-		SetRelativeLocation(ParentTransform.GetLocation() + FVector(0.f, 0.f, 1.f));
-	}
-
 	void Render(FRenderCollector& RenderCollector) override
 	{
 		// Show Flags에서 끄면 쿼드를 아예 만들지 않는다.
@@ -278,6 +292,8 @@ public:
 		{
 			return;
 		}
+
+        if (!mOwner || !mOwner->GetRootComponent()) return;
 
 		if (!mFontAtlasAsset)
 		{
@@ -326,6 +342,7 @@ public:
 			QuadInfo.Model = FMatrix::Scale(FVector3(1.f, Rect.Width, Rect.Height)) * FMatrix::Translation(GlyphCenter) * PivotMatrix;
 			QuadInfo.Color = mColor;
 			QuadInfo.TextureSRV = mFontAtlasAsset->GetSRV();
+			QuadInfo.TextureFormat = mFontAtlasAsset->GetFormat();
 			QuadInfo.SubUV = FVector4(UV.X, UV.Y, UV.Width, UV.Height);
 			QuadInfo.BlendMode = ERenderBlendMode::Transparent;
 			QuadInfo.EnableDepthTest = mEnableDepthTest;

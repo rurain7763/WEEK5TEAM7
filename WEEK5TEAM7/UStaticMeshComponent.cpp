@@ -1,3 +1,4 @@
+#include "Camera.h"
 #include "UStaticMeshComponent.h"
 #include "FAssetManager.h"
 #include "RenderInfo.h"
@@ -6,12 +7,6 @@
 #include "JsonUtil.h"
 #include "EngineMathLibrary.h"
 #include "FLogManager.h"
-
-void UStaticMeshComponent::Initialize(const FString& InAssetPathFileName, FVector Location,
-    FRotator Rotation, FVector Scale)
-{
-    USceneComponent::Initialize(Location, Rotation, Scale);
-}
 
 void UStaticMeshComponent::SerializeClass(json::JSON& outJson) const
 {
@@ -99,41 +94,58 @@ void UStaticMeshComponent::Render(FRenderCollector& RenderCollector)
         return;
     }
 
-
-	const FAABB BoundingBox = GetBoundingBox();
-	if (!RenderCollector.Frustum.Intersects(BoundingBox))
-	{
-		return;
-	}
-
 	const FTransform& Transform = GetTransform();
+	const FMatrix& ModelMatrix = Transform.MakeMatrix();
+    const uint32 LOD = RenderCollector.Camera ? GetLODForView(RenderCollector.Camera->Transform.GetLocation()) : 0;
+	const uint32 MeshID = mMeshAsset->GetMeshID(LOD);
+	ID3D11Buffer* VertexBuffer = mMeshAsset->GetVertexBuffer(LOD);
+	ID3D11Buffer* IndexBuffer = mMeshAsset->GetIndexBuffer(LOD);
+    const TArray<FStaticMeshSection>& Sections = mMeshAsset->GetSections(LOD);
 
-    for (int32 SectionIndex = 0; SectionIndex < mMeshAsset->GetSections().Num(); ++SectionIndex)
+    for (int32 SectionIndex = 0; SectionIndex < Sections.Num(); ++SectionIndex)
     {
-        const FStaticMeshSection& Section = mMeshAsset->GetSections()[SectionIndex];
+        const FStaticMeshSection& Section = Sections[SectionIndex];
+        if (Section.IndexCount == 0) continue;
 
-        TSharedPtr<FMaterialAsset> Material = mMaterialAssets[SectionIndex];
+        const TSharedPtr<FMaterialAsset>& Material = mMaterialAssets[SectionIndex];
+		const TSharedPtr<FTexture2DAsset> Texture = Material ? Material->GetDiffuseTexture() : nullptr;
 
         uint16 PipelineID = Material ? Material->GetPipelineID() : 1;
         uint32 MaterialID = Material ? Material->GetMaterialID() : 0;
-        uint32 MeshID = mMeshAsset ? mMeshAsset->GetMeshID() : 0;
 
-        FRenderInfo RenderInfo;
-        RenderInfo.SortKey = MakeRenderSortKey(PipelineID, MaterialID, MeshID);
+        const uint64 SortKey = MakeRenderSortKey(PipelineID, MaterialID, MeshID);
+        FRenderInfo& RenderInfo = RenderCollector.AddRenderInfo(SortKey);
+
         RenderInfo.Pipeline = Material ? Material->GetPipeline() : nullptr;
-        RenderInfo.VertexBuffer = mMeshAsset->GetVertexBuffer();
-        RenderInfo.IndexBuffer = mMeshAsset->GetIndexBuffer();
+        RenderInfo.VertexBuffer = VertexBuffer;
+        RenderInfo.IndexBuffer = IndexBuffer;
         RenderInfo.StartIndex = Section.FirstIndex;
         RenderInfo.IndexCount = Section.IndexCount;
-        RenderInfo.Texture = Material ? Material->GetDiffuseTexture() : nullptr;
+        RenderInfo.Texture = Texture.get();
         RenderInfo.UVOffset = mUVOffsets[SectionIndex];
-        RenderInfo.Model = Transform.MakeMatrix();
+        RenderInfo.Model = ModelMatrix;
         RenderInfo.Color = Material ? FVector4(Material->GetDiffuseColor().x, Material->GetDiffuseColor().y, Material->GetDiffuseColor().z, Material->GetOpacity()) : Color;
         RenderInfo.UseVertexColor = Material == nullptr;
         RenderInfo.ObjectInternalIndex = mOwner->InternalIndex;
-
-        RenderCollector.RenderInfos.Add(RenderInfo);
     }
+}
+
+bool UStaticMeshComponent::RayCastComponent(const FPickingRay& PickingRay, float& OutHitT) const
+{
+    if (!mMeshAsset) return false;
+
+    const FMatrix& InvWorld = GetTransform().InverseMatrix();
+    if (InvWorld == FMatrix::Zero) return false;
+
+    // 에셋의 트리는 로컬 좌표계이므로 월드 Ray의 양 끝점을 역행렬로 변환합니다.
+    // 변환된 끝점으로 방향과 길이를 다시 구하면 비균일·음수 스케일에도 대응합니다.
+    const FPickingRay LocalRay(InvWorld.TransformPosition(PickingRay.Near),
+        InvWorld.TransformPosition(PickingRay.Far));
+
+    // 전체 삼각형 순회 대신 공유 트리에서 후보를 찾고 해당 삼각형만 검사합니다.
+    // 반환 T는 원래 Near~Far 구간의 비율(0~1)이므로 호출자의 최단 거리 비교에 그대로 사용합니다.
+    // 향후 외부 BVH가 최단 거리를 제공하면 네 번째 인자로 BestWorldDistance / PickingRay.Length를 전달합니다.
+    return mMeshAsset->RayCastLocal(LocalRay, OutHitT, nullptr, 1.0f, GetLODForView(PickingRay.ViewOrigin));
 }
 
 FAABB UStaticMeshComponent::GetBoundingBox() const
@@ -164,6 +176,7 @@ void UStaticMeshComponent::SetMesh(const TSharedPtr<FStaticMeshAsset>& InMesh)
 		mMeshAsset = nullptr;
 		mMaterialAssets.Empty();
 		mUVOffsets.Empty();
+        MarkBoundsDirty();
 		return;
     }
 
@@ -173,7 +186,19 @@ void UStaticMeshComponent::SetMesh(const TSharedPtr<FStaticMeshAsset>& InMesh)
     for (int32 i = 0; i < Sections.Num(); i++)
     {
         auto& Section = Sections[i];
-        mMaterialAssets[i] = FAssetManager::Get().GetAssetAs<FMaterialAsset>(Section.MaterialAssetID, true);
+        mMaterialAssets[i] = Section.MaterialAssetID.IsValid() ? FAssetManager::Get().GetAssetAs<FMaterialAsset>(Section.MaterialAssetID, true) : nullptr;
     }
     mMeshAsset = InMesh;
+
+    MarkBoundsDirty();
+}
+
+uint32 UStaticMeshComponent::GetLODForView(const FVector& ViewOrigin) const
+{
+    if (!mMeshAsset) return 0;
+    // 강제 선택은 카메라 거리와 무관하므로 중심 변환과 거리 계산을 생략합니다.
+    if (mMeshAsset->GetLODSelection().ForcedLOD >= 0) return mMeshAsset->SelectLOD(0);
+    const FAABB& Bounds = mMeshAsset->GetLocalBoundingBox();
+    const FVector Center = GetTransform().MakeMatrix().TransformPosition(Bounds.Min * .5f + Bounds.Max * .5f);
+    return mMeshAsset->SelectLOD((Center - ViewOrigin).LengthSquared());
 }

@@ -12,9 +12,9 @@ class USceneComponent : public UActorComponent
 	REFLECT_CLASS(USceneComponent, UActorComponent)
 public:
 	USceneComponent() = default;
+	virtual ~USceneComponent();
 
 	void Initialize(FVector location, FRotator rotation, FVector scale3D);
-	virtual ~USceneComponent();
 
 	virtual void SerializeClass(json::JSON& outJson) const override;
 	virtual void DeserializeClass(const json::JSON& inJson) override;
@@ -28,8 +28,10 @@ public:
 	FVector GetRelativeScale3D() const;
 	void SetRelativeScale3D(FVector scale);
 
-	inline FTransform& GetTransform() { return mRelativeTransform; }
-	const FTransform& GetTransform() const { return mRelativeTransform; }
+	const FTransform& GetTransform() const;
+
+protected:
+	virtual void OnTransformChanged() {}
 
 private:
 	FTransform mRelativeTransform;
