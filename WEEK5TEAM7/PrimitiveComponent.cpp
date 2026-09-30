@@ -61,6 +61,7 @@ void UPrimitiveComponent::DeserializeClass(const json::JSON& inJson)
 
 void UPrimitiveComponent::Render(FRenderCollector& RenderCollector)
 {
+	Super::Render(RenderCollector);
 }
 
 FAABB UPrimitiveComponent::GetBoundingBox() const

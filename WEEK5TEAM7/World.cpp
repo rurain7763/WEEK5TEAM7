@@ -115,6 +115,7 @@ void UWorld::RegisterComponent(UActorComponent* Component)
 	if (PrimitiveComponent)
 	{
 		mPrimitiveComponents.Add(PrimitiveComponent);
+		mShouldRenderComponents.Add(Component);
 		mbBVHDirty = true;
 	}
 	else if (Component->IsRenderable())
@@ -142,6 +143,12 @@ void UWorld::UnregisterComponent(UActorComponent* Component)
 			mPrimitiveComponents.RemoveAtSwap(index);
 			mbBVHDirty = true;
 		}
+
+		index = mShouldRenderComponents.Find(Component);
+		if (index != -1)
+		{
+			mShouldRenderComponents.RemoveAtSwap(index);
+		}
 	}
 	else if (Registration.bRenderable)
 	{
@@ -150,6 +157,12 @@ void UWorld::UnregisterComponent(UActorComponent* Component)
 		if (index != -1)
 		{
 			List.RemoveAtSwap(index);
+		}
+
+		index = mShouldRenderComponents.Find(Component);
+		if (index != -1)
+		{
+			mShouldRenderComponents.RemoveAtSwap(index);
 		}
 	}
 }
@@ -173,6 +186,11 @@ void UWorld::MarkBoundsDirty(UActorComponent* Component)
 		mBVH.GetAllBoundingBoxes(mCachedEntryAABBs);
 		mbAABBsDirty = true;
 	}
+}
+
+void UWorld::RequestRenderUpdate(UActorComponent* Component)
+{
+	mShouldRenderComponents.Add(Component);
 }
 
 void UWorld::Tick(float deltaTime)
@@ -205,55 +223,80 @@ void UWorld::Tick(float deltaTime)
 
 void UWorld::Render(float deltaTime, FRenderCollector& outCollector)
 {
-    {
-        PROFILE_SCOPE("World/CollectNonPrimitive");
-        for (UActorComponent* Component : mNonPrimitiveRenderableComponents) Component->Render(outCollector);
-    }
-    // 목록 순회 전에 옵션을 검사하여 숨겨진 UUID 개수에 비례하는 비용을 없앱니다.
-    if (FShowFlags::Get().IsEnabled(EShowFlag::UUIDText))
-    {
-        PROFILE_SCOPE("World/CollectUUID");
-        for (UActorComponent* Component : mUUIDRenderableComponents) Component->Render(outCollector);
-    }
-    {
-        PROFILE_SCOPE("World/BVHQuery");
-        QueryStack.Empty();
-        VisibleRanges.Empty();
-        if (mBVH.IsValid()) QueryStack.Add(mBVH.GetRootNode());
-        while (!QueryStack.IsEmpty())
-        {
-            FBVHNode* Node = QueryStack.Last();
-            QueryStack.Pop();
-            if (!Node) continue;
-            const int32 Result = outCollector.Frustum.Intersects(Node->BoundingBox);
-            if (Result == -1) continue;
-            if (Result == 1 || Node->IsLeaf()) VisibleRanges.Add(Node->ItemRange);
-            else
-            {
-                QueryStack.Add(Node->Left);
-                QueryStack.Add(Node->Right);
-            }
-        }
-    }
-    {
-        PROFILE_SCOPE("World/CollectPrimitives");
-        const bool bOcclusionEnabled = FShowFlags::Get().IsEnabled(EShowFlag::OcclusionCulling);
-        // 기존 BVH의 연속 범위를 사용하여 개별 가시 객체 배열을 복사하지 않습니다.
-		for (const auto& Range : VisibleRanges)
+	{
+		PROFILE_SCOPE("World/CollectNonPrimitive");
+		for (UActorComponent* Component : mNonPrimitiveRenderableComponents)
 		{
-			for (int32 I = 0; I < Range.Count; ++I)
+			Component->Render(outCollector);
+		}
+	}
+
+	// 목록 순회 전에 옵션을 검사하여 숨겨진 UUID 개수에 비례하는 비용을 없앱니다.
+	if (FShowFlags::Get().IsEnabled(EShowFlag::UUIDText))
+	{
+		PROFILE_SCOPE("World/CollectUUID");
+		for (UActorComponent* Component : mUUIDRenderableComponents)
+		{
+			Component->Render(outCollector);
+		}
+	}
+
+	for (UActorComponent* Component : mShouldRenderComponents)
+	{
+		Component->Render(outCollector);
+	}
+	mShouldRenderComponents.Empty();
+
+	if (FShowFlags::Get().IsEnabled(EShowFlag::Primitive))
+	{
+		if (mBVH.IsValid())
+		{
+			PROFILE_SCOPE("World/BVHQuery");
+			const bool bOcclusionEnabled = FShowFlags::Get().IsEnabled(EShowFlag::OcclusionCulling);
+
+			QueryStack.Empty();
+			QueryStack.Add(mBVH.GetRootNode());
+
+			while (!QueryStack.IsEmpty())
 			{
-				int32 EntryIndex = Range.Offset + I;
-				if (bOcclusionEnabled && FHiZOcclusionManager::Get().IsOccluded(EntryIndex))
+				FBVHNode* CurrentNode = QueryStack.Last();
+				QueryStack.Pop();
+				if (!CurrentNode) continue;
+
+				int32 CollisionResult = outCollector.Frustum.Intersects(CurrentNode->BoundingBox);
+				if (CollisionResult == -1)
 				{
-					FHiZOcclusionManager::Get().IncrementCulledCount();
 					continue;
 				}
-				mBVH.GetPayload(EntryIndex)->Render(outCollector);
+
+				if (CollisionResult == 1 || CurrentNode->IsLeaf())
+				{
+					for (int32 i = 0; i < CurrentNode->ItemRange.Count; ++i)
+					{
+						int32 EntryIndex = CurrentNode->ItemRange.Offset + i;
+						if (bOcclusionEnabled && FHiZOcclusionManager::Get().IsOccluded(EntryIndex))
+						{
+							FHiZOcclusionManager::Get().IncrementCulledCount();
+							continue;
+						}
+
+						UPrimitiveComponent* Object = mBVH.GetPayload(EntryIndex);
+						if (Object && Object->GetRenderProxy())
+						{
+							Object->GetRenderProxy()->Submit();
+						}
+					}
+				}
+				else
+				{
+					QueryStack.Add(CurrentNode->Left);
+					QueryStack.Add(CurrentNode->Right);
+				}
 			}
 		}
-    }
-    outCollector.BVH = &mBVH;
+	}
+
+	outCollector.BVH = &mBVH;
 }
 int32 UWorld::getActorIndex(uint32 actorUUID) const
 {

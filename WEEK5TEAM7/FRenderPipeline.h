@@ -103,6 +103,7 @@ private:
 	TArray<ID3D11SamplerState*> SamplerStates;
 
 	uint16 PipelineID = 0;
+	// 바인딩 상태 설정 시 증가합니다. 상수 버퍼 내용 갱신은 바인딩을 바꾸지 않습니다.
 	uint32 BindingVersion = 0;
 	inline static uint16 NextPipelineID = 1;
 };

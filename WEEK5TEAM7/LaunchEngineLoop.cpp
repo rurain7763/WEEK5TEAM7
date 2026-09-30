@@ -305,6 +305,10 @@ void FEngineLoop::Tick(bool bPumpMessages)
 
 	{
 		PROFILE_SCOPE("Frame/SceneTick");
+		// BVH 방식과 같은 첫 렌더 뷰를 기준으로 모든 메시의 Tick에서 LOD를 계산합니다.
+		const int32 LODViewportIndex = mEditorLayout.bIsSplitView ? 0 : mEditorLayout.MaximizedViewportIndex;
+		mSceneManager->GetCurrentWorld()->SetLODViewOrigin(
+			mViewports[LODViewportIndex].Client->GetCamera().Transform.GetLocation());
 		mSceneManager->Tick(deltaTime);
 	}
 

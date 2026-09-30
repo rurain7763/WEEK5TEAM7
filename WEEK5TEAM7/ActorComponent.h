@@ -4,6 +4,7 @@
 
 struct FRenderInfo;
 class FRenderCollector;
+class FRenderProxy;
 
 enum EActorComponentFlags
 {
@@ -16,6 +17,7 @@ enum EActorComponentFlags
 class UActorComponent : public UObject
 {
 	REFLECT_CLASS(UActorComponent, UObject)
+
 public:
 	UActorComponent();
 	virtual ~UActorComponent();
@@ -72,12 +74,18 @@ public:
 	}
 
 	inline bool IsRenderable() const { return (mComponentFlags & EActorComponentFlags::Renderable) != 0; }
+	inline FRenderProxy* GetRenderProxy() { return mRenderProxy; }
+
+protected:
+	void MarkRenderDirty();
 
 protected:
 	AActor* mOwner;
+	FRenderProxy* mRenderProxy = nullptr;
 
 private:
     friend class AActor;
 	uint32 mComponentFlags = 0;
+	bool mRenderDirty = true;
 };
 

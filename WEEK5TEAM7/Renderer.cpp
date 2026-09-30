@@ -493,7 +493,7 @@ TSharedPtr<FDepthStencil> URenderer::CreateDepthStencil(uint32 Width, uint32 Hei
 	return DepthStencil;
 }
 
-void URenderer::BindPipeline(const TSharedPtr<FRenderPipeline>& Pipeline, uint32 StencilRef)
+void URenderer::BindPipeline(const FRenderPipeline* Pipeline, uint32 StencilRef)
 {
 	// RSSetState는 드로우 직전마다 갈아치워지므로 뷰 모드 선택은 여기서 해야 한다.
 	// 이 모드를 지원하지 않는 파이프라인(2D/기즈모)은 Lit 상태로 폴백된다.
@@ -678,7 +678,7 @@ void URenderer::BindRenderTarget(const TSharedPtr<FRenderTarget2D>& RenderTarget
 	BindedDepthStencil = DepthStencil;
 }
 
-void URenderer::Render(const TSharedPtr<FRenderPipeline>& Pipeline, UINT NumVertices)
+void URenderer::Render(const FRenderPipeline* Pipeline, UINT NumVertices)
 {
 	BindPipeline(Pipeline);
 	BindVertexBuffer(nullptr, 0);
@@ -692,7 +692,7 @@ void URenderer::RenderLines(const TArray<FRenderLineInfo>& Lines)
 	uint32 Remaining = Lines.Num();
 	const FRenderLineInfo* Offset = Lines.Data();
 
-	BindPipeline(LinePipeline);
+	BindPipeline(LinePipeline.get());
 	BindVertexBuffer(nullptr, 0);
 
 	while (Remaining > 0)
@@ -715,7 +715,7 @@ void URenderer::RenderQuad(const FRenderQuadInfo& Info)
 	QuadPipeline->SetBlendState(Info.BlendMode);
 	QuadPipeline->SetDepthStencilState(Info.EnableDepthTest, Info.EnableDepthWrite);
 
-	BindPipeline(QuadPipeline);
+	BindPipeline(QuadPipeline.get());
 	BindVertexBuffer(nullptr, 0);
 
 	QuadPipeline->UpdateConstantBuffer(0, FQuadConstants{ Info.Model, Info.Color, Info.SubUV, Info.TextureSRV ? 1 : 0, Info.TextureFormat == DXGI_FORMAT_R8_UNORM });
@@ -724,9 +724,10 @@ void URenderer::RenderQuad(const FRenderQuadInfo& Info)
 	++DrawCallCount;
 }
 
-void URenderer::RenderPrimitive(const TSharedPtr<FRenderPipeline>& Pipeline, ID3D11Buffer* Buffer, UINT NumVertices)
+void URenderer::RenderPrimitive(const FRenderPipeline* Pipeline, ID3D11Buffer* Buffer, UINT NumVertices, bool bShouldBindPipeline)
 {
-	BindPipeline(Pipeline);
+	if (bShouldBindPipeline)
+		BindPipeline(Pipeline);
 	BindVertexBuffer(Buffer, Pipeline->Stride);
 
 	DeviceContext->Draw(NumVertices, 0);
@@ -744,7 +745,7 @@ void URenderer::RenderPrimitive(ID3D11Buffer* Buffer, UINT NumVertices, const FM
 
 	PrimitivePipeline->UpdateConstantBuffer(0, Constants);
 
-	RenderPrimitive(PrimitivePipeline, Buffer, NumVertices);
+	RenderPrimitive(PrimitivePipeline.get(), Buffer, NumVertices);
 }
 
 void URenderer::RenderPrimitive(ID3D11Buffer* Buffer, UINT NumVertices, const FMatrix& Model, const FVector4& Color)
@@ -758,7 +759,7 @@ void URenderer::RenderPrimitive(ID3D11Buffer* Buffer, UINT NumVertices, const FM
 
 	PrimitivePipeline->UpdateConstantBuffer(0, Constants);
 
-	RenderPrimitive(PrimitivePipeline, Buffer, NumVertices);
+	RenderPrimitive(PrimitivePipeline.get(), Buffer, NumVertices);
 }
 
 void URenderer::RenderPrimitiveIndexed(const FRenderInfo& RenderInfo, uint32 StencilRef)
@@ -772,9 +773,19 @@ void URenderer::RenderPrimitiveIndexed(const FRenderInfo& RenderInfo, uint32 Ste
 
 	PrimitivePipeline->UpdateConstantBuffer(0, Constants);
 
-	RenderPrimitiveIndexed(PrimitivePipeline, RenderInfo, StencilRef);
+	RenderPrimitiveIndexed(PrimitivePipeline.get(), RenderInfo, StencilRef);
 }
 
+void URenderer::RenderPrimitiveIndexed(const FRenderPipeline* Pipeline, const FRenderInfo& RenderInfo, uint32 StencilRef, bool bShouldBindPipeline)
+{
+	if (bShouldBindPipeline)
+		BindPipeline(Pipeline, StencilRef);
+	BindVertexBuffer(RenderInfo.VertexBuffer, Pipeline->Stride);
+	BindIndexBuffer(RenderInfo.IndexBuffer);
+
+	DeviceContext->DrawIndexed(RenderInfo.IndexCount, RenderInfo.StartIndex, 0);
+	++DrawCallCount;
+}
 void URenderer::DrawIndexed(UINT IndexCount, UINT StartIndex) const
 {
 	DeviceContext->DrawIndexed(IndexCount, StartIndex, 0);
@@ -787,33 +798,13 @@ void URenderer::Draw(UINT VertexCount) const
 	++DrawCallCount;
 }
 
-void URenderer::RenderPrimitiveIndexed(const TSharedPtr<FRenderPipeline>& Pipeline, const FRenderInfo& RenderInfo, uint32 StencilRef, bool bShouldBindPipeline)
-{
-    // 같은 메시 루프에서 직전 바인딩이 유지되는 경우에만 호출자가 생략을 요청합니다.
-    if (bShouldBindPipeline)
-    {
-        BindPipeline(Pipeline, StencilRef);
-    }
-
-    BindVertexBuffer(RenderInfo.VertexBuffer, Pipeline->Stride);
-    if (RenderInfo.IndexBuffer)
-    {
-        BindIndexBuffer(RenderInfo.IndexBuffer);
-        DrawIndexed(RenderInfo.IndexCount, RenderInfo.StartIndex);
-    }
-    else
-    {
-        Draw(RenderInfo.VertexCount);
-    }
-}
-
 void URenderer::RenderQuad2D(const FRenderQuad2DInfo& Info)
 {
 	Quad2DPipeline->SetShaderResource(0, Info.TextureSRV);
 
 	Quad2DPipeline->UpdateConstantBuffer(0, FQuad2DConstants{ Projection2D, Info.Color, Info.Position, Info.Size, Info.SubUV, Info.Rotation, Info.TextureSRV ? 1 : 0, Info.TextureFormat == DXGI_FORMAT_R8_UNORM });
 
-	BindPipeline(Quad2DPipeline);
+	BindPipeline(Quad2DPipeline.get());
 	BindVertexBuffer(nullptr, 0);
 
 	DeviceContext->Draw(6, 0);
@@ -824,7 +815,7 @@ void URenderer::RenderLine2D(const FVector2& Start, const FVector2& End, const F
 {
 	Line2DPipeline->UpdateConstantBuffer(0, FLine2DConstants{ Projection2D, Color, Start, End, Thickness });
 
-	BindPipeline(Line2DPipeline);
+	BindPipeline(Line2DPipeline.get());
 	BindVertexBuffer(nullptr, 0);
 
 	DeviceContext->Draw(6, 0);
@@ -835,7 +826,7 @@ void URenderer::RenderCircle2D(const FVector2& Center, const FVector4& Color, fl
 {
 	Circle2DPipeline->UpdateConstantBuffer(0, FCircle2DConstants{ Projection2D, Color, Center, Radius });
 
-	BindPipeline(Circle2DPipeline);
+	BindPipeline(Circle2DPipeline.get());
 	BindVertexBuffer(nullptr, 0);
 
 	DeviceContext->Draw(6, 0);
@@ -846,7 +837,7 @@ void URenderer::RenderTriangle2D(const FVector2& Center, const FVector4& Color, 
 {
 	Triangle2DPipeline->UpdateConstantBuffer(0, FTriangle2DConstants{ Projection2D, Color, Center, Size, Rotation - PI * 0.5f });
 
-	BindPipeline(Triangle2DPipeline);
+	BindPipeline(Triangle2DPipeline.get());
 	BindVertexBuffer(nullptr, 0);
 
 	DeviceContext->Draw(3, 0);
@@ -861,7 +852,7 @@ void URenderer::RenderWorldAxis(const FMatrix& View, const FMatrix& Projection, 
 	DeviceContext->RSGetViewports(&ViewportCount, &Viewport);
 	WorldAxisPipeline->UpdateConstantBuffer(0, FWorldAxisConstants{ View, Projection, Color, Axis, Thickness, FVector2(Viewport.Width, Viewport.Height) });
 
-	BindPipeline(WorldAxisPipeline);
+	BindPipeline(WorldAxisPipeline.get());
 	BindVertexBuffer(nullptr, 0);
 
 	DeviceContext->Draw(6, 0);
@@ -872,7 +863,7 @@ void URenderer::RenderWorldGrid(const FMatrix& ViewProjection, const FVector& Ca
 {
 	WorldGridPipeline->UpdateConstantBuffer(0, FWorldGridConstants{ ViewProjection, CameraLocation, GridGap });
 
-	BindPipeline(WorldGridPipeline);
+	BindPipeline(WorldGridPipeline.get());
 	BindVertexBuffer(nullptr, 0);
 
 	DeviceContext->Draw(6, 0);

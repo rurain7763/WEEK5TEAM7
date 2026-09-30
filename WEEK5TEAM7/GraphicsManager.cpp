@@ -184,7 +184,7 @@ void FGraphicsManager::RenderHighLight(const TArray<UPrimitiveComponent*>& Primi
 		RenderInfo.IndexCount = static_cast<uint32>(Indices.Num());
 		RenderInfo.Model = Transform.MakeMatrix();
 
-		mRenderer->RenderPrimitiveIndexed(mHighlightMarkPipeline, RenderInfo, 1);
+		mRenderer->RenderPrimitiveIndexed(mHighlightMarkPipeline.get(), RenderInfo, 1);
 	}
 
 	// Draw Pass: 잠시 DepthStencil을 해제
@@ -200,7 +200,7 @@ void FGraphicsManager::RenderHighLight(const TArray<UPrimitiveComponent*>& Primi
 	
 	mHighlightDrawPipeline->UpdateConstantBuffer(0, OutlineConstants);
 
-	mRenderer->Render(mHighlightDrawPipeline, 6);
+	mRenderer->Render(mHighlightDrawPipeline.get(), 6);
 
 	// Draw Pass가 끝나면 원래 DepthStencil을 복원한다.
 	mRenderer->ClearAllShaderResources();
@@ -209,51 +209,70 @@ void FGraphicsManager::RenderHighLight(const TArray<UPrimitiveComponent*>& Primi
 
 void FGraphicsManager::Render()
 {
-	PROFILE_SCOPE("Viewport/GraphicsRender");
-	{
-		PROFILE_SCOPE("Viewport/GraphicsRender/RenderLines");
-		mRenderer->RenderLines(mRenderCollector.LineInfos);
-	}
-	{
-		PROFILE_SCOPE("Viewport/GraphicsRender/sort");
-		std::sort(mRenderCollector.RenderInfos.begin(), mRenderCollector.RenderInfos.end());
-	}
+    PROFILE_SCOPE("Viewport/GraphicsRender");
+    {
+        PROFILE_SCOPE("Viewport/GraphicsRender/RenderLines");
+        mRenderer->RenderLines(mRenderCollector.LineInfos);
+    }
+
+	const auto& RenderInfoPool = mRenderCollector.GetRenderInfoPool();
+	const auto& RenderInfos = RenderInfoPool.GetPool();
+	auto& VisibleRenderInfoIndices = mRenderCollector.GetVisibleRenderInfoIndices();
+
+    {
+        PROFILE_SCOPE("Viewport/GraphicsRender/sort");
+        std::sort(VisibleRenderInfoIndices.begin(), VisibleRenderInfoIndices.end(), [&RenderInfoPool, &RenderInfos, &VisibleRenderInfoIndices](int32 A, int32 B) { 
+			return RenderInfos[A].SortKey < RenderInfos[B].SortKey;
+		});
+    }
+
 	{
 		PROFILE_SCOPE("Viewport/GraphicsRender/SubmitMeshes");
-        // 이전 trace와 비교할 수 있도록 메시 제출 계측 이름을 유지합니다.
-        PROFILE_SCOPE("Viewport/GraphicsRender/DrawMeshesLegacy");
-        FRenderPipeline* LastPipeline = nullptr;
-        uint32 LastPipelineVersion = 0;
-        FTexture2DAsset* LastTexture = nullptr;
-        for (const FRenderInfo& Info : mRenderCollector.RenderInfos)
-        {
-            const auto& Pipeline = Info.Pipeline ? Info.Pipeline : mMeshPipeline;
-            const bool bPipelineChanged = Pipeline.get() != LastPipeline;
-            const bool bBindingChanged = bPipelineChanged || Info.Texture != LastTexture;
-            if (bPipelineChanged)
-            {
-                Pipeline->UpdateConstantBuffer(1, mViewUnifiedProjectionMatrix);
-                Pipeline->SetSamplerState(0, D3D11_FILTER_MIN_MAG_MIP_LINEAR, D3D11_TEXTURE_ADDRESS_WRAP, D3D11_TEXTURE_ADDRESS_WRAP);
-            }
-            if (bBindingChanged)
-            {
-                if (Info.Texture) Pipeline->SetShaderResource(0, Info.Texture->GetSRV());
-                else Pipeline->ClearShaderResource();
-            }
-            // 개별 Draw의 상수는 기존 동적 상수 버퍼에 Map/Unmap으로 갱신합니다.
-            const FConstants Constants{ Info.Model, Info.Color, Info.UVOffset, Info.UseVertexColor, Info.Texture ? 1 : 0 };
-            Pipeline->UpdateConstantBuffer(0, Constants);
-            // SRV·Sampler 준비로 버전이 바뀔 수 있으므로 모든 설정 이후에 비교합니다.
-            // 뷰 모드·스텐실 참조는 루프 안에서 고정되며 외부 렌더 코드가 실행되지 않습니다.
-            // b0 내용만 갱신하는 것은 바인딩 대상의 변경이 아닙니다. VB/IB는 아래에서 매번 따로 비교합니다.
-            const uint32 CurrentPipelineVersion = Pipeline->GetBindingVersion();
-            const bool bCanReuse = !bBindingChanged && CurrentPipelineVersion == LastPipelineVersion;
-            const bool bShouldBindPipeline = !URenderer::bReuseMeshBindings || !bCanReuse;
-            mRenderer->RenderPrimitiveIndexed(Pipeline, Info, 0, bShouldBindPipeline);
-            LastPipeline = Pipeline.get();
-            LastPipelineVersion = CurrentPipelineVersion;
-            LastTexture = Info.Texture;
-        }
+
+		FRenderPipeline* LastPipeline = nullptr;
+		FTexture2DAsset* LastTexture = nullptr;
+		uint32 LastPipelineVersion = 0;
+
+		for (const int32 Index : VisibleRenderInfoIndices)
+		{
+			const FRenderInfo& Info = RenderInfos[Index];
+
+			const auto& Pipeline = Info.Pipeline ? Info.Pipeline : mMeshPipeline.get();
+
+			const bool bPipelineChanged = Pipeline != LastPipeline;
+			const bool bBindingChanged = bPipelineChanged || Info.Texture != LastTexture;
+			if (bPipelineChanged)
+			{
+				Pipeline->UpdateConstantBuffer(1, mViewUnifiedProjectionMatrix);
+				Pipeline->SetSamplerState(0, D3D11_FILTER_MIN_MAG_MIP_LINEAR, D3D11_TEXTURE_ADDRESS_WRAP, D3D11_TEXTURE_ADDRESS_WRAP);
+			}
+			if (bBindingChanged)
+			{
+				if (Info.Texture) Pipeline->SetShaderResource(0, Info.Texture->GetSRV());
+				else Pipeline->ClearShaderResource();
+			}
+			// 설정 함수도 버전을 올리므로 샘플러와 텍스처 설정이 끝난 값을 비교합니다.
+			const uint32 PipelineVersion = Pipeline->GetBindingVersion();
+			const bool bShouldBindPipeline = !(
+				Pipeline == LastPipeline && Info.Texture == LastTexture
+				&& PipelineVersion == LastPipelineVersion);
+			// 개별 Draw의 상수는 기존 동적 상수 버퍼에 Map/Unmap으로 갱신합니다.
+			const FConstants Constants{ Info.Model, Info.Color, Info.UVOffset, Info.UseVertexColor, Info.Texture ? 1 : 0 };
+			Pipeline->UpdateConstantBuffer(0, Constants);
+
+			if (Info.IndexBuffer)
+			{
+				mRenderer->RenderPrimitiveIndexed(Pipeline, Info, 0, bShouldBindPipeline);
+			}
+			else
+			{
+				mRenderer->RenderPrimitive(Pipeline, Info.VertexBuffer, Info.VertexCount, bShouldBindPipeline);
+			}
+
+			LastPipeline = Pipeline;
+			LastTexture = Info.Texture;
+			LastPipelineVersion = PipelineVersion;
+		}
 	}
 	
 	// Hi-Z Occlusion Culling: Downsamples depth buffer into Hi-Z pyramid and tests scene AABBs

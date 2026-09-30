@@ -131,6 +131,7 @@ ID3D11RasterizerState* FRenderPipeline::GetRasterizerState(EViewModeIndex ViewMo
 
 void FRenderPipeline::SetDepthStencilState(bool bEnableDepthTest, bool bEnableDepthWrite)
 {
+	++BindingVersion;
 	FDepthStencilStateKey Key{ bEnableDepthTest, bEnableDepthWrite, false, D3D11_COMPARISON_ALWAYS, D3D11_STENCIL_OP_KEEP };
 	DepthStencilState = DepthStencilStatePool->GetOrCreateDepthStencilState(Device, Key);
 	++BindingVersion;
@@ -138,6 +139,7 @@ void FRenderPipeline::SetDepthStencilState(bool bEnableDepthTest, bool bEnableDe
 
 void FRenderPipeline::SetDepthStencilState(bool bEnableDepthTest, bool bEnableDepthWrite, D3D11_COMPARISON_FUNC StencilFunc, D3D11_STENCIL_OP StencilPassOp)
 {
+	++BindingVersion;
 	FDepthStencilStateKey Key{ bEnableDepthTest, bEnableDepthWrite, true, StencilFunc, StencilPassOp };
 	DepthStencilState = DepthStencilStatePool->GetOrCreateDepthStencilState(Device, Key);
 	++BindingVersion;
@@ -145,6 +147,7 @@ void FRenderPipeline::SetDepthStencilState(bool bEnableDepthTest, bool bEnableDe
 
 void FRenderPipeline::SetBlendState(ERenderBlendMode BlendMode, bool bColorWriteEnable)
 {
+	++BindingVersion;
 	FBlendStateKey Key{ BlendMode, bColorWriteEnable };
 	BlendState = BlendStatePool->GetOrCreateBlendState(Device, Key);
 	++BindingVersion;
@@ -188,6 +191,7 @@ void FRenderPipeline::SetShader(const FString& ShaderPath)
 
 void FRenderPipeline::SetShaderResource(uint32 Slot, Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> SRV)
 {
+	++BindingVersion;
 	if (Slot >= ShaderResourceViews.Num())
 	{
 		ShaderResourceViews.SetNum(Slot + 1);
@@ -216,6 +220,7 @@ void FRenderPipeline::ClearShaderResource()
 
 void FRenderPipeline::SetSamplerState(uint32 Slot, D3D11_FILTER Filter, D3D11_TEXTURE_ADDRESS_MODE AddressU, D3D11_TEXTURE_ADDRESS_MODE AddressV)
 {
+	++BindingVersion;
 	FSamplerStateKey Key{ Filter, AddressU, AddressV };
 	ID3D11SamplerState* SamplerState = SamplerStatePool->GetOrCreateSamplerState(Device, Key);
 	if (Slot >= SamplerStates.Num())
@@ -229,6 +234,7 @@ void FRenderPipeline::SetSamplerState(uint32 Slot, D3D11_FILTER Filter, D3D11_TE
 
 void FRenderPipeline::ClearSamplerState()
 {
+	++BindingVersion;
 	SamplerStates.Empty();
 	++BindingVersion;
 }

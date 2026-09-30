@@ -41,6 +41,7 @@ protected:
 	{
 		Super::OnTransformChanged();
 		MarkBoundsDirty();
+		MarkRenderDirty();
 	}
 };
 
