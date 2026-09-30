@@ -139,10 +139,7 @@ bool AActor::RemoveComponent(uint32 componentUUID)
 		mWorld->UnregisterComponent(mComponents[componentIndex]);
 	}
 
-    ActiveTickComponents.Remove(mComponents[componentIndex]);
-    if (mWorld) mWorld->RefreshTickRegistration(this);
-    if (mComponents[componentIndex] == mRootComponent) mRootComponent = nullptr;
-    mComponents[componentIndex]->mOwner = nullptr;
+	mComponents[componentIndex]->SetOwner(nullptr);
 	mComponents.RemoveAtSwap(componentIndex);
 
 	return true;
@@ -175,17 +172,7 @@ const FTransform& AActor::GetTransform() const
 
 void AActor::Tick(float deltaTime)
 {
-    // 파생 Actor가 Tick을 재정의하면 Super::Tick을 호출하여 활성 컴포넌트도 실행합니다.
-    ActiveTickComponents.Tick(deltaTime);
-}
-
-void AActor::RefreshComponentTickRegistration(UActorComponent* Component)
-{
-    // SetOwner만 호출한 미등록 컴포넌트는 실행하지 않습니다. 검색은 등록 변경 시에만 발생합니다.
-    if (Component->GetOwner() != this || mComponents.Find(Component) == -1) return;
-    if (Component->ShouldTick()) ActiveTickComponents.Add(Component);
-    else ActiveTickComponents.Remove(Component);
-    if (mWorld) mWorld->RefreshTickRegistration(this);
+	// 컴포넌트 Tick은 World의 활성 목록에서 직접 실행합니다.
 }
 
 void AActor::Render(FRenderCollector& RenderCollector)
