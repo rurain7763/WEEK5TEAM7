@@ -8,6 +8,9 @@
 namespace nvapi_example 
 {
     NvAPI_Status Initialize();
+    // Apply a conservative, app-specific high-performance driver profile.
+    // Values are validated against the running NVIDIA driver's DRS value list.
+    NvAPI_Status ApplyHighPerformanceProfileForCurrentExecutable();
 
     NvAPI_Status FindSettingId(const wchar_t* settingName, NvU32* settingId);
     NvAPI_Status ReadDwordSetting(

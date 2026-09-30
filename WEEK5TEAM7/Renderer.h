@@ -397,6 +397,8 @@ class URenderer
 public:
 	void Create(HWND hWindow);
 	void Release();
+	// Run once at the top of each engine frame for the NVAPI Reflex integration.
+	void BeginFrame();
 
 	template <typename T>
 	TSharedPtr<FVertexBuffer> CreateVertexBuffer(const T* Vertices, UINT Count, D3D11_USAGE Usage = D3D11_USAGE_IMMUTABLE)
@@ -530,6 +532,7 @@ private:
     ID3D11Device* Device = nullptr;
     ID3D11DeviceContext* DeviceContext = nullptr;
     IDXGISwapChain* SwapChain = nullptr;
+	bool bNvapiSleepEnabled = false;
 
 	FSamplerStatePool SamplerStatePool;
 	FDepthStencilStatePool DepthStencilStatePool;

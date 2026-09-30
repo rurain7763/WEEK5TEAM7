@@ -275,6 +275,12 @@ void FEngineLoop::Tick(bool bPumpMessages)
 	FrameTimer->StartFrame();
 	float deltaTime = FrameTimer->GetDeltaTime();
 
+	if (mGraphicsManager && mGraphicsManager->GetRenderer())
+	{
+		PROFILE_SCOPE("Frame/BeginFrame");
+		mGraphicsManager->GetRenderer()->BeginFrame();
+	}
+
 	FRenderCollector& RenderCollector = mGraphicsManager->GetRenderCollector();
 
 	{
