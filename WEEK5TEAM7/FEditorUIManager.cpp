@@ -9,8 +9,6 @@
 #include "GraphicsManager.h"
 #include "Camera.h"
 #include "FInstrumentor.h"
-#include "SceneManager.h"
-#include "World.h"
 
 FEditorUIManager::FEditorUIManager(URenderer& InRenderer)
 	: mRenderer(InRenderer)

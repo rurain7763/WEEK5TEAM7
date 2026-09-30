@@ -690,6 +690,11 @@ void URenderer::RenderQuad2D(const FRenderQuad2DInfo& Info)
 
 	Quad2DPipeline->UpdateConstantBuffer(0, FQuad2DConstants{ Projection2D, Info.Color, Info.Position, Info.Size, Info.SubUV, Info.Rotation, Info.TextureSRV ? 1 : 0, Info.TextureFormat == DXGI_FORMAT_R8_UNORM });
 
+		TextureFormat = Desc.Format;
+	}
+
+	Quad2DPipeline->UpdateConstantBuffer(0, FQuad2DConstants{ Projection2D, Info.Color, Info.Position, Info.Size, Info.SubUV, Info.Rotation, Info.TextureSRV ? 1 : 0, TextureFormat == DXGI_FORMAT_R8_UNORM });
+
 	BindPipeline(Quad2DPipeline.get());
 	BindVertexBuffer(nullptr, 0);
 

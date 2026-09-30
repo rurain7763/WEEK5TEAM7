@@ -263,7 +263,7 @@ void FGraphicsManager::Render()
 			{
 				mRenderer->RenderPrimitiveIndexed(Pipeline, Info, 0, bShouldBindPipeline);
 			}
-			else
+			else if (mViewportType == EViewportType::Side)
 			{
 				mRenderer->RenderPrimitive(Pipeline, Info.VertexBuffer, Info.VertexCount, bShouldBindPipeline);
 			}
@@ -271,48 +271,6 @@ void FGraphicsManager::Render()
 			LastPipeline = Pipeline;
 			LastTexture = Info.Texture;
 			LastPipelineVersion = PipelineVersion;
-		}
-	}
-
-	{
-		PROFILE_SCOPE("Viewport/GraphicsRender/RenderQuad");
-
-		for (const FRenderQuadInfo& QuadInfo : mRenderCollector.GetOpaqueQuadInfos())
-		{
-			mRenderer->RenderQuad(QuadInfo);
-		}
-
-		if (FShowFlags::Get().IsEnabled(EShowFlag::Grid))
-		{
-			FMatrix GridWorldMatrix = FMatrix::Identity;
-
-			if (mViewportType == EViewportType::Front)
-			{
-				GridWorldMatrix = FMatrix::RotateY(90);
-			}
-			else if (mViewportType == EViewportType::Side)
-			{
-				GridWorldMatrix = FMatrix::RotateX(90);
-			}
-
-			// Match the grid's world-space half-width of 0.001.
-			mRenderer->RenderWorldAxis(mViewMatrix, mProjectionMatrix, FVector4(0.f, 0.f, 1.f, 1.f), FVector3(0.f, 0.f, 1.f), 0.002f);
-			mRenderer->RenderWorldGrid(GridWorldMatrix * mViewUnifiedProjectionMatrix, mCameraLocation, GridGap);
-		}
-
-		for (const FRenderQuadInfo& QuadInfo : mRenderCollector.GetTransparentQuadInfos())
-		{
-			mRenderer->RenderQuad(QuadInfo);
-		}
-
-		for (const FRenderQuadInfo& QuadInfo : mRenderCollector.GetOverlayQuadInfos())
-		{
-			mRenderer->RenderQuad(QuadInfo);
-		}
-
-		for (const FRenderQuad2DInfo& Quad2DInfo : mRenderCollector.GetQuad2DInfos())
-		{
-			mRenderer->RenderQuad2D(Quad2DInfo);
 		}
 	}
 

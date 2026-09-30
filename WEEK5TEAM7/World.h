@@ -4,9 +4,7 @@
 #include "Actor.h"
 #include "RenderInfo.h"
 #include "FFrustum.h"
-#include "TActiveTickList.h"
 #include "TMap.h"
-#include "FBVHLODTraversal.h"
 
 class UPrimitiveComponent;
 class UText3DComponent;
@@ -31,8 +29,6 @@ public:
 	void RefreshComponentTick(UActorComponent* Component);
 
 	void MarkBoundsDirty(UActorComponent* component);
-	// BVH 조회 외부에서 LOD를 바꾸면 적용 상태 캐시를 무효화합니다.
-	void InvalidateMeshLOD(UPrimitiveComponent* Component);
 
 	// NOTE: 이번 프레임에 렌더링 대상이 된 컴포넌트를 등록. Unique 체크를 하지 않으므로, 렌더링 대상이 된 컴포넌트는 반드시 한 번만 등록해야함.
 	void RequestRenderUpdate(UActorComponent* component);
@@ -44,13 +40,28 @@ public:
 	const TArray<UPrimitiveComponent*>& GetPrimitiveComponents() const { return mPrimitiveComponents; }
 
 	void Tick(float deltaTime);
+	// 비교 실험용: Tick 시작 전에 기준 뷰의 위치를 한 번 전달합니다.
+	void SetLODViewOrigin(const FVector& ViewOrigin) { mLODViewOrigin = ViewOrigin; }
+	const FVector& GetLODViewOrigin() const { return mLODViewOrigin; }
 	void Render(float deltaTime, FRenderCollector& outCollector);
-	const FBVHLODQueryStats& GetLODQueryStats() const { return mLODQueryStats; }
 
 private:
 	int32 getActorIndex(uint32 actorUUID) const;
 	// 변경된 리프와 조상만 설정 요약을 갱신합니다. 설정 편집 시에는 전체 요약을 갱신합니다.
 	void RefreshBVHLODState(const FBVHNode* Node, uint64 SettingsRevision);
+
+	struct FComponentTickList
+	{
+		void Add(UActorComponent* Component);
+		void Remove(UActorComponent* Component);
+		void Tick(float DeltaTime, int32 Count);
+
+		TArray<UActorComponent*> Components;
+		// 등록/해제할 때만 사용하며 프레임 순회 중에는 조회하지 않습니다.
+		TMap<UActorComponent*, uint32> Indices;
+		bool bTicking = false;
+		bool bNeedsCompaction = false;
+	};
 
 	struct FComponentTickList
 	{
@@ -81,9 +92,5 @@ private:
 
 	bool mbBVHDirty = true;
 	FBVH<UPrimitiveComponent*> mBVH;
-	TArray<FBVHLODNodeState> mBVHLODStates;
-	FBVHLODQueryStats mLODQueryStats;
-	uint64 mLODResourceVersion = 0;
-	bool mbProcessedRenderThisTick = false;
-	bool mbSelectingBVHLOD = false;
+	FVector mLODViewOrigin;
 };
