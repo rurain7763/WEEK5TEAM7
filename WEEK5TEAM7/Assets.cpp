@@ -472,6 +472,7 @@ void FStaticMeshAsset::SetLODSelection(const FMeshLODSelection& Settings)
         || !std::isfinite(Settings.Distances[0]) || !std::isfinite(Settings.Distances[1])
         || Settings.Distances[0] < 0 || Settings.Distances[1] < Settings.Distances[0]) return;
     LODSelection = Settings;
+    ++LODChangeVersion;
 }
 
 bool FStaticMeshAsset::RebuildLODs(URenderer& Renderer, const FMeshLODSettings& Settings)
@@ -506,6 +507,9 @@ bool FStaticMeshAsset::RebuildLODs(URenderer& Renderer, const FMeshLODSettings& 
         // 준비된 후보만 교체하여 생성 실패 시 기존 메시와 버퍼를 유지합니다.
         LocalOctree = std::move(PendingRoot);
         for (uint32 I = 0; I < 2; ++I) GeneratedLODs[I] = std::move(Pending[I]);
+        ++LODResourceVersion;
+        ++LODResourceChangeVersion;
+        ++LODChangeVersion;
         AppliedLODSettings = Settings;
         LODError = FString();
         return true;

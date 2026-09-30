@@ -11,6 +11,9 @@
 #include "UTextComponent.h"
 #include "UTextComponent.h"
 #include "ShowFlags.h"
+#include "UStaticMeshComponent.h"
+#include "Camera.h"
+#include "FInstrumentor.h"
 
 UWorld::~UWorld()
 {
@@ -253,8 +256,15 @@ void UWorld::RequestRenderUpdate(UActorComponent* Component)
 	mShouldRenderComponents.Add(Component);
 }
 
+void UWorld::InvalidateMeshLOD(UPrimitiveComponent* Component)
+{
+	// 조회 중 직접 적용한 변경은 노드 캐시에 함께 기록하므로 다시 무효화할 필요가 없습니다.
+	if (!mbSelectingBVHLOD) mBVH.Invalidate(Component);
+}
+
 void UWorld::Tick(float deltaTime)
 {
+	mbProcessedRenderThisTick = false;
 	// 전체 Actor/Component 목록을 훑지 않고 실제 갱신 대상만 순회합니다.
 	mTickableComponents.Tick(deltaTime, mTickableComponents.Components.Num());
 	// 숨긴 UUID는 컴포넌트별 조건 검사도 하지 않고 목록 전체를 건너뜁니다.
@@ -269,8 +279,25 @@ void UWorld::Tick(float deltaTime)
 			mBVH.AddItem(primitiveComponent, primitiveComponent->GetBoundingBox());
 		}
 		mBVH.Build();
+		mBVHLODStates.Empty();
+		mBVHLODStates.SetNum(mBVH.GetNodeCount());
 		mbBVHDirty = false;
 	}
+}
+
+void UWorld::RefreshBVHLODState(const FBVHNode* Node, uint64 SettingsRevision)
+{
+	auto ReadSelection = [&](int32 EntryIndex, FMeshLODSelection& Selection)
+	{
+		const auto* MeshComponent = mBVH.GetPayload(EntryIndex)->Cast<UStaticMeshComponent>();
+		if (MeshComponent && MeshComponent->GetMesh())
+		{
+			Selection = MeshComponent->GetMesh()->GetLODSelection();
+			return true;
+		}
+		return false;
+	};
+	FBVHLODTraversal::Refresh(Node, mBVHLODStates, SettingsRevision, ReadSelection);
 }
 
 void UWorld::Render(float deltaTime, FRenderCollector& outCollector)
@@ -280,48 +307,61 @@ void UWorld::Render(float deltaTime, FRenderCollector& outCollector)
 		Component->Render(outCollector);
 	}
 	
-	for (UActorComponent* Component : mShouldRenderComponents)
+	// 프록시는 컴포넌트당 하나이므로 첫 뷰가 공통 LOD를 결정합니다.
+	// 이번 조회의 요청은 다음 Tick 이후 반영해 분할 화면 중간에 프록시가 바뀌지 않게 합니다.
+	const bool bFirstView = !mbProcessedRenderThisTick;
+	mbProcessedRenderThisTick = true;
+	if (bFirstView)
 	{
-		Component->Render(outCollector);
+		PROFILE_SCOPE("Viewport/Collect/UpdateRenderProxies");
+		const uint64 ResourceVersion = FStaticMeshAsset::GetLODResourceChangeVersion();
+		if (mLODResourceVersion != ResourceVersion)
+		{
+			// 버퍼 재생성 시에만 순회합니다. 기존 raw 버퍼를 제출하기 전에 프록시를 갱신합니다.
+			for (UPrimitiveComponent* Component : mPrimitiveComponents)
+				if (auto* Mesh = Component->Cast<UStaticMeshComponent>())
+					Mesh->SetMesh(Mesh->GetMesh(), Mesh->GetLODIndex());
+			mLODResourceVersion = ResourceVersion;
+		}
+		for (UActorComponent* Component : mShouldRenderComponents)
+			Component->Render(outCollector);
+		mShouldRenderComponents.Empty();
+		mLODQueryStats = {};
 	}
-	mShouldRenderComponents.Empty();
 
 	if (FShowFlags::Get().IsEnabled(EShowFlag::Primitive))
 	{
 		if (mBVH.IsValid())
 		{
-			TArray<FBVHNode*> NodeStack;
-			NodeStack.Add(mBVH.GetRootNode());
-			while (NodeStack.Num() > 0)
+			PROFILE_SCOPE("Viewport/Collect/BVHVisibilityLOD");
+			const bool bUpdateLOD = bFirstView && outCollector.Camera;
+			if (bUpdateLOD)
+				RefreshBVHLODState(mBVH.GetRootNode(), FStaticMeshAsset::GetLODChangeVersion());
+			const FVector ViewOrigin = outCollector.Camera ? outCollector.Camera->Transform.GetLocation() : FVector();
+			auto SubmitRange = [&](const FBVHItemRange& Range, int32 LOD)
 			{
-				FBVHNode* CurrentNode = NodeStack.Last();
-				NodeStack.Pop();
-
-				if (CurrentNode == nullptr)
+				for (int32 Index = Range.Offset; Index < Range.Offset + Range.Count; ++Index)
 				{
-					continue;
-				}
-
-				int32 CollisionResult = outCollector.Frustum.Intersects(CurrentNode->BoundingBox);
-				if (CollisionResult == -1)
-				{
-					continue;
-				}
-
-				if (CollisionResult == 1 || CurrentNode->IsLeaf())
-				{
-					for (int32 i = 0; i < CurrentNode->ItemRange.Count; ++i)
+					UPrimitiveComponent* Object = mBVH.GetPayload(Index);
+					if (LOD >= 0)
 					{
-						UPrimitiveComponent* Object = mBVH.GetPayload(CurrentNode->ItemRange.Offset + i);
-						Object->GetRenderProxy()->Submit();
+						if (auto* Mesh = Object->Cast<UStaticMeshComponent>(); Mesh && Mesh->GetMesh())
+						{
+							const uint32 ResolvedLOD = Mesh->GetMesh()->HasLOD(LOD) ? static_cast<uint32>(LOD) : 0;
+							if (Mesh->GetLODIndex() != ResolvedLOD)
+							{
+								Mesh->SetMesh(Mesh->GetMesh(), ResolvedLOD);
+								++mLODQueryStats.ChangedComponents;
+							}
+						}
 					}
+					Object->GetRenderProxy()->Submit();
 				}
-				else
-				{
-					NodeStack.Add(CurrentNode->Left);
-					NodeStack.Add(CurrentNode->Right);
-				}
-			}
+			};
+			mbSelectingBVHLOD = true;
+			FBVHLODTraversal::Query(mBVH.GetRootNode(), mBVHLODStates, outCollector.Frustum,
+				ViewOrigin, mLODQueryStats, SubmitRange, bUpdateLOD);
+			mbSelectingBVHLOD = false;
 		}
 	}
 
