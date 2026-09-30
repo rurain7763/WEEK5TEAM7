@@ -3,7 +3,7 @@
 
 #include <Windows.h>
 #include "NvapiHelpers.h"
-#include <nvapi_lite_sli.h>
+#include <nvapi/nvapi_lite_sli.h>
 
 #include <cstdint>
 #include <iostream>

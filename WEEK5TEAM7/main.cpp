@@ -1,6 +1,6 @@
 #include <windows.h>
-#include <nvapi.h>
-#include <NvApiDriverSettings.h>
+#include <nvapi/nvapi.h>
+#include <nvapi/NvApiDriverSettings.h>
 #include "NvapiHelpers.h"
 
 #include "Sphere.h"

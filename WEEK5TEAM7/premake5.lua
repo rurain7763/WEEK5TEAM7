@@ -52,7 +52,8 @@ project "WEEK5TEAM7"
         "imm32",
         "user32",
         "comdlg32",
-        "Ole32"
+        "Ole32",
+	"nvapi64"
     }
 
     filter "configurations:Debug"
