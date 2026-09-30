@@ -1,5 +1,4 @@
 #include "Renderer.h"
-#include "FInstrumentor.h"
 
 constexpr uint32 MaxLineInstances = 1024;
 
@@ -662,62 +661,24 @@ void URenderer::Draw(UINT VertexCount) const
 	++DrawCallCount;
 }
 
-void URenderer::RenderMeshes(const TArray<FRenderInfo>& RenderInfos, const TSharedPtr<FRenderPipeline>& DefaultPipeline, const FMatrix& ViewProjection)
+void URenderer::RenderPrimitiveIndexed(const TSharedPtr<FRenderPipeline>& Pipeline, const FRenderInfo& RenderInfo, uint32 StencilRef, bool bShouldBindPipeline)
 {
-    MeshPipelineApplyCount = 0;
-    PROFILE_SCOPE("Viewport/GraphicsRender/DrawMeshesLegacy");
-    FRenderPipeline* LastPipeline = nullptr;
-    FTexture2DAsset* LastTexture = nullptr;
-    for (const FRenderInfo& Info : RenderInfos)
+    // 같은 메시 루프에서 직전 바인딩이 유지되는 경우에만 호출자가 생략을 요청합니다.
+    if (bShouldBindPipeline)
     {
-        const auto& Pipeline = Info.Pipeline ? Info.Pipeline : DefaultPipeline;
-        const bool bPipelineChanged = Pipeline.get() != LastPipeline;
-        const bool bBindingChanged = bPipelineChanged || Info.Texture != LastTexture;
-        if (bPipelineChanged)
-        {
-            Pipeline->UpdateConstantBuffer(1, ViewProjection);
-            Pipeline->SetSamplerState(0, D3D11_FILTER_MIN_MAG_MIP_LINEAR, D3D11_TEXTURE_ADDRESS_WRAP, D3D11_TEXTURE_ADDRESS_WRAP);
-        }
-        if (bBindingChanged)
-        {
-            if (Info.Texture) Pipeline->SetShaderResource(0, Info.Texture->GetSRV());
-            else Pipeline->ClearShaderResource();
-        }
-        // 개별 Draw의 상수는 기존 동적 상수 버퍼에 Map/Unmap으로 갱신합니다.
-        const FConstants Constants{ Info.Model, Info.Color, Info.UVOffset, Info.UseVertexColor, Info.Texture ? 1 : 0 };
-        Pipeline->UpdateConstantBuffer(0, Constants);
-        // 이 루프 안에서는 파이프라인 상태·뷰 모드·스텐실 참조가 고정되며 외부 렌더 코드가 실행되지 않습니다.
-        // b0 내용만 갱신하는 것은 바인딩 대상의 변경이 아닙니다. VB/IB는 아래에서 매번 따로 비교합니다.
-        if (!bReuseMeshBindings || bBindingChanged)
-        {
-            BindPipeline(Pipeline);
-            ++MeshPipelineApplyCount;
-        }
-        DrawMeshGeometry(Info, Pipeline->Stride);
-        LastPipeline = Pipeline.get();
-        LastTexture = Info.Texture;
+        BindPipeline(Pipeline, StencilRef);
     }
-}
 
-void URenderer::RenderPrimitiveIndexed(const TSharedPtr<FRenderPipeline>& Pipeline, const FRenderInfo& RenderInfo, uint32 StencilRef)
-{
-	BindPipeline(Pipeline, StencilRef);
-	DrawMeshGeometry(RenderInfo, Pipeline->Stride);
-}
-
-void URenderer::DrawMeshGeometry(const FRenderInfo& RenderInfo, uint32 Stride)
-{
-	BindVertexBuffer(RenderInfo.VertexBuffer, Stride);
-
-	if (RenderInfo.IndexBuffer)
-	{
-		BindIndexBuffer(RenderInfo.IndexBuffer);
-		DrawIndexed(RenderInfo.IndexCount, RenderInfo.StartIndex);
-	}
-	else
-	{
-		Draw(RenderInfo.VertexCount);
-	}
+    BindVertexBuffer(RenderInfo.VertexBuffer, Pipeline->Stride);
+    if (RenderInfo.IndexBuffer)
+    {
+        BindIndexBuffer(RenderInfo.IndexBuffer);
+        DrawIndexed(RenderInfo.IndexCount, RenderInfo.StartIndex);
+    }
+    else
+    {
+        Draw(RenderInfo.VertexCount);
+    }
 }
 
 void URenderer::RenderQuad2D(const FRenderQuad2DInfo& Info)
