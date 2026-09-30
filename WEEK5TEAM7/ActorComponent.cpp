@@ -52,4 +52,3 @@ void UActorComponent::GetRenderInfos(TArray<FRenderInfo>* outRenderInfos) const
 	// Todo: Do nothing, must override, some components may not call GetRenderInfos()
 	// assert(false);
 }
-

@@ -9,10 +9,8 @@
 
 AActor::~AActor()
 {
-    if (mWorld) mWorld->RemoveActor(UUID);
 	for (UActorComponent* removeComponent : mComponents)
 	{
-        removeComponent->mOwner = nullptr;
 		FObjectFactory::DestroyObject(removeComponent);
 	}
 }
@@ -104,7 +102,6 @@ void AActor::AddComponent(UActorComponent* actorComponent)
 	mComponents.Add(actorComponent);
 
 	actorComponent->SetOwner(this);
-    RefreshComponentTickRegistration(actorComponent);
 
 	if (mWorld)
 	{
@@ -193,7 +190,7 @@ void AActor::GetRenderInfos(TArray<FRenderInfo>* outRenderInfos) const
 	}
 }
 
-bool AActor::GetFirstRenderInfo(FRenderInfo &outRenderInfo) const
+bool AActor::GetFirstRenderInfo(FRenderInfo& outRenderInfo) const
 {
 	TArray<FRenderInfo> renderInfos;
 	GetRenderInfos(&renderInfos);

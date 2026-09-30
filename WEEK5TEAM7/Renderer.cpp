@@ -26,7 +26,6 @@ namespace
 void URenderer::Create(HWND hWindow)
 {
 	CreateDeviceAndSwapChain(hWindow);
-    MeshConstantBatch.Initialize(Device, DeviceContext);
 	CreateFrameBuffer();
 	CreateDepthStencilBuffer();
 
@@ -183,7 +182,6 @@ void URenderer::ReleaseFrameBuffer()
 void URenderer::Release()
 {
 	DeviceContext->ClearState();
-    MeshConstantBatch.Reset();
 
 	WorldGridPipeline.reset();
 	WorldAxisPipeline.reset();
@@ -370,7 +368,7 @@ TSharedPtr<FDepthStencil> URenderer::CreateDepthStencil(uint32 Width, uint32 Hei
 	return DepthStencil;
 }
 
-void URenderer::BindPipeline(const TSharedPtr<FRenderPipeline>& Pipeline, uint32 StencilRef, bool bBatchConstants)
+void URenderer::BindPipeline(const TSharedPtr<FRenderPipeline>& Pipeline, uint32 StencilRef)
 {
 	// RSSetState는 드로우 직전마다 갈아치워지므로 뷰 모드 선택은 여기서 해야 한다.
 	// 이 모드를 지원하지 않는 파이프라인(2D/기즈모)은 Lit 상태로 폴백된다.
@@ -418,12 +416,10 @@ void URenderer::BindPipeline(const TSharedPtr<FRenderPipeline>& Pipeline, uint32
 		CurrentPixelShader = Pipeline->PixelShader;
 	}
 
-    // 묶음 업로드 경로는 b0을 별도로 설정하므로 카메라 등 b1 이후만 파이프라인에서 가져옵니다.
-    const int32 FirstCB = bBatchConstants ? 1 : 0;
-	const int32 NewCBCount = (std::max)(Pipeline->ConstantBuffers.Num(), FirstCB);
+	const int32 NewCBCount = Pipeline->ConstantBuffers.Num();
 
-	bool bShouldSetCBs = NewCBCount > CurrentCBCount || (!bBatchConstants && bObjectConstantsRanged);
-	for (int32 i = FirstCB; !bShouldSetCBs && i < CurrentCBCount; i++)
+	bool bShouldSetCBs = NewCBCount > CurrentCBCount;
+	for (int32 i = 0; !bShouldSetCBs && i < CurrentCBCount; i++)
 	{
 		if (i >= NewCBCount || CurrentCBs[i] != Pipeline->ConstantBuffers[i])
 		{
@@ -435,20 +431,16 @@ void URenderer::BindPipeline(const TSharedPtr<FRenderPipeline>& Pipeline, uint32
 	{
 		const int32 BindCount = FPlatformMath::Max(NewCBCount, CurrentCBCount);
 
-		for (int32 i = FirstCB; i < BindCount; ++i)
+		for (int32 i = 0; i < BindCount; ++i)
 		{
 			CurrentCBs[i] = i < NewCBCount ? Pipeline->ConstantBuffers[i] : nullptr;
 		}
 
-        if (BindCount > FirstCB)
-        {
-		    DeviceContext->VSSetConstantBuffers(FirstCB, BindCount - FirstCB, CurrentCBs + FirstCB);
-		    DeviceContext->PSSetConstantBuffers(FirstCB, BindCount - FirstCB, CurrentCBs + FirstCB);
-        }
+		DeviceContext->VSSetConstantBuffers(0, BindCount, CurrentCBs);
+		DeviceContext->PSSetConstantBuffers(0, BindCount, CurrentCBs);
 
 		CurrentCBCount = NewCBCount;
 	}
-    if (!bBatchConstants) bObjectConstantsRanged = false;
 
 	const int32 NewSRVCount = Pipeline->ShaderResourceViews.Num();
 
@@ -617,16 +609,16 @@ void URenderer::RenderQuad(const FRenderQuadInfo& Info)
 	++DrawCallCount;
 }
 
-void URenderer::RenderPrimitive(const TSharedPtr<FRenderPipeline>& Pipeline, Microsoft::WRL::ComPtr<ID3D11Buffer> Buffer, UINT NumVertices)
+void URenderer::RenderPrimitive(const TSharedPtr<FRenderPipeline>& Pipeline, ID3D11Buffer* Buffer, UINT NumVertices)
 {
 	BindPipeline(Pipeline);
-	BindVertexBuffer(Buffer.Get(), Pipeline->Stride);
+	BindVertexBuffer(Buffer, Pipeline->Stride);
 
 	DeviceContext->Draw(NumVertices, 0);
 	++DrawCallCount;
 }
 
-void URenderer::RenderPrimitive(Microsoft::WRL::ComPtr<ID3D11Buffer> Buffer, UINT NumVertices, const FMatrix& Model)
+void URenderer::RenderPrimitive(ID3D11Buffer* Buffer, UINT NumVertices, const FMatrix& Model)
 {
 	FConstants Constants;
 	Constants.Matrix = Model;
@@ -640,7 +632,7 @@ void URenderer::RenderPrimitive(Microsoft::WRL::ComPtr<ID3D11Buffer> Buffer, UIN
 	RenderPrimitive(PrimitivePipeline, Buffer, NumVertices);
 }
 
-void URenderer::RenderPrimitive(Microsoft::WRL::ComPtr<ID3D11Buffer> Buffer, UINT NumVertices, const FMatrix& Model, const FVector4& Color)
+void URenderer::RenderPrimitive(ID3D11Buffer* Buffer, UINT NumVertices, const FMatrix& Model, const FVector4& Color)
 {
 	FConstants Constants;
 	Constants.Matrix = Model;

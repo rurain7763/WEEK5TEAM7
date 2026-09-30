@@ -113,7 +113,8 @@ void UStaticMeshComponent::Render(FRenderCollector& RenderCollector)
 
             uint16 PipelineID = Material->GetPipelineID();
             uint32 MaterialID = Material->GetMaterialID();
-            uint32 MeshID = mMeshAsset->GetMeshID();
+            // 같은 메시 에셋도 LOD마다 VB/IB가 다르므로 선택된 LOD의 식별자로 묶습니다.
+            uint32 MeshID = mMeshAsset->GetMeshID(LOD);
 
             RenderInfo.SortKey = MakeRenderSortKey(PipelineID, MaterialID, MeshID);
             RenderInfo.Pipeline = Material->GetPipeline();
@@ -130,7 +131,7 @@ void UStaticMeshComponent::Render(FRenderCollector& RenderCollector)
         }
         else
         {
-			RenderInfo.SortKey = MakeRenderSortKey(1, 0, 0);
+			RenderInfo.SortKey = MakeRenderSortKey(1, 0, mMeshAsset->GetMeshID(LOD));
 			RenderInfo.Pipeline = nullptr;
 			RenderInfo.VertexBuffer = mMeshAsset->GetVertexBuffer(LOD);
 			RenderInfo.IndexBuffer = mMeshAsset->GetIndexBuffer(LOD);
