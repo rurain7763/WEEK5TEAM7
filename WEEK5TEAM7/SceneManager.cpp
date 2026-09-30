@@ -77,6 +77,7 @@ void FSceneManager::DeleteScene()
 	ResetSelectedActor();
 }
 
+
 void FSceneManager::SaveScene(FCamera* Camera, const std::filesystem::path& scenePath, const FFileManager& fileManager)
 {
 	if (mCurrentWorld == nullptr)
@@ -135,47 +136,177 @@ void FSceneManager::SaveScene(FCamera* Camera, const std::filesystem::path& scen
 		jsonString);
 }
 
+
+
+// "Data/apple_mid.obj" 같은 경로에서 "apple_mid" 에셋을 찾아오는 헬퍼 함수
+static TSharedPtr<FStaticMeshAsset> FindMeshAssetByPathOrName(const std::string& pathStr)
+{
+	std::filesystem::path p(pathStr);
+	std::string stemName = p.stem().string(); // "apple_mid" 추출
+
+	// 1. "apple_mid" 이름으로 등록되어 있는지 직접 검색
+	TSharedPtr<FStaticMeshAsset> meshAsset = FAssetManager::Get().GetAssetAs<FStaticMeshAsset>(FName(stemName.c_str()), true);
+	if (meshAsset)
+	{
+		return meshAsset;
+	}
+
+	// 2. FAssetManager에 등록된 전체 메타정보를 순회하여 파일명(stem)이 같은 StaticMesh 검색
+	FGuid foundGuid;
+	FAssetManager::Get().ForEachMetaInfo([&](const FAssetMetaInfo& meta) {
+		if (meta.AssetType == EAssetType::StaticMesh)
+		{
+			std::filesystem::path metaPath(meta.AssetName.ToString().CStr());
+			if (metaPath.stem().string() == stemName)
+			{
+				foundGuid = meta.AssetID;
+			}
+		}
+		});
+
+	if (foundGuid.IsValid())
+	{
+		return FAssetManager::Get().GetAssetAs<FStaticMeshAsset>(foundGuid, true);
+	}
+
+	return nullptr;
+}
+
+
+
 void FSceneManager::LoadScene(FCamera* Camera, const std::filesystem::path& scenePath, const FFileManager& fileManager)
 {
 	const FString jsonString = fileManager.ReadFileToString(scenePath);
-
 	const json::JSON sceneJson = json::JSON::Load(jsonString);
 
-	if (!sceneJson.hasKey("NextUUID") || sceneJson.at("NextUUID").JSONType() != json::JSON::Class::Integral)
+	// 1. NextUUID 설정
+	if (sceneJson.hasKey("NextUUID"))
 	{
-		throw std::runtime_error(std::format("Scene file '{}' does not contain valid NextUUID data.", scenePath.string()));
+		const uint32 nextUUID = sceneJson.at("NextUUID").ToInt();
+		UEngineStatics::SetNextUUID(nextUUID);
 	}
 
-	if (!sceneJson.hasKey("World") || sceneJson.at("World").JSONType() != json::JSON::Class::Object)
+	// 2. 카메라 파싱 (단일 float과 [배열], Near/NearClip, Far/FarClip 모두 대응)
+	if (sceneJson.hasKey("PerspectiveCamera"))
 	{
-		throw std::runtime_error(std::format("Scene file '{}' does not contain valid World data.", scenePath.string()));
+		const json::JSON& camJson = sceneJson.at("PerspectiveCamera");
+
+		if (camJson.hasKey("Location"))
+		{
+			Camera->Transform.SetLocation(JsonUtils::FromJson<FVector>(camJson.at("Location")));
+		}
+
+		if (camJson.hasKey("Rotation"))
+		{
+			// 파일의 XYZ 라디안을 Pitch(Y), Yaw(Z), Roll(X)의 도 단위로 변환합니다.
+			const FVector XYZ = JsonUtils::FromJson<FVector>(camJson.at("Rotation"));
+			const FRotator Rotation(
+				FMath::RadiansToDegrees(-XYZ.y),
+				FMath::RadiansToDegrees(XYZ.z),
+				FMath::RadiansToDegrees(XYZ.x));
+			Camera->Transform.SetRotation(Rotation);
+		}
+
+		// FOV (숫자 또는 [배열])
+		if (camJson.hasKey("FOV"))
+		{
+			const auto& fov = camJson.at("FOV");
+			Camera->mFovDegree = (fov.JSONType() == json::JSON::Class::Array) ? fov.at(0).ToFloat() : fov.ToFloat();
+		}
+
+		// Near / NearClip
+		if (camJson.hasKey("Near"))
+		{
+			Camera->mNear = camJson.at("Near").ToFloat();
+		}
+		else if (camJson.hasKey("NearClip"))
+		{
+			const auto& nearClip = camJson.at("NearClip");
+			Camera->mNear = (nearClip.JSONType() == json::JSON::Class::Array) ? nearClip.at(0).ToFloat() : nearClip.ToFloat();
+		}
+
+		// Far / FarClip
+		if (camJson.hasKey("Far"))
+		{
+			Camera->mFar = camJson.at("Far").ToFloat();
+		}
+		else if (camJson.hasKey("FarClip"))
+		{
+			const auto& farClip = camJson.at("FarClip");
+			Camera->mFar = (farClip.JSONType() == json::JSON::Class::Array) ? farClip.at(0).ToFloat() : farClip.ToFloat();
+		}
 	}
 
-	const uint32 nextUUID = sceneJson.at("NextUUID").ToInt();
-	UEngineStatics::SetNextUUID(nextUUID);
+	// 3. 월드 및 액터 로드 (신규 World 포맷 vs 레거시 Primitives 포맷)
+	UWorld* newWorld = nullptr;
 
-	const json::JSON worldJson = sceneJson.at("World");
+	if (sceneJson.hasKey("World") && sceneJson.at("World").JSONType() == json::JSON::Class::Object)
+	{
+		// [포맷 1] 신규 UWorld 리플렉션 역직렬화
+		newWorld = FObjectFactory::LoadObject<UWorld>(sceneJson.at("World"));
+	}
+	else if (sceneJson.hasKey("Primitives") && sceneJson.at("Primitives").JSONType() == json::JSON::Class::Object)
+	{
+		// [포맷 2] 레거시 Primitives 구조
+		newWorld = FObjectFactory::ConstructObject<UWorld>();
+		const json::JSON& primitivesJson = sceneJson.at("Primitives");
 
-	UWorld* newWorld = FObjectFactory::LoadObject<UWorld>(worldJson);
+		for (const auto& [uuidStr, primJson] : primitivesJson.ObjectRange())
+		{
+			FVector location = JsonUtils::FromJson<FVector>(primJson.at("Location"));
+			FRotator rotation = JsonUtils::FromJson<FRotator>(primJson.at("Rotation"));
+			FVector scale = JsonUtils::FromJson<FVector>(primJson.at("Scale"));
 
-	json::JSON PerspectiveCameraJson = sceneJson.at("PerspectiveCamera");
-	Camera->Transform.SetLocation(JsonUtils::FromJson<FVector>(PerspectiveCameraJson.at("Location")));
-	Camera->Transform.SetRotation(JsonUtils::FromJson<FRotator>(PerspectiveCameraJson.at("Rotation")));
-	Camera->mFovDegree = PerspectiveCameraJson.at("FOV").ToFloat();
-	Camera->mNear = PerspectiveCameraJson.at("Near").ToFloat();
-	Camera->mFar = PerspectiveCameraJson.at("Far").ToFloat();
+			std::string typeStr = primJson.hasKey("Type") ? primJson.at("Type").ToString() : "StaticMeshComp";
+
+			AActor* newActor = FObjectFactory::ConstructObject<AActor>();
+			// 필요 시 UUID 지정: newActor->UUID = std::stoul(uuidStr);
+
+			if (typeStr == "StaticMeshComp")
+			{
+				UStaticMeshComponent* meshComp = FObjectFactory::ConstructObject<UStaticMeshComponent>(
+					location, rotation, scale
+				);
+
+				if (primJson.hasKey("ObjStaticMeshAsset"))
+				{
+					std::string meshPath = primJson.at("ObjStaticMeshAsset").ToString();
+					TSharedPtr<FStaticMeshAsset> meshAsset = FindMeshAssetByPathOrName(meshPath);
+					if (meshAsset)
+					{
+						meshComp->SetMesh(meshAsset);
+					}
+					else
+					{
+						UE_LOG_WARN("Could not find StaticMesh asset for: %s", meshPath.c_str());
+					}
+				}
+
+				newActor->AddRootSceneComponent(meshComp);
+			}
+
+			newWorld->AddActor(newActor);
+		}
+	}
+	else
+	{
+		throw std::runtime_error(std::format("Scene file '{}' does not contain valid World or Primitives data.", scenePath.string()));
+	}
 
 	if (newWorld == nullptr)
 	{
 		throw std::runtime_error(std::format("Failed to deserialize world from '{}'.", scenePath.string()));
 	}
 
-	// 새 월드 생성이 성공한 경우에만 기존 월드를 교체한다.
+	// 4. 새 월드 적용
 	FObjectFactory::DestroyObject(mCurrentWorld);
 	mCurrentWorld = newWorld;
 
 	ResetSelectedActor();
 }
+
+
+
 
 void  FSceneManager::SetSelectedActor(AActor* actor)
 {
