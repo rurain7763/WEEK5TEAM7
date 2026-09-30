@@ -260,9 +260,6 @@ void UStaticMeshComponent::SetMesh(const TSharedPtr<FStaticMeshAsset>& InMesh, u
 uint32 UStaticMeshComponent::GetLODForView(const FVector& ViewOrigin) const
 {
     if (!mMeshAsset) return 0;
-    // 강제 선택은 카메라 거리와 무관하므로 중심 변환과 거리 계산을 생략합니다.
-    if (mMeshAsset->GetLODSelection().ForcedLOD >= 0) return mMeshAsset->SelectLOD(0);
-
     FVector Center;
     if (!mbAABBDirty)
     {

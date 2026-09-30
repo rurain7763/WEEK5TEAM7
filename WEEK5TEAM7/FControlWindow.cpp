@@ -29,11 +29,6 @@ void FControlWindow::Render(const FGuiReference& GuiReference)
 	RenderSceneControl(GuiReference);
 	RenderCameraControl(GuiReference);
 	RenderGizmoControl(GuiReference);
-#if ENABLE_MESH_LOD_TUNING
-    if (auto* World = GuiReference.SceneManager->GetCurrentWorld())
-        if (GuiReference.GraphicsManager && GuiReference.GraphicsManager->GetRenderer())
-            mLODTuning.Render(*World, *GuiReference.GraphicsManager->GetRenderer());
-#endif
 
 	ImGui::End();
 }

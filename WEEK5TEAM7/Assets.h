@@ -84,33 +84,16 @@ public:
     // 동일 에셋을 사용하는 컴포넌트들은 이 로컬 트리 하나를 공유합니다.
     const FMeshPickingOctree& GetLocalOctree(uint32 LOD = 0) const { const auto* G = GetGeneratedLOD(LOD); return G ? G->Octree : LocalOctree; }
     bool RayCastLocal(const FPickingRay& Ray, float& OutHitT, FMeshOctreeQueryStats* OutStats = nullptr, float MaxHitT = 1.0f, uint32 LOD = 0) const;
-    inline static constexpr uint32 LocalOctreeMaxDepth = 8;
-    // 모든 후보를 완성한 뒤 교체합니다. 실패하면 기존 데이터를 유지합니다.
-    bool RebuildLODs(URenderer& Renderer, const FMeshLODSettings& Settings);
-    bool RebuildLODOctrees(const FMeshLODSettings& Settings);
-    uint32 SelectLOD(float DistanceSquared) const { const uint32 LOD = LODSelection.Select(DistanceSquared); return GetGeneratedLOD(LOD) ? LOD : 0; }
-    const FMeshLODSettings& GetLODSettings() const { return AppliedLODSettings; }
-    const FMeshLODSelection& GetLODSelection() const { return LODSelection; }
-    void SetLODSelection(const FMeshLODSelection& Settings);
-    double GetLastLODBuildMs() const { return LastLODBuildMs; }
-    double GetLastOctreeBuildMs() const { return LastOctreeBuildMs; }
+    uint32 SelectLOD(float DistanceSquared) const { const uint32 LOD = MeshLOD::Select(DistanceSquared); return GetGeneratedLOD(LOD) ? LOD : 0; }
     const FString& GetLODError() const { return LODError; }
     bool HasLOD(uint32 LOD) const { return LOD == 0 || GetGeneratedLOD(LOD) != nullptr; }
     float GetLODErrorMetric(uint32 LOD) const { const auto* G = GetGeneratedLOD(LOD); return G ? G->SimplificationError : 0; }
-#if ENABLE_MESH_LOD_TUNING
-    FMeshLODSettings& EditLODSettings() { return DraftLODSettings; }
-#endif
 
 private:
+    // 에셋 생성 시 고정 설정으로 메시와 트리를 준비하고 모두 성공한 경우에만 적용합니다.
+    bool BuildLODs(URenderer& Renderer);
     const FGeneratedMeshLOD* GetGeneratedLOD(uint32 LOD) const { return LOD >= 1 && LOD <= 2 ? GeneratedLODs[LOD-1].get() : nullptr; }
     TSharedPtr<FGeneratedMeshLOD> GeneratedLODs[2];
-    FMeshLODSettings AppliedLODSettings;
-    FMeshLODSelection LODSelection;
-#if ENABLE_MESH_LOD_TUNING
-    FMeshLODSettings DraftLODSettings;
-#endif
-    double LastLODBuildMs = 0;
-    double LastOctreeBuildMs = 0;
     FString LODError;
     FMeshPickingOctree LocalOctree;
 	TSharedPtr<FVertexBuffer> VertexBuffer;

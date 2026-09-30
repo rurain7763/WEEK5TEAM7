@@ -1,7 +1,6 @@
 #pragma once
 
 #include "Core.h"
-#include "FMeshLODTuning.h"
 
 class FSceneManager;
 struct FGuiReference;
@@ -20,7 +19,4 @@ private:
 private:
 	int32 mSelectedTargetSpawnIndex = 1;
 	int32 mSpawnCount = 1;
-#if ENABLE_MESH_LOD_TUNING
-    FLevelLODTuning mLODTuning;
-#endif
 };
