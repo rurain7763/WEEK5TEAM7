@@ -4,10 +4,7 @@
 #include "Actor.h"
 #include "RenderInfo.h"
 #include "FFrustum.h"
-#include "TMap.h"
-
-class UPrimitiveComponent;
-class UText3DComponent;
+#include "TActiveTickList.h"
 
 class UWorld final : public UObject
 {
@@ -25,8 +22,8 @@ public:
 
 	void RegisterComponent(UActorComponent* Component);
 	void UnregisterComponent(UActorComponent* component);
-	// Tickable 변경 시에만 활성 목록을 갱신합니다.
-	void RefreshComponentTick(UActorComponent* Component);
+    // 등록되었거나 Tickable 플래그가 변경된 컴포넌트만 활성 목록에 반영합니다.
+    void RefreshComponentTick(UActorComponent* Component);
 
 	void MarkBoundsDirty(UActorComponent* component);
 
@@ -37,7 +34,6 @@ public:
 	void UnregisterActorComponents(AActor* actor);
 
 	TArray<AActor*>& GetActors() { return mActors; }
-	const TArray<UPrimitiveComponent*>& GetPrimitiveComponents() const { return mPrimitiveComponents; }
 
 	void Tick(float deltaTime);
 	// 비교 실험용: Tick 시작 전에 기준 뷰의 위치를 한 번 전달합니다.
@@ -45,37 +41,43 @@ public:
 	const FVector& GetLODViewOrigin() const { return mLODViewOrigin; }
 	void Render(float deltaTime, FRenderCollector& outCollector);
 
+	bool IsAABBsDirty() const { return mbAABBsDirty; }
+	void SetAABBsClean() { mbAABBsDirty = false; }
+	const TArray<FAABB>& GetCachedEntryAABBs() const { return mCachedEntryAABBs; }
+
 private:
 	int32 getActorIndex(uint32 actorUUID) const;
-
-	struct FComponentTickList
-	{
-		void Add(UActorComponent* Component);
-		void Remove(UActorComponent* Component);
-		void Tick(float DeltaTime, int32 Count);
-
-		TArray<UActorComponent*> Components;
-		// 등록/해제할 때만 사용하며 프레임 순회 중에는 조회하지 않습니다.
-		TMap<UActorComponent*, uint32> Indices;
-		bool bTicking = false;
-		bool bNeedsCompaction = false;
-	};
 
 private:
 	enum
 	{
 		DEFAULT_RESERVE_MEM = 1024U
 	};
-
+	
 	// Todo: Must reserve
 	TArray<AActor*> mActors;
-	FComponentTickList mTickableComponents;
-	FComponentTickList mUUIDTickableComponents;
 	TArray<UPrimitiveComponent*> mPrimitiveComponents;
 	TArray<UActorComponent*> mNonPrimitiveRenderableComponents; // Primitive는 아닌데 렌더링 기능이 있는 컴포넌트.
+	TArray<UActorComponent*> mUUIDRenderableComponents;
+	// UUID는 표시 옵션을 순회 전에 한 번 검사하기 위해 별도의 Tick 목록에 둡니다.
+	TActiveTickList<UActorComponent> mTickableComponents;
+	TActiveTickList<UActorComponent> mUUIDTickableComponents;
+	// 소멸 중 가상 타입 정보가 바뀌어도 등록 당시 목록에서 제거할 수 있게 보관합니다.
+	struct FComponentRegistration
+	{
+		UPrimitiveComponent* Primitive = nullptr;
+		bool bRenderable = false;
+		bool bUUID = false;
+	};
+	TMap<UActorComponent*, FComponentRegistration> ComponentRegistrations;
+
 	TArray<UActorComponent*> mShouldRenderComponents; // 이번 프레임에 렌더링 대상이 된 컴포넌트. 렌더링 후 Clear()로 비워야 함.
 
 	bool mbBVHDirty = true;
+	bool mbAABBsDirty = true;
+	TArray<FAABB> mCachedEntryAABBs;
 	FBVH<UPrimitiveComponent*> mBVH;
+	TArray<FBVHNode*> QueryStack;
+	TArray<FBVHItemRange> VisibleRanges;
 	FVector mLODViewOrigin;
 };

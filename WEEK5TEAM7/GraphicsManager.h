@@ -100,6 +100,8 @@ private:
 	FVector mCameraForward;
 	float mCameraFovDegree = 60.0f;
 	float mCameraOrthoDistance = 10.0f;
+	float mCameraNear = 0.1f;
+	float mCameraFar = 1000.0f;
 
 	EViewModeIndex mViewModeIndex = EViewModeIndex::VMI_Lit;
 	EViewportType mViewportType = EViewportType::Perspective;

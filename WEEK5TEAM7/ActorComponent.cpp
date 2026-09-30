@@ -1,5 +1,6 @@
-﻿#include "ActorComponent.h"
+#include "ActorComponent.h"
 #include "RenderInfo.h"
+#include "Actor.h"
 #include "World.h"
 
 UActorComponent::UActorComponent()
@@ -11,12 +12,21 @@ UActorComponent::UActorComponent()
 UActorComponent::~UActorComponent()
 {
 	SetTickable(false);
+	if (mOwner) mOwner->RemoveComponent(UUID);
 	delete mRenderProxy;
+}
+
+void UActorComponent::SetTickable(bool bTickable)
+{
+	if (IsTickable() == bTickable) return;
+	if (bTickable) mComponentFlags |= EActorComponentFlags::Tickable;
+	else mComponentFlags &= ~EActorComponentFlags::Tickable;
+	if (mOwner && mOwner->GetWorld()) mOwner->GetWorld()->RefreshComponentTick(this);
 }
 
 void UActorComponent::SetOwner(AActor* owner)
 {
-	assert(mOwner == nullptr || owner == nullptr);
+	assert(mOwner == nullptr);
 
 	mOwner = owner;
 }
@@ -24,19 +34,6 @@ void UActorComponent::SetOwner(AActor* owner)
 AActor* UActorComponent::GetOwner() const
 {
 	return mOwner;
-}
-
-void UActorComponent::SetTickable(bool bTickable)
-{
-	if (IsTickable() == bTickable) return;
-	if (bTickable)
-		mComponentFlags |= EActorComponentFlags::Tickable;
-	else
-		mComponentFlags &= ~EActorComponentFlags::Tickable;
-
-	// 생성자에서는 플래그만 설정하고, 월드에 속한 이후 변경부터 목록을 갱신합니다.
-	if (mOwner && mOwner->GetWorld())
-		mOwner->GetWorld()->RefreshComponentTick(this);
 }
 
 void UActorComponent::Tick(float deltaTime)
@@ -69,5 +66,3 @@ void UActorComponent::MarkRenderDirty()
 		World->RequestRenderUpdate(this);
 	}
 }
-
-

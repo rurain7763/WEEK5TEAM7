@@ -11,19 +11,28 @@
 
 UStaticMeshComponent::UStaticMeshComponent()
 {
-    // 비교 실험용: 가시성과 무관하게 모든 정적 메시를 기존 Tickable 목록에 등록합니다.
-    SetTickable(true);
+    SetTickable(false);
 }
 
 void UStaticMeshComponent::Tick(float DeltaTime)
 {
     Super::Tick(DeltaTime);
-    if (!mMeshAsset || !mOwner || !mOwner->GetWorld()) return;
+}
 
-    const uint32 LOD = GetLODForView(mOwner->GetWorld()->GetLODViewOrigin());
-    // 같은 LOD의 버퍼를 편집 도구에서 재생성한 경우에도 프록시를 갱신합니다.
-    if (mLODIndex != LOD || mLODMeshID != mMeshAsset->GetMeshID(LOD))
-        SetMesh(mMeshAsset, LOD);
+void UStaticMeshComponent::UpdateLODForView(const FVector& ViewOrigin, FRenderCollector& RenderCollector)
+{
+    if (!mMeshAsset) return;
+
+    const uint32 DesiredLOD = GetLODForView(ViewOrigin);
+    const uint32 ResolvedLOD = mMeshAsset->HasLOD(DesiredLOD) ? DesiredLOD : 0;
+    const uint32 MeshID = mMeshAsset->GetMeshID(ResolvedLOD);
+
+    if (mLODIndex != ResolvedLOD || mLODMeshID != MeshID)
+    {
+        mLODIndex = ResolvedLOD;
+        mLODMeshID = MeshID;
+        Render(RenderCollector);
+    }
 }
 
 void UStaticMeshComponent::SerializeClass(json::JSON& outJson) const
@@ -133,7 +142,6 @@ void UStaticMeshComponent::Render(FRenderCollector& RenderCollector)
 
             uint16 PipelineID = Material->GetPipelineID();
             uint32 MaterialID = Material->GetMaterialID();
-            // 같은 메시 에셋도 LOD마다 VB/IB가 다르므로 선택된 LOD의 식별자로 묶습니다.
             uint32 MeshID = mMeshAsset->GetMeshID(LOD);
 
             RenderInfo.SortKey = MakeRenderSortKey(PipelineID, MaterialID, MeshID);
@@ -170,7 +178,7 @@ void UStaticMeshComponent::Render(FRenderCollector& RenderCollector)
 	mRenderedLODIndex = LOD;
 }
 
-bool UStaticMeshComponent::RayCastComponent(const FPickingRay& PickingRay, float& OutHitT) const
+bool UStaticMeshComponent::RayCastComponent(const FPickingRay& PickingRay, float& OutHitT, float MaxHitT) const
 {
     if (!mMeshAsset) return false;
 
@@ -184,8 +192,9 @@ bool UStaticMeshComponent::RayCastComponent(const FPickingRay& PickingRay, float
 
     // 전체 삼각형 순회 대신 공유 트리에서 후보를 찾고 해당 삼각형만 검사합니다.
     // 반환 T는 원래 Near~Far 구간의 비율(0~1)이므로 호출자의 최단 거리 비교에 그대로 사용합니다.
-    // 향후 외부 BVH가 최단 거리를 제공하면 네 번째 인자로 BestWorldDistance / PickingRay.Length를 전달합니다.
-    return mMeshAsset->RayCastLocal(LocalRay, OutHitT, nullptr, 1.0f, mRenderedLODIndex);
+    // 끝점을 줄이지 않고 T 상한만 전달합니다. 비균일 스케일에서도 같은 T가 같은 충돌점을 나타냅니다.
+    // 로컬 트리는 MaxHitT * LocalRay.Length를 사용해 먼 노드와 삼각형 AABB를 즉시 제외합니다.
+    return mMeshAsset->RayCastLocal(LocalRay, OutHitT, nullptr, MaxHitT, GetLODForView(PickingRay.ViewOrigin));
 }
 
 FAABB UStaticMeshComponent::GetBoundingBox() const
@@ -253,7 +262,16 @@ uint32 UStaticMeshComponent::GetLODForView(const FVector& ViewOrigin) const
     if (!mMeshAsset) return 0;
     // 강제 선택은 카메라 거리와 무관하므로 중심 변환과 거리 계산을 생략합니다.
     if (mMeshAsset->GetLODSelection().ForcedLOD >= 0) return mMeshAsset->SelectLOD(0);
-    const FAABB& Bounds = mMeshAsset->GetLocalBoundingBox();
-    const FVector Center = GetTransform().MakeMatrix().TransformPosition(Bounds.Min * .5f + Bounds.Max * .5f);
+
+    FVector Center;
+    if (!mbAABBDirty)
+    {
+        Center = (mCachedWorldAABB.Min + mCachedWorldAABB.Max) * 0.5f;
+    }
+    else
+    {
+        const FAABB& Bounds = mMeshAsset->GetLocalBoundingBox();
+        Center = GetTransform().MakeMatrix().TransformPosition(Bounds.Min * .5f + Bounds.Max * .5f);
+    }
     return mMeshAsset->SelectLOD((Center - ViewOrigin).LengthSquared());
 }

@@ -21,6 +21,7 @@ public:
 	virtual void DeserializeClass(const json::JSON& inJson) override;
 
 	virtual void Render(FRenderCollector& RenderCollector) override;
+	virtual void UpdateLODForView(const FVector& ViewOrigin, FRenderCollector& RenderCollector) {}
 
 	virtual FAABB GetBoundingBox() const;
 	virtual const TArray<FVertex>& GetMeshVertices() const;
@@ -31,7 +32,8 @@ public:
 	// 값이 작을수록 카메라에 가까우므로 그대로 비교해서 가장 가까운 대상을 고를 수 있다.
 	// 기본 구현은 AABB로 먼저 거르고 메시의 삼각형과 판정한다.
 	// 다른 충돌 모양이 필요한 컴포넌트는 이 함수를 재정의한다.
-	virtual bool RayCastComponent(const FPickingRay& PickingRay, float& OutHitT) const;
+    // MaxHitT는 원래 Near~Far 구간의 비율입니다. 이미 찾은 충돌보다 먼 결과는 제외합니다.
+	virtual bool RayCastComponent(const FPickingRay& PickingRay, float& OutHitT, float MaxHitT = 1.0f) const;
 
 protected:
 	void MarkBoundsDirty();

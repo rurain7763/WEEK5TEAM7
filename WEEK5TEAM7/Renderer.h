@@ -322,6 +322,7 @@ struct FDepthStencil
 	Microsoft::WRL::ComPtr<ID3D11Texture2D> Texture;
 	Microsoft::WRL::ComPtr<ID3D11DepthStencilView> DSV;
 	Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> SRV;
+	Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> DepthSRV;
 	UINT Width;
 	UINT Height;
 };
@@ -397,6 +398,8 @@ class URenderer
 public:
 	void Create(HWND hWindow);
 	void Release();
+	// Run once at the top of each engine frame for the NVAPI Reflex integration.
+	void BeginFrame();
 
 	template <typename T>
 	TSharedPtr<FVertexBuffer> CreateVertexBuffer(const T* Vertices, UINT Count, D3D11_USAGE Usage = D3D11_USAGE_IMMUTABLE)
@@ -481,6 +484,12 @@ public:
 	void RenderPrimitive(ID3D11Buffer* Buffer, UINT NumVertices, const FMatrix& Model, const FVector4& Color);
 	void RenderPrimitiveIndexed(const FRenderInfo& RenderInfo, uint32 StencilRef = 0);
 	void RenderPrimitiveIndexed(const FRenderPipeline* Pipeline, const FRenderInfo& RenderInfo, uint32 StencilRef = 0, bool bShouldBindPipeline = true);
+	void RenderPrimitiveIndexed(const TSharedPtr<FRenderPipeline>& Pipeline, const FRenderInfo& RenderInfo, uint32 StencilRef = 0, bool bShouldBindPipeline = true)
+	{
+		RenderPrimitiveIndexed(Pipeline.get(), RenderInfo, StencilRef, bShouldBindPipeline);
+	}
+
+	inline static bool bReuseMeshBindings = true;
 
 	void RenderQuad2D(const FRenderQuad2DInfo& Info);
 	void RenderLine2D(const FVector2& Start, const FVector2& End, const FVector4& Color, float Thickness = 1.0f);
@@ -530,6 +539,7 @@ private:
     ID3D11Device* Device = nullptr;
     ID3D11DeviceContext* DeviceContext = nullptr;
     IDXGISwapChain* SwapChain = nullptr;
+	bool bNvapiSleepEnabled = false;
 
 	FSamplerStatePool SamplerStatePool;
 	FDepthStencilStatePool DepthStencilStatePool;

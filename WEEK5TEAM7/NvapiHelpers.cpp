@@ -3,6 +3,7 @@
 
 #include <Windows.h>
 #include "NvapiHelpers.h"
+#include <nvapi/NvApiDriverSettings.h>
 #include <nvapi/nvapi_lite_sli.h>
 
 #include <cstdint>
@@ -114,6 +115,174 @@ private:
     NvDRSSessionHandle handle_ = nullptr;
     NvAPI_Status status_ = NVAPI_ERROR;
 };
+
+void LogDriverProfileStatus(const char* settingName, NvAPI_Status status) {
+    NvAPI_ShortString errorMessage{};
+    NvAPI_GetErrorMessage(status, errorMessage);
+
+    char message[512]{};
+    sprintf_s(message, "[NVAPI DRS] %s: status %d (%s)\n",
+        settingName, static_cast<int>(status), errorMessage);
+    OutputDebugStringA(message);
+}
+
+struct FDriverDwordOverride {
+    const char* name;
+    NvU32 settingId;
+    NvU32 value;
+};
+
+bool IsDriverValueAvailable(
+    const FDriverDwordOverride& overrideValue,
+    NvAPI_Status& status) {
+    NVDRS_SETTING_VALUES availableValues{};
+    availableValues.version = NVDRS_SETTING_VALUES_VER;
+    NvU32 valueCount = NVAPI_SETTING_MAX_VALUES;
+
+    status = NvAPI_DRS_EnumAvailableSettingValues(
+        overrideValue.settingId, &valueCount, &availableValues);
+    if (status != NVAPI_OK) return false;
+    if (availableValues.settingType != NVDRS_DWORD_TYPE) {
+        status = NVAPI_INVALID_ARGUMENT;
+        return false;
+    }
+
+    for (NvU32 i = 0; i < valueCount; ++i) {
+        if (availableValues.settingValues[i].u32Value == overrideValue.value) {
+            return true;
+        }
+    }
+
+    status = NVAPI_INVALID_ARGUMENT;
+    return false;
+}
+
+NvAPI_Status ApplyHighPerformanceProfileForCurrentExecutable() {
+    std::wstring executablePath;
+    NvAPI_Status status = GetCurrentExecutablePath(executablePath);
+    if (status != NVAPI_OK) return status;
+
+    DrsSession session;
+    if (session.Status() != NVAPI_OK) return session.Status();
+
+    NvDRSProfileHandle profile = nullptr;
+    status = FindProfileForExecutable(session.Get(), executablePath.c_str(), &profile);
+    if (status != NVAPI_OK) return status;
+
+    // These are the D3D-relevant profile settings with a defensible performance
+    // effect. Filtering optimizations can reduce image quality slightly.
+    static constexpr FDriverDwordOverride overrides[] = {
+        { "Power management: Prefer maximum performance", PREFERRED_PSTATE_ID, PREFERRED_PSTATE_PREFER_MAX },
+        { "Driver frame rate limiter: Off", FRL_FPS_ID, FRL_FPS_DISABLED },
+        { "Shader cache: On", PS_SHADERDISKCACHE_ID, PS_SHADERDISKCACHE_ON },
+        { "Texture filtering quality: High performance", QUALITY_ENHANCEMENTS_ID, QUALITY_ENHANCEMENTS_HIGHPERFORMANCE },
+        { "Anisotropic sample optimization: On", PS_TEXFILTER_ANISO_OPTS2_ID, PS_TEXFILTER_ANISO_OPTS2_ON },
+        { "Bilinear filtering optimization: On", PS_TEXFILTER_BILINEAR_IN_ANISO_ID, PS_TEXFILTER_BILINEAR_IN_ANISO_ON },
+        { "Trilinear optimization: On", PS_TEXFILTER_DISABLE_TRILIN_SLOPE_ID, PS_TEXFILTER_DISABLE_TRILIN_SLOPE_ON },
+    };
+
+    // Remove only overrides written by the previous experimental main.cpp.
+    // The two LoadBalance IDs are undocumented/private; do not keep forcing them.
+    static constexpr NvU32 legacySettingIds[] = {
+        OGL_THREAD_CONTROL_ID,
+        PRERENDERLIMIT_ID,
+        SET_POWER_THROTTLE_FOR_PCIe_COMPLIANCE_ID,
+        SHIM_MCCOMPAT_ID,
+        SHIM_RENDERING_MODE_ID,
+        0x008F14F5,
+        0x00DB834A,
+    };
+
+    bool hasChanges = false;
+    NvAPI_Status firstFailure = NVAPI_OK;
+    for (NvU32 settingId : legacySettingIds) {
+        NVDRS_SETTING existingSetting{};
+        existingSetting.version = NVDRS_SETTING_VER;
+        const NvAPI_Status readStatus = NvAPI_DRS_GetSetting(
+            session.Get(), profile, settingId, &existingSetting);
+        if (readStatus == NVAPI_SETTING_NOT_FOUND) {
+            continue;
+        }
+        if (readStatus != NVAPI_OK) {
+            LogDriverProfileStatus("check previous experiment override", readStatus);
+            if (firstFailure == NVAPI_OK) firstFailure = readStatus;
+            continue;
+        }
+        if (existingSetting.settingLocation != NVDRS_CURRENT_PROFILE_LOCATION) {
+            continue;
+        }
+
+        const NvAPI_Status deleteStatus = NvAPI_DRS_DeleteProfileSetting(
+            session.Get(), profile, settingId);
+        if (deleteStatus == NVAPI_OK) {
+            hasChanges = true;
+        } else {
+            LogDriverProfileStatus("remove previous experiment override", deleteStatus);
+            if (firstFailure == NVAPI_OK) firstFailure = deleteStatus;
+        }
+    }
+
+    for (const FDriverDwordOverride& overrideValue : overrides) {
+        NvAPI_Status settingStatus = NVAPI_OK;
+        if (!IsDriverValueAvailable(overrideValue, settingStatus)) {
+            LogDriverProfileStatus(overrideValue.name, settingStatus);
+            if (firstFailure == NVAPI_OK) firstFailure = settingStatus;
+            continue;
+        }
+
+        NVDRS_SETTING currentSetting{};
+        currentSetting.version = NVDRS_SETTING_VER;
+        settingStatus = NvAPI_DRS_GetSetting(
+            session.Get(), profile, overrideValue.settingId, &currentSetting);
+        if (settingStatus == NVAPI_OK &&
+            currentSetting.settingType == NVDRS_DWORD_TYPE &&
+            currentSetting.u32CurrentValue == overrideValue.value) {
+            LogDriverProfileStatus(overrideValue.name, NVAPI_OK);
+            continue;
+        }
+
+        NVDRS_SETTING newSetting{};
+        newSetting.version = NVDRS_SETTING_VER;
+        newSetting.settingId = overrideValue.settingId;
+        newSetting.settingType = NVDRS_DWORD_TYPE;
+        newSetting.u32CurrentValue = overrideValue.value;
+        settingStatus = NvAPI_DRS_SetSetting(session.Get(), profile, &newSetting);
+        LogDriverProfileStatus(overrideValue.name, settingStatus);
+        if (settingStatus == NVAPI_OK) {
+            hasChanges = true;
+        } else if (firstFailure == NVAPI_OK) {
+            firstFailure = settingStatus;
+        }
+    }
+
+    if (hasChanges) {
+        status = NvAPI_DRS_SaveSettings(session.Get());
+        LogDriverProfileStatus("save application profile", status);
+        if (status != NVAPI_OK) return status;
+    }
+
+    // Read back the persisted profile values so the log distinguishes a
+    // successful API call from a value the installed driver actually kept.
+    for (const FDriverDwordOverride& overrideValue : overrides) {
+        NVDRS_SETTING savedSetting{};
+        savedSetting.version = NVDRS_SETTING_VER;
+        status = NvAPI_DRS_GetSetting(
+            session.Get(), profile, overrideValue.settingId, &savedSetting);
+        if (status == NVAPI_OK &&
+            savedSetting.settingType == NVDRS_DWORD_TYPE &&
+            savedSetting.u32CurrentValue == overrideValue.value) {
+            continue;
+        }
+
+        LogDriverProfileStatus(overrideValue.name,
+            status == NVAPI_OK ? NVAPI_ERROR : status);
+        if (firstFailure == NVAPI_OK) {
+            firstFailure = status == NVAPI_OK ? NVAPI_ERROR : status;
+        }
+    }
+
+    return firstFailure;
+}
 
 // Resolve a public/driver-known setting name to its numeric DRS ID.
 // For example, this lets you check whether the exact name "LoadBalance" exists.

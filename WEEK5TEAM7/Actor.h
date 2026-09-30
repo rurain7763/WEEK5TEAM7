@@ -31,6 +31,7 @@ public:
 
 	const FTransform& GetTransform() const;
 
+    // 컴포넌트 Tick은 World의 활성 목록에서 직접 실행합니다.
 	virtual void Tick(float deltaTime);
 	virtual void Render(FRenderCollector& RenderCollector);
 

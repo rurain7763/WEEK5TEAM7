@@ -33,7 +33,7 @@ enum class ERenderBlendMode
 struct FRenderInfo
 {
 	uint64 SortKey = 0;
-	FRenderPipeline* Pipeline;
+	FRenderPipeline* Pipeline = nullptr;
 	// 버퍼 소유권은 메시 에셋 또는 GraphicsManager에 있습니다.
 	// 수집부터 Draw 제출까지 버퍼를 교체/해제하지 않고, 다음 프레임에는 다시 수집합니다.
 	ID3D11Buffer* VertexBuffer = nullptr;
@@ -41,7 +41,7 @@ struct FRenderInfo
 	ID3D11Buffer* IndexBuffer = nullptr;
 	uint32 StartIndex = 0;
 	uint32 IndexCount = 0;
-	FTexture2DAsset* Texture;
+	FTexture2DAsset* Texture = nullptr;
 	FVector2 UVOffset = { 0.f, 0.f };
 	FMatrix Model;
 	uint32 ObjectInternalIndex;
@@ -59,6 +59,7 @@ struct FRenderQuadInfo
 	FMatrix Model;
 	FVector4 Color = { 1.f, 1.f, 1.f, 1.f };
 	Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> TextureSRV;
+	DXGI_FORMAT TextureFormat = DXGI_FORMAT_UNKNOWN;
 	FVector4 SubUV = { 0.f, 0.f, 1.f, 1.f };
 	ERenderBlendMode BlendMode = ERenderBlendMode::Opaque;
 	bool EnableDepthTest = true;
@@ -71,6 +72,7 @@ struct FRenderQuad2DInfo
 	FVector2 Size;
 	FVector4 Color = { 1.f, 1.f, 1.f, 1.f };
 	Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> TextureSRV;
+	DXGI_FORMAT TextureFormat = DXGI_FORMAT_UNKNOWN;
 	FVector4 SubUV = { 0.f, 0.f, 1.f, 1.f };
 	float Rotation = 0.f;
 	ERenderBlendMode BlendMode = ERenderBlendMode::Opaque;
@@ -90,6 +92,10 @@ struct FRenderCollector
 {
 public:
 	enum { DEFAULT_RESERVE_MEM = 1024U };
+
+	bool bRenderInfosSorted = true;
+	bool bHasPreviousSortKey = false;
+	uint64 PreviousSortKey = 0;
 
 	FCamera* Camera = nullptr;
 	FFrustum Frustum;

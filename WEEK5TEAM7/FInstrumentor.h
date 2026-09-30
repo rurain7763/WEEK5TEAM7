@@ -108,12 +108,6 @@ public:
             << ",\"regenerated\":" << (Regenerated ? "true" : "false") << "}}";
         OutputStream.flush();
     }
-    // 렌더 업로드 경로 전환 시점을 trace에 남겨 같은 장면의 전후 구간을 구분합니다.
-    void WriteRenderBatchMarker(bool bEnabled)
-    {
-        WriteRenderOptionMarker("Render CB Batch", bEnabled);
-    }
-
     void WriteRenderOptionMarker(const char* Name, bool bEnabled)
     {
         if (!CurrentSession) return;

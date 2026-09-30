@@ -11,6 +11,7 @@
 #include "FEditorViewportClient.h"
 //#include "FInstrumentor.h"
 #include <algorithm>
+#include "FHiZOcclusionManager.h"
 
 // 선분 하나당 정점 2개. 축 6개 + 앞으로 붙을 그리드까지 감당할 만큼 잡아둔다
 static constexpr uint32 LINE_VERTEX_CAPACITY = 8192;
@@ -113,6 +114,8 @@ void FGraphicsManager::Prepare(const FCamera* mCamera, float viewportWidth, floa
 	mCameraForward = mCamera->GetForwardVector();
 	mCameraFovDegree = mCamera->mFovDegree;
 	mCameraOrthoDistance = mCamera->mOrthoDistance;
+	mCameraNear = mCamera->mNear;
+	mCameraFar = mCamera->mFar;
 
 	// 그리는 순서가 중요하다: 가까운 것을 먼저, 먼 것을 나중에.
 	// 깊이 테스트가 켜져 있으면 나중에 그린 FarCube 가 깊이 비교에서 탈락해
@@ -218,7 +221,6 @@ void FGraphicsManager::Render()
 
     {
         PROFILE_SCOPE("Viewport/GraphicsRender/sort");
-      //  std::sort(mRenderCollector.RenderInfos.begin(), mRenderCollector.RenderInfos.end());
         std::sort(VisibleRenderInfoIndices.begin(), VisibleRenderInfoIndices.end(), [&RenderInfoPool, &RenderInfos, &VisibleRenderInfoIndices](int32 A, int32 B) { 
 			return RenderInfos[A].SortKey < RenderInfos[B].SortKey;
 		});
@@ -258,7 +260,6 @@ void FGraphicsManager::Render()
 			const FConstants Constants{ Info.Model, Info.Color, Info.UVOffset, Info.UseVertexColor, Info.Texture ? 1 : 0 };
 			Pipeline->UpdateConstantBuffer(0, Constants);
 
-
 			if (Info.IndexBuffer)
 			{
 				mRenderer->RenderPrimitiveIndexed(Pipeline, Info, 0, bShouldBindPipeline);
@@ -271,6 +272,17 @@ void FGraphicsManager::Render()
 			LastPipeline = Pipeline;
 			LastTexture = Info.Texture;
 			LastPipelineVersion = PipelineVersion;
+		}
+	}
+	
+	// Hi-Z Occlusion Culling: Downsamples depth buffer into Hi-Z pyramid and tests scene AABBs
+	if (FShowFlags::Get().IsEnabled(EShowFlag::OcclusionCulling) && mViewportType == EViewportType::Perspective)
+	{
+		PROFILE_SCOPE("Viewport/GraphicsRender/HiZOcclusion");
+		TSharedPtr<FDepthStencil> CurrentDepthStencil = mRenderer->GetBindedDepthStencil();
+		if (CurrentDepthStencil)
+		{
+			FHiZOcclusionManager::Get().GenerateHiZAndDispatchCull(mRenderer, CurrentDepthStencil, mViewUnifiedProjectionMatrix, mCameraNear, mCameraFar);
 		}
 	}
 

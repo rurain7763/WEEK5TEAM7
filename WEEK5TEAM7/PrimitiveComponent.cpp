@@ -89,8 +89,9 @@ const TArray<uint32>& UPrimitiveComponent::GetMeshIndices() const
 	static const TArray<uint32> EmptyIndices; return EmptyIndices;
 }
 
-bool UPrimitiveComponent::RayCastComponent(const FPickingRay& PickingRay, float& OutHitT) const
+bool UPrimitiveComponent::RayCastComponent(const FPickingRay& PickingRay, float& OutHitT, float MaxHitT) const
 {
+    if (!std::isfinite(MaxHitT) || MaxHitT < 0.0f) return false;
 	// 메시 충돌체를 이용한 광선-삼각형 충돌 판정
 	const TArray<FVertex>& vertices = GetMeshVertices();
 	const TArray<uint32>& indices = GetMeshIndices();
@@ -106,7 +107,7 @@ bool UPrimitiveComponent::RayCastComponent(const FPickingRay& PickingRay, float&
 	const FVector LocalFar = InvWorldMatrix.TransformPosition(PickingRay.Far);
 
 	bool bHit = false;
-	float NearestT = FLT_MAX;
+	float NearestT = (std::min)(MaxHitT, 1.0f);
 
 	// 삼각형 리스트라 정점 3개씩 묶인다
 	for (int32 i = 0; i < indices.Num(); i += 3)
@@ -116,7 +117,7 @@ bool UPrimitiveComponent::RayCastComponent(const FPickingRay& PickingRay, float&
 		const FVector V2 = vertices[indices[i + 2]].GetPosition();
 
 		float OutT, OutU, OutV;
-		if (RayIntersectsTriangle(LocalNear, LocalFar, V0, V1, V2, OutT, OutU, OutV) && OutT < NearestT)
+		if (RayIntersectsTriangle(LocalNear, LocalFar, V0, V1, V2, OutT, OutU, OutV) && OutT <= NearestT)
 		{
 			// 같은 메시 안에서도 더 가까운 삼각형이 뒤에 나올 수 있으므로 break 하지 않는다
 			NearestT = OutT;

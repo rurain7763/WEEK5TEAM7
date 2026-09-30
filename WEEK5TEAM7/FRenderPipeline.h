@@ -38,8 +38,9 @@ public:
 	void ClearSamplerState();
 
 	inline uint16 GetPipelineID() const { return PipelineID; }
-	inline uint32 GetBindingVersion() const { return BindingVersion; }
 	inline uint32 GetStride() const { return Stride; }
+	// 설정·해제 요청마다 증가합니다. 실제 상태 비교는 Renderer가 맡으며 상수 내용 갱신은 제외합니다.
+	inline uint32 GetBindingVersion() const { return BindingVersion; }
 
 	template <typename T>
 	void AddConstantBuffer()
@@ -65,6 +66,7 @@ public:
 	template <typename T>
 	void UpdateConstantBuffer(uint32 Index, const T& Data)
 	{
+		// 같은 버퍼의 내용만 바꾸므로 바인딩 버전은 유지합니다.
 		if (DeviceContext && Index < ConstantBuffers.Num())
 		{
 			ID3D11Buffer* ConstantBuffer = ConstantBuffers[Index];

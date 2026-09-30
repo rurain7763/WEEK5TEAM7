@@ -17,12 +17,15 @@ public:
 	virtual void DeserializeClass(const json::JSON& inJson) override;
 
 	virtual void Render(FRenderCollector& RenderCollector) override;
+	virtual void UpdateLODForView(const FVector& ViewOrigin, FRenderCollector& RenderCollector) override;
 	virtual void Tick(float DeltaTime) override;
+
+	inline uint32 GetLODIndex() const { return mLODIndex; }
 
 	FAABB GetBoundingBox() const override;
     uint32 GetLODForView(const FVector& ViewOrigin) const;
 	// 기존 Picking의 가상 함수 호출을 메시 에셋의 로컬 Octree로 연결합니다.
-	bool RayCastComponent(const FPickingRay& PickingRay, float& OutHitT) const override;
+	bool RayCastComponent(const FPickingRay& PickingRay, float& OutHitT, float MaxHitT = 1.0f) const override;
 
 	const TArray<FVertex>& GetMeshVertices() const override
 	{

@@ -1,11 +1,53 @@
 #include "Renderer.h"
 #include "FInstrumentor.h"
 #include "NvapiHelpers.h"
+#include <dxgi1_6.h>
 
 constexpr uint32 MaxLineInstances = 1024;
 
 namespace
 {
+	Microsoft::WRL::ComPtr<IDXGIAdapter1> FindHighPerformanceAdapter()
+	{
+		Microsoft::WRL::ComPtr<IDXGIFactory1> Factory1;
+		if (FAILED(CreateDXGIFactory1(IID_PPV_ARGS(&Factory1))))
+		{
+			return {};
+		}
+
+		Microsoft::WRL::ComPtr<IDXGIFactory6> Factory6;
+		if (FAILED(Factory1.As(&Factory6)))
+		{
+			return {};
+		}
+
+		for (UINT Index = 0; Index < 16; ++Index)
+		{
+			Microsoft::WRL::ComPtr<IDXGIAdapter1> Adapter;
+			const HRESULT Hr = Factory6->EnumAdapterByGpuPreference(
+				Index,
+				DXGI_GPU_PREFERENCE_HIGH_PERFORMANCE,
+				IID_PPV_ARGS(&Adapter));
+			if (Hr == DXGI_ERROR_NOT_FOUND)
+			{
+				break;
+			}
+			if (FAILED(Hr))
+			{
+				continue;
+			}
+
+			DXGI_ADAPTER_DESC1 Description{};
+			if (SUCCEEDED(Adapter->GetDesc1(&Description)) &&
+				(Description.Flags & DXGI_ADAPTER_FLAG_SOFTWARE) == 0)
+			{
+				return Adapter;
+			}
+		}
+
+		return {};
+	}
+
 	UINT GetByteSizeFromFormat(DXGI_FORMAT Format)
 	{
 		switch (Format)
@@ -116,10 +158,40 @@ void URenderer::CreateDeviceAndSwapChain(HWND hWindow)
 	CreateDeviceFlags |= D3D11_CREATE_DEVICE_DEBUG;
 #endif
 
-	D3D11CreateDeviceAndSwapChain(nullptr, D3D_DRIVER_TYPE_HARDWARE,
-		nullptr, CreateDeviceFlags,
-		FeatureLevels, ARRAYSIZE(FeatureLevels), D3D11_SDK_VERSION,
-		&SwapChainDesc, &SwapChain, &Device, nullptr, &DeviceContext);
+	auto HighPerformanceAdapter = FindHighPerformanceAdapter();
+	HRESULT DeviceResult = E_FAIL;
+	if (HighPerformanceAdapter)
+	{
+		DeviceResult = D3D11CreateDeviceAndSwapChain(HighPerformanceAdapter.Get(), D3D_DRIVER_TYPE_UNKNOWN,
+			nullptr, CreateDeviceFlags,
+			FeatureLevels, ARRAYSIZE(FeatureLevels), D3D11_SDK_VERSION,
+			&SwapChainDesc, &SwapChain, &Device, nullptr, &DeviceContext);
+
+		if (SUCCEEDED(DeviceResult))
+		{
+			DXGI_ADAPTER_DESC1 Description{};
+			if (SUCCEEDED(HighPerformanceAdapter->GetDesc1(&Description)))
+			{
+				wchar_t Message[256]{};
+				swprintf_s(Message, L"[DXGI] High-performance adapter: %ls (vendor 0x%04X)\n",
+					Description.Description, Description.VendorId);
+				OutputDebugStringW(Message);
+			}
+		}
+	}
+
+	if (FAILED(DeviceResult))
+	{
+		if (SwapChain) { SwapChain->Release(); SwapChain = nullptr; }
+		if (DeviceContext) { DeviceContext->Release(); DeviceContext = nullptr; }
+		if (Device) { Device->Release(); Device = nullptr; }
+
+		OutputDebugStringA("[DXGI] Preferred GPU selection unavailable; using default hardware adapter.\n");
+		DeviceResult = D3D11CreateDeviceAndSwapChain(nullptr, D3D_DRIVER_TYPE_HARDWARE,
+			nullptr, CreateDeviceFlags,
+			FeatureLevels, ARRAYSIZE(FeatureLevels), D3D11_SDK_VERSION,
+			&SwapChainDesc, &SwapChain, &Device, nullptr, &DeviceContext);
+	}
 
 	//Microsoft::WRL::ComPtr<IDXGIDevice1> DxgiDevice;
 	//if (SUCCEEDED(Device->QueryInterface(IID_PPV_ARGS(&DxgiDevice))))
@@ -129,6 +201,20 @@ void URenderer::CreateDeviceAndSwapChain(HWND hWindow)
 
 	// NVIDIA Reflex Low Latency Boost: GPU 클럭 램핑 지연을 없애고 시작부터 최고 클럭(P0)으로 강제 고정
 	NvAPI_Status reflexStatus = nvapi_example::EnableLowLatency(Device, true /* boost */);
+	bNvapiSleepEnabled = (reflexStatus == NVAPI_OK);
+	if (reflexStatus != NVAPI_OK)
+	{
+		NvAPI_ShortString errorMessage{};
+		NvAPI_GetErrorMessage(reflexStatus, errorMessage);
+		char message[256]{};
+		sprintf_s(message, "[NVAPI] Reflex low-latency mode unavailable: %d (%s)\n",
+			static_cast<int>(reflexStatus), errorMessage);
+		OutputDebugStringA(message);
+	}
+	else
+	{
+		OutputDebugStringA("[NVAPI] Reflex low-latency mode and boost enabled.\n");
+	}
 
 	SwapChain->GetDesc(&SwapChainDesc);
 	Width = SwapChainDesc.BufferDesc.Width;
@@ -137,8 +223,30 @@ void URenderer::CreateDeviceAndSwapChain(HWND hWindow)
 	Projection2D = FMatrix::Ortho(0.f, Width, Height, 0.f, 0.0f, 1.0f);
 }
 
+void URenderer::BeginFrame()
+{
+	if (!bNvapiSleepEnabled || !Device)
+	{
+		return;
+	}
+
+	const NvAPI_Status status = nvapi_example::BeginLowLatencyFrame(Device);
+	if (status != NVAPI_OK)
+	{
+		NvAPI_ShortString errorMessage{};
+		NvAPI_GetErrorMessage(status, errorMessage);
+		char message[256]{};
+		sprintf_s(message, "[NVAPI] Reflex frame sleep disabled after error: %d (%s)\n",
+			static_cast<int>(status), errorMessage);
+		OutputDebugStringA(message);
+		bNvapiSleepEnabled = false;
+	}
+}
+
 void URenderer::ReleaseDeviceAndSwapChain()
 {
+	bNvapiSleepEnabled = false;
+
 	if (DeviceContext)
 	{
 		DeviceContext->Flush();
@@ -372,6 +480,13 @@ TSharedPtr<FDepthStencil> URenderer::CreateDepthStencil(uint32 Width, uint32 Hei
 	SRVDesc.Texture2D.MipLevels = 1;
 	Device->CreateShaderResourceView(DepthStencil->Texture.Get(), &SRVDesc, DepthStencil->SRV.GetAddressOf());
 
+	D3D11_SHADER_RESOURCE_VIEW_DESC DepthSRVDesc{};
+	DepthSRVDesc.Format = DXGI_FORMAT_R24_UNORM_X8_TYPELESS;
+	DepthSRVDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+	DepthSRVDesc.Texture2D.MostDetailedMip = 0;
+	DepthSRVDesc.Texture2D.MipLevels = 1;
+	Device->CreateShaderResourceView(DepthStencil->Texture.Get(), &DepthSRVDesc, DepthStencil->DepthSRV.GetAddressOf());
+
 	DepthStencil->Width = Width;
 	DepthStencil->Height = Height;
 
@@ -597,23 +712,13 @@ void URenderer::RenderQuad(const FRenderQuadInfo& Info)
 {
 	QuadPipeline->SetShaderResource(0, Info.TextureSRV);
 	
-	DXGI_FORMAT TextureFormat = DXGI_FORMAT_UNKNOWN;
-	if (Info.TextureSRV)
-	{
-
-		D3D11_SHADER_RESOURCE_VIEW_DESC Desc{};
-		Info.TextureSRV->GetDesc(&Desc);
-
-		TextureFormat = Desc.Format;
-	}
-
 	QuadPipeline->SetBlendState(Info.BlendMode);
 	QuadPipeline->SetDepthStencilState(Info.EnableDepthTest, Info.EnableDepthWrite);
 
 	BindPipeline(QuadPipeline.get());
 	BindVertexBuffer(nullptr, 0);
 
-	QuadPipeline->UpdateConstantBuffer(0, FQuadConstants{ Info.Model, Info.Color, Info.SubUV, Info.TextureSRV ? 1 : 0, TextureFormat == DXGI_FORMAT_R8_UNORM });
+	QuadPipeline->UpdateConstantBuffer(0, FQuadConstants{ Info.Model, Info.Color, Info.SubUV, Info.TextureSRV ? 1 : 0, Info.TextureFormat == DXGI_FORMAT_R8_UNORM });
 
 	DeviceContext->Draw(6, 0);
 	++DrawCallCount;
@@ -681,7 +786,6 @@ void URenderer::RenderPrimitiveIndexed(const FRenderPipeline* Pipeline, const FR
 	DeviceContext->DrawIndexed(RenderInfo.IndexCount, RenderInfo.StartIndex, 0);
 	++DrawCallCount;
 }
-
 void URenderer::DrawIndexed(UINT IndexCount, UINT StartIndex) const
 {
 	DeviceContext->DrawIndexed(IndexCount, StartIndex, 0);
@@ -698,16 +802,7 @@ void URenderer::RenderQuad2D(const FRenderQuad2DInfo& Info)
 {
 	Quad2DPipeline->SetShaderResource(0, Info.TextureSRV);
 
-	DXGI_FORMAT TextureFormat = DXGI_FORMAT_UNKNOWN;
-	if (Info.TextureSRV)
-	{
-		D3D11_SHADER_RESOURCE_VIEW_DESC Desc{};
-		Info.TextureSRV->GetDesc(&Desc);
-
-		TextureFormat = Desc.Format;
-	}
-
-	Quad2DPipeline->UpdateConstantBuffer(0, FQuad2DConstants{ Projection2D, Info.Color, Info.Position, Info.Size, Info.SubUV, Info.Rotation, Info.TextureSRV ? 1 : 0, TextureFormat == DXGI_FORMAT_R8_UNORM });
+	Quad2DPipeline->UpdateConstantBuffer(0, FQuad2DConstants{ Projection2D, Info.Color, Info.Position, Info.Size, Info.SubUV, Info.Rotation, Info.TextureSRV ? 1 : 0, Info.TextureFormat == DXGI_FORMAT_R8_UNORM });
 
 	BindPipeline(Quad2DPipeline.get());
 	BindVertexBuffer(nullptr, 0);

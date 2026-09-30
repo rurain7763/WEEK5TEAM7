@@ -148,7 +148,8 @@ AActor* FEditorViewportClient::PerformMousePicking(const FRect& ViewportRect, fl
 				UPrimitiveComponent* Object = RenderCollector.BVH->GetPayload(Entry.Node->ItemRange.Offset + i);
 
 				float HitT = FLT_MAX;
-				if (!Object->RayCastComponent(PickingRay, HitT))
+                // 월드에서 찾은 최단 T를 로컬 트리까지 전달합니다. 첫 후보는 전체 구간을 검사합니다.
+				if (!Object->RayCastComponent(PickingRay, HitT, FMath::Min(NearlistT, 1.0f)))
 				{
 					continue;
 				}
