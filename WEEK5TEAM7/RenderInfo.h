@@ -33,9 +33,11 @@ struct FRenderInfo
 {
 	uint64 SortKey = 0;
 	TSharedPtr<FRenderPipeline> Pipeline;
-	Microsoft::WRL::ComPtr<ID3D11Buffer> VertexBuffer;
+	// 버퍼 소유권은 메시 에셋 또는 GraphicsManager에 있습니다.
+	// 수집부터 Draw 제출까지 버퍼를 교체/해제하지 않고, 다음 프레임에는 다시 수집합니다.
+	ID3D11Buffer* VertexBuffer = nullptr;
 	uint32 VertexCount = 0;
-	Microsoft::WRL::ComPtr<ID3D11Buffer> IndexBuffer;
+	ID3D11Buffer* IndexBuffer = nullptr;
 	uint32 StartIndex = 0;
 	uint32 IndexCount = 0;
 	TSharedPtr<FTexture2DAsset> Texture;
@@ -118,30 +120,6 @@ public:
 	inline void AddQuad2DInfo(const FRenderQuad2DInfo& Quad2DInfo)
 	{
 		Quad2DInfos.Add(Quad2DInfo);
-	}
-
-	// Sort the RenderInfos based on Texture, VertexBuffer, and IndexBuffer to minimize state changes during rendering.
-	inline void Sort()
-	{
-		std::sort(RenderInfos.begin(), RenderInfos.end(), [](const FRenderInfo& A, const FRenderInfo& B) {
-			const auto TextureA = A.Texture ? A.Texture->GetSRV() : nullptr;
-			const auto TextureB = B.Texture ? B.Texture->GetSRV() : nullptr;
-
-			if (TextureA != TextureB)
-			{
-				return TextureA < TextureB;
-			}
-
-			const auto VBA = A.VertexBuffer.Get();
-			const auto VBB = B.VertexBuffer.Get();
-
-			if (VBA != VBB)
-			{
-				return VBA < VBB;
-			}
-
-			return A.IndexBuffer.Get() < B.IndexBuffer.Get();
-		});
 	}
 
 	inline void Clear()

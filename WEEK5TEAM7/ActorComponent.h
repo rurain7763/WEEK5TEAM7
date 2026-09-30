@@ -27,33 +27,28 @@ public:
 
 	// Todo: Make as pure class
 	virtual void Tick(float deltaTime);
-    // 생성자에서는 플래그만 지정합니다. Owner 연결 후 변경하면 Actor의 활성 목록도 갱신합니다.
-    void SetTickable(bool bTickable);
-    bool IsTickable() const { return (mComponentFlags & EActorComponentFlags::Tickable) != 0; }
-    // 등록 여부를 갱신할 때 평가합니다. Tickable 선언과 실제 실행 조건을 분리합니다.
-    virtual bool ShouldTick() const { return IsTickable(); }
 	virtual void Render(FRenderCollector& RenderCollector);
 	virtual void GetRenderInfos(TArray<FRenderInfo>* outRenderInfos) const;
 
-	inline void SetEditorOnly(bool bEditorOnly) 
-	{ 
+	inline void SetEditorOnly(bool bEditorOnly)
+	{
 		if (bEditorOnly)
 		{
-			mComponentFlags |= EActorComponentFlags::EditorOnly; 
+			mComponentFlags |= EActorComponentFlags::EditorOnly;
 		}
 		else
 		{
 			mComponentFlags &= ~EActorComponentFlags::EditorOnly;
 		}
 	}
-	
+
 	inline bool IsEditorOnly() const { return (mComponentFlags & EActorComponentFlags::EditorOnly) != 0; }
 
-	inline void SetDoNotSerialize(bool bDoNotSerialize) 
-	{ 
+	inline void SetDoNotSerialize(bool bDoNotSerialize)
+	{
 		if (bDoNotSerialize)
 		{
-			mComponentFlags |= EActorComponentFlags::DoNotSerialize; 
+			mComponentFlags |= EActorComponentFlags::DoNotSerialize;
 		}
 		else
 		{
@@ -81,7 +76,5 @@ protected:
 	AActor* mOwner;
 
 private:
-    friend class AActor;
 	uint32 mComponentFlags = 0;
 };
-
