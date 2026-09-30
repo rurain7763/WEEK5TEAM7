@@ -1,8 +1,8 @@
 #pragma once
 
 #include <d3d11.h>
-#include <nvapi_lite_common.h> // Defines NvAPI_Status, NvU32, and shared NVAPI types.
-#include <nvapi.h>
+#include <nvapi/nvapi_lite_common.h> // Defines NvAPI_Status, NvU32, and shared NVAPI types.
+#include <nvapi/nvapi.h>
 #include <cstddef>
 
 namespace nvapi_example 
