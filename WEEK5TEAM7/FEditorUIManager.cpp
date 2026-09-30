@@ -9,6 +9,8 @@
 #include "GraphicsManager.h"
 #include "Camera.h"
 #include "FInstrumentor.h"
+#include "SceneManager.h"
+#include "World.h"
 
 FEditorUIManager::FEditorUIManager(URenderer& InRenderer)
 	: mRenderer(InRenderer)
@@ -113,14 +115,14 @@ void FEditorUIManager::Render(FGuiReference& GuiReference)
 					ImVec2(DrawRect.X + DrawRect.Width, DrawRect.Y + DrawRect.Height))
 					&& !ImGui::IsPopupOpen("", ImGuiPopupFlags_AnyPopupId);		// 팝업창, 콤보 드롭다운 등 열리면 false
 				const ImGuiViewport* MainViewport = ImGui::GetMainViewport();
-                const float Bottom = MainViewport->WorkPos.y + MainViewport->WorkSize.y;
-                float BlockedTop = Bottom - BottomBarHeight;
-                if (mContentBrowser.IsDrawerOpen())
-                    BlockedTop -= mContentBrowser.GetDrawerHeight();
-                if (ConsoleWindow::Get().bIsDrawerOpen)
-                    BlockedTop = (std::min)(BlockedTop, Bottom - BottomBarHeight - ConsoleWindow::Get().GetDrawerHeight());
-                bHovered = bHovered && IO.MousePos.y < BlockedTop;
-                EditorViewport->Client->SetActive(bHovered);
+				const float Bottom = MainViewport->WorkPos.y + MainViewport->WorkSize.y;
+				float BlockedTop = Bottom - BottomBarHeight;
+				if (mContentBrowser.IsDrawerOpen())
+					BlockedTop -= mContentBrowser.GetDrawerHeight();
+				if (ConsoleWindow::Get().bIsDrawerOpen)
+					BlockedTop = (std::min)(BlockedTop, Bottom - BottomBarHeight - ConsoleWindow::Get().GetDrawerHeight());
+				bHovered = bHovered && IO.MousePos.y < BlockedTop;
+				EditorViewport->Client->SetActive(bHovered);
 
 				const TSharedPtr<FRenderTarget2D>& RenderTarget = EditorViewport->Viewport->RenderTarget;
 				DrawList->AddImage((ImTextureID)(intptr_t)RenderTarget->SRV.Get(), ImVec2(DrawRect.X, DrawRect.Y), ImVec2(DrawRect.X + DrawRect.Width, DrawRect.Y + DrawRect.Height));
@@ -320,6 +322,15 @@ void FEditorUIManager::Render(FGuiReference& GuiReference)
 				}
 				ImGui::Text("Primitives: %u", PrimitiveCount);
 
+				if (GuiReference.SceneManager)
+					if (const UWorld* World = GuiReference.SceneManager->GetCurrentWorld())
+					{
+						const auto& LODStats = World->GetLODQueryStats();
+						ImGui::Text("BVH nodes / frustum tests: %u / %u", LODStats.VisitedNodes, LODStats.FrustumTests);
+						ImGui::Text("LOD tests / reused ranges: %u / %u", LODStats.LODTests, LODStats.ReusedRanges);
+						ImGui::Text("LOD changed components: %u", LODStats.ChangedComponents);
+					}
+
 				UINT SpotLightCount = 0;
 				for (TObjectIterator<USpotLightComponent> It(false); It; ++It)
 				{
@@ -329,21 +340,19 @@ void FEditorUIManager::Render(FGuiReference& GuiReference)
 			}
 			ImGui::End();
 		}
-#if IS_OBJ_VIEWER
-		ConsoleWindow::Get().Process(BottomBarHeight);
-		mContentBrowser.Render(BottomBarHeight);
-#else
-		mControlWindow.Render(GuiReference);
-		mPropertyWindow.Render(GuiReference);
-		mOutlinerWindow.Render(GuiReference);
-		ConsoleWindow::Get().Process(BottomBarHeight);
-		mContentBrowser.Render(BottomBarHeight);
-#endif
+		ImGui::PopStyleVar();
 	}
 
-	// This matches the PushStyleVar() before the Viewport window.
-	// It must run even when the other editor UI is hidden.
-	ImGui::PopStyleVar();
+#if IS_OBJ_VIEWER
+	ConsoleWindow::Get().Process(BottomBarHeight);
+	mContentBrowser.Render(BottomBarHeight);
+#else
+	mControlWindow.Render(GuiReference);
+	mPropertyWindow.Render(GuiReference);
+	mOutlinerWindow.Render(GuiReference);
+	ConsoleWindow::Get().Process(BottomBarHeight);
+	mContentBrowser.Render(BottomBarHeight);
+#endif
 }
 
 void FEditorUIManager::RenderBottomBar()

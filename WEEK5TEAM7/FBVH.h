@@ -19,6 +19,9 @@ struct FBVHNode
 	FBVHNode* Parent = nullptr;
 	FBVHNode* Left = nullptr;
 	FBVHNode* Right = nullptr;
+	// 외부 조회 캐시의 배열 인덱스와 경계/내용 변경 세대입니다.
+	uint32 Index = 0;
+	uint64 Revision = 1;
 
 	inline bool IsLeaf() const { return Left == nullptr && Right == nullptr; }
 };
@@ -86,6 +89,7 @@ public:
 			auto& Entry = Entries[i];
 			
 			FBVHNode* LeafNode = new FBVHNode();
+			LeafNode->Index = NodeCount++;
 			LeafNode->BoundingBox = Entry.BoundingBox;
 			LeafNode->ItemRange.Offset = i;
 			LeafNode->ItemRange.Count = 1;
@@ -112,13 +116,24 @@ public:
 
 		FBVHNode* Node = Entry.Node;
 		Node->BoundingBox = NewBoundingBox;
+		++Node->Revision;
 		while (Node->Parent)
 		{
 			Node = Node->Parent;
+			++Node->Revision;
 			Node->BoundingBox = Node->Left->BoundingBox;
 			Node->BoundingBox.ExpandToInclude(Node->Right->BoundingBox.Min);
 			Node->BoundingBox.ExpandToInclude(Node->Right->BoundingBox.Max);
 		}
+	}
+
+	// 경계가 그대로인 외부 상태 변경도 해당 리프와 조상의 조회 캐시만 무효화합니다.
+	void Invalidate(T Payload)
+	{
+		const int32* EntryIndex = PayloadToEntryIndexMap.Find(Payload);
+		if (!EntryIndex) return;
+		for (FBVHNode* Node = Entries[*EntryIndex].Node; Node; Node = Node->Parent)
+			++Node->Revision;
 	}
 
 	void Release()
@@ -128,6 +143,7 @@ public:
 		Entries.Empty();
 		CentroidAABB = FAABB();
 		RootNode = nullptr;
+		NodeCount = 0;
 	}
 
 	inline T GetPayload(int32 Index) const
@@ -136,6 +152,7 @@ public:
 	}
 
 	inline FBVHNode* GetRootNode() const { return RootNode; }
+	inline uint32 GetNodeCount() const { return NodeCount; }
 	inline bool IsValid() const { return RootNode != nullptr; }
 
 private:
@@ -177,6 +194,7 @@ private:
 		FBVHNode* RightNode = BuildImpl(Nodes, MidIndex + 1, EndIndex);
 
 		FBVHNode* NewNode = new FBVHNode();
+		NewNode->Index = NodeCount++;
 		NewNode->BoundingBox = LeftNode->BoundingBox;
 		NewNode->BoundingBox.ExpandToInclude(RightNode->BoundingBox.Min);
 		NewNode->BoundingBox.ExpandToInclude(RightNode->BoundingBox.Max);
@@ -220,4 +238,5 @@ private:
 	TArray<FItemEntry> Entries;
 	FAABB CentroidAABB;
 	FBVHNode* RootNode = nullptr;
+	uint32 NodeCount = 0;
 };
