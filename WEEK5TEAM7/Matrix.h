@@ -49,15 +49,15 @@ struct FMatrix {
 	FMatrix operator* (const FMatrix& Other) const
 	{
 		FMatrix result = {};
-		/*
+#if 0
 		for (int row = 0; row < 4;++row) {
 			for (int col = 0;col < 4;++col) {
 				for (int k = 0;k < 4;++k) {
 					result.M[row][col] += M[row][k] * Other.M[k][col];
 				}
 			}
-		}*/
-
+		}
+#else
 		const FVectorRegister B0 = VectorSIMD::Load(Other.M[0]);
 		const FVectorRegister B1 = VectorSIMD::Load(Other.M[1]);
 		const FVectorRegister B2 = VectorSIMD::Load(Other.M[2]);
@@ -77,7 +77,7 @@ struct FMatrix {
 
 			VectorSIMD::Store(result.M[Row], VectorSIMD::Add(XY, ZW));
 		}
-
+#endif
 		return result;
 	}
 

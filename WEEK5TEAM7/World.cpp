@@ -232,9 +232,13 @@ void UWorld::Render(float deltaTime, FRenderCollector& outCollector)
     {
         PROFILE_SCOPE("World/CollectPrimitives");
         // 기존 BVH의 연속 범위를 사용하여 개별 가시 객체 배열을 복사하지 않습니다.
-        for (const auto& Range : VisibleRanges)
-            for (int32 I = 0; I < Range.Count; ++I)
-                mBVH.GetPayload(Range.Offset + I)->Render(outCollector);
+		for (const auto& Range : VisibleRanges)
+		{
+			for (int32 I = 0; I < Range.Count; ++I)
+			{
+				mBVH.GetPayload(Range.Offset + I)->Render(outCollector);
+			}
+		}
     }
     outCollector.BVH = &mBVH;
 }

@@ -174,9 +174,9 @@ void FGraphicsManager::RenderHighLight(const TArray<UPrimitiveComponent*>& Primi
 		mHighlightMarkPipeline->UpdateConstantBuffer(0, Constants);
 
 		FRenderInfo RenderInfo{};
-		RenderInfo.VertexBuffer = mHighlightVertexBuffer->Buffer;
+		RenderInfo.VertexBuffer = mHighlightVertexBuffer->Buffer.Get();
 		RenderInfo.VertexCount = static_cast<uint32>(Vertices.Num());
-		RenderInfo.IndexBuffer = mHighlightIndexBuffer->Buffer;
+		RenderInfo.IndexBuffer = mHighlightIndexBuffer->Buffer.Get();
 		RenderInfo.StartIndex = 0;
 		RenderInfo.IndexCount = static_cast<uint32>(Indices.Num());
 		RenderInfo.Model = Transform.MakeMatrix();
@@ -206,19 +206,61 @@ void FGraphicsManager::RenderHighLight(const TArray<UPrimitiveComponent*>& Primi
 
 void FGraphicsManager::Render()
 {
-    PROFILE_SCOPE("Viewport/GraphicsRender");
-    {
-        PROFILE_SCOPE("Viewport/GraphicsRender/RenderLines");
-        mRenderer->RenderLines(mRenderCollector.LineInfos);
-    }
-    {
-        PROFILE_SCOPE("Viewport/GraphicsRender/sort");
-        std::sort(mRenderCollector.RenderInfos.begin(), mRenderCollector.RenderInfos.end());
-    }
-    {
-        PROFILE_SCOPE("Viewport/GraphicsRender/SubmitMeshes");
-        mRenderer->RenderMeshes(mRenderCollector.RenderInfos, mMeshPipeline, mViewUnifiedProjectionMatrix);
+	PROFILE_SCOPE("Viewport/GraphicsRender");
+	{
+		PROFILE_SCOPE("Viewport/GraphicsRender/RenderLines");
+		mRenderer->RenderLines(mRenderCollector.LineInfos);
 	}
+	{
+		PROFILE_SCOPE("Viewport/GraphicsRender/sort");
+		std::sort(mRenderCollector.RenderInfos.begin(), mRenderCollector.RenderInfos.end());
+	}
+	{
+		PROFILE_SCOPE("Viewport/GraphicsRender/SubmitMeshes");
+		mRenderer->RenderMeshes(mRenderCollector.RenderInfos, mMeshPipeline, mViewUnifiedProjectionMatrix);
+	}
+	{
+		PROFILE_SCOPE("Viewport/GraphicsRender/RenderQuad");
+
+		for (const FRenderQuadInfo& QuadInfo : mRenderCollector.GetOpaqueQuadInfos())
+		{
+			mRenderer->RenderQuad(QuadInfo);
+		}
+
+		if (FShowFlags::Get().IsEnabled(EShowFlag::Grid))
+		{
+			FMatrix GridWorldMatrix = FMatrix::Identity;
+
+			if (mViewportType == EViewportType::Front)
+			{
+				GridWorldMatrix = FMatrix::RotateY(90);
+			}
+			else if (mViewportType == EViewportType::Side)
+			{
+				GridWorldMatrix = FMatrix::RotateX(90);
+			}
+
+			// Match the grid's world-space half-width of 0.001.
+			mRenderer->RenderWorldAxis(mViewMatrix, mProjectionMatrix, FVector4(0.f, 0.f, 1.f, 1.f), FVector3(0.f, 0.f, 1.f), 0.002f);
+			mRenderer->RenderWorldGrid(GridWorldMatrix * mViewUnifiedProjectionMatrix, mCameraLocation, GridGap);
+		}
+
+		for (const FRenderQuadInfo& QuadInfo : mRenderCollector.GetTransparentQuadInfos())
+		{
+			mRenderer->RenderQuad(QuadInfo);
+		}
+
+		for (const FRenderQuadInfo& QuadInfo : mRenderCollector.GetOverlayQuadInfos())
+		{
+			mRenderer->RenderQuad(QuadInfo);
+		}
+
+		for (const FRenderQuad2DInfo& Quad2DInfo : mRenderCollector.GetQuad2DInfos())
+		{
+			mRenderer->RenderQuad2D(Quad2DInfo);
+		}
+	}
+
 	{
 		PROFILE_SCOPE("Viewport/GraphicsRender/RenderQuad");
 

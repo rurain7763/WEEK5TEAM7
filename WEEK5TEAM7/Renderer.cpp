@@ -587,23 +587,13 @@ void URenderer::RenderQuad(const FRenderQuadInfo& Info)
 {
 	QuadPipeline->SetShaderResource(0, Info.TextureSRV);
 	
-	DXGI_FORMAT TextureFormat = DXGI_FORMAT_UNKNOWN;
-	if (Info.TextureSRV)
-	{
-
-		D3D11_SHADER_RESOURCE_VIEW_DESC Desc{};
-		Info.TextureSRV->GetDesc(&Desc);
-
-		TextureFormat = Desc.Format;
-	}
-
 	QuadPipeline->SetBlendState(Info.BlendMode);
 	QuadPipeline->SetDepthStencilState(Info.EnableDepthTest, Info.EnableDepthWrite);
 
 	BindPipeline(QuadPipeline);
 	BindVertexBuffer(nullptr, 0);
 
-	QuadPipeline->UpdateConstantBuffer(0, FQuadConstants{ Info.Model, Info.Color, Info.SubUV, Info.TextureSRV ? 1 : 0, TextureFormat == DXGI_FORMAT_R8_UNORM });
+	QuadPipeline->UpdateConstantBuffer(0, FQuadConstants{ Info.Model, Info.Color, Info.SubUV, Info.TextureSRV ? 1 : 0, Info.TextureFormat == DXGI_FORMAT_R8_UNORM });
 
 	DeviceContext->Draw(6, 0);
 	++DrawCallCount;
@@ -682,7 +672,7 @@ void URenderer::RenderMeshes(const TArray<FRenderInfo>& RenderInfos, const TShar
     {
         const auto& Pipeline = Info.Pipeline ? Info.Pipeline : DefaultPipeline;
         const bool bPipelineChanged = Pipeline.get() != LastPipeline;
-        const bool bBindingChanged = bPipelineChanged || Info.Texture.get() != LastTexture;
+        const bool bBindingChanged = bPipelineChanged || Info.Texture != LastTexture;
         if (bPipelineChanged)
         {
             Pipeline->UpdateConstantBuffer(1, ViewProjection);
@@ -705,8 +695,7 @@ void URenderer::RenderMeshes(const TArray<FRenderInfo>& RenderInfos, const TShar
         }
         DrawMeshGeometry(Info, Pipeline->Stride);
         LastPipeline = Pipeline.get();
-        LastTexture = Info.Texture.get();
-        ++DrawIndex;
+        LastTexture = Info.Texture;
     }
 }
 
@@ -718,11 +707,11 @@ void URenderer::RenderPrimitiveIndexed(const TSharedPtr<FRenderPipeline>& Pipeli
 
 void URenderer::DrawMeshGeometry(const FRenderInfo& RenderInfo, uint32 Stride)
 {
-	BindVertexBuffer(RenderInfo.VertexBuffer.Get(), Stride);
+	BindVertexBuffer(RenderInfo.VertexBuffer, Stride);
 
 	if (RenderInfo.IndexBuffer)
 	{
-		BindIndexBuffer(RenderInfo.IndexBuffer.Get());
+		BindIndexBuffer(RenderInfo.IndexBuffer);
 		DrawIndexed(RenderInfo.IndexCount, RenderInfo.StartIndex);
 	}
 	else
@@ -735,16 +724,7 @@ void URenderer::RenderQuad2D(const FRenderQuad2DInfo& Info)
 {
 	Quad2DPipeline->SetShaderResource(0, Info.TextureSRV);
 
-	DXGI_FORMAT TextureFormat = DXGI_FORMAT_UNKNOWN;
-	if (Info.TextureSRV)
-	{
-		D3D11_SHADER_RESOURCE_VIEW_DESC Desc{};
-		Info.TextureSRV->GetDesc(&Desc);
-
-		TextureFormat = Desc.Format;
-	}
-
-	Quad2DPipeline->UpdateConstantBuffer(0, FQuad2DConstants{ Projection2D, Info.Color, Info.Position, Info.Size, Info.SubUV, Info.Rotation, Info.TextureSRV ? 1 : 0, TextureFormat == DXGI_FORMAT_R8_UNORM });
+	Quad2DPipeline->UpdateConstantBuffer(0, FQuad2DConstants{ Projection2D, Info.Color, Info.Position, Info.Size, Info.SubUV, Info.Rotation, Info.TextureSRV ? 1 : 0, Info.TextureFormat == DXGI_FORMAT_R8_UNORM });
 
 	BindPipeline(Quad2DPipeline);
 	BindVertexBuffer(nullptr, 0);

@@ -136,11 +136,11 @@ bool FStaticMeshAsset::RayCastLocal(const FPickingRay& Ray, float& OutHitT, FMes
     return GetLocalOctree(LOD).RayCast(Ray, GetVertices(LOD), GetIndices(LOD), OutHitT, OutStats, MaxHitT);
 }
 
-Microsoft::WRL::ComPtr<ID3D11Buffer> FStaticMeshAsset::GetVertexBuffer(uint32 LOD) const
+ID3D11Buffer* FStaticMeshAsset::GetVertexBuffer(uint32 LOD) const
 {
 	const auto* G = GetGeneratedLOD(LOD);
     const auto& Buffer = G ? G->VertexBuffer : VertexBuffer;
-    return Buffer ? Buffer->Buffer : nullptr;
+    return Buffer ? Buffer->Buffer.Get() : nullptr;
 }
 
 uint32 FStaticMeshAsset::GetVertexCount(uint32 LOD) const
@@ -148,11 +148,11 @@ uint32 FStaticMeshAsset::GetVertexCount(uint32 LOD) const
 	return static_cast<uint32>(GetVertices(LOD).Num());
 }
 
-Microsoft::WRL::ComPtr<ID3D11Buffer> FStaticMeshAsset::GetIndexBuffer(uint32 LOD) const
+ID3D11Buffer* FStaticMeshAsset::GetIndexBuffer(uint32 LOD) const
 {
 	const auto* G = GetGeneratedLOD(LOD);
     const auto& Buffer = G ? G->IndexBuffer : IndexBuffer;
-    return Buffer ? Buffer->Buffer : nullptr;
+    return Buffer ? Buffer->Buffer.Get() : nullptr;
 }
 
 uint32 FStaticMeshAsset::GetIndexCount(uint32 LOD) const
