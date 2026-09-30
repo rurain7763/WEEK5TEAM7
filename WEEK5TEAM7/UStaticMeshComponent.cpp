@@ -84,50 +84,70 @@ void UStaticMeshComponent::DeserializeClass(const json::JSON& inJson)
 
 void UStaticMeshComponent::Render(FRenderCollector& RenderCollector)
 {
+    Super::Render(RenderCollector);
+
     if (!mMeshAsset)
     {
         return;
     }
 
-    if (!FShowFlags::Get().IsEnabled(EShowFlag::Primitive))
-    {
-        return;
-    }
-
 	const FTransform& Transform = GetTransform();
-	const FMatrix& ModelMatrix = Transform.MakeMatrix();
     const uint32 LOD = RenderCollector.Camera ? GetLODForView(RenderCollector.Camera->Transform.GetLocation()) : 0;
-	const uint32 MeshID = mMeshAsset->GetMeshID(LOD);
-	ID3D11Buffer* VertexBuffer = mMeshAsset->GetVertexBuffer(LOD);
-	ID3D11Buffer* IndexBuffer = mMeshAsset->GetIndexBuffer(LOD);
-    const TArray<FStaticMeshSection>& Sections = mMeshAsset->GetSections(LOD);
+    const auto& Sections = mMeshAsset->GetSections(LOD);
 
+	mRenderProxy->SetCollector(RenderCollector);
+	mRenderProxy->ReserveRenderInfos(Sections.Num());
+
+	int32 ActiveSectionCount = 0;
     for (int32 SectionIndex = 0; SectionIndex < Sections.Num(); ++SectionIndex)
     {
         const FStaticMeshSection& Section = Sections[SectionIndex];
         if (Section.IndexCount == 0) continue;
 
-        const TSharedPtr<FMaterialAsset>& Material = mMaterialAssets[SectionIndex];
-		const TSharedPtr<FTexture2DAsset> Texture = Material ? Material->GetDiffuseTexture() : nullptr;
+        const FMaterialAsset* Material = mMaterialAssets[SectionIndex].get();
 
-        uint16 PipelineID = Material ? Material->GetPipelineID() : 1;
-        uint32 MaterialID = Material ? Material->GetMaterialID() : 0;
+		FRenderInfo& RenderInfo = mRenderProxy->GetRenderInfo(ActiveSectionCount++);
+        if (Material)
+        {
+		    const FVector& DiffuseColor = Material->GetDiffuseColor();
+		    float Opacity = Material->GetOpacity();
 
-        const uint64 SortKey = MakeRenderSortKey(PipelineID, MaterialID, MeshID);
-        FRenderInfo& RenderInfo = RenderCollector.AddRenderInfo(SortKey);
+            uint16 PipelineID = Material->GetPipelineID();
+            uint32 MaterialID = Material->GetMaterialID();
+            // 같은 메시 에셋도 LOD마다 VB/IB가 다르므로 선택된 LOD의 식별자로 묶습니다.
+            uint32 MeshID = mMeshAsset->GetMeshID(LOD);
 
-        RenderInfo.Pipeline = Material ? Material->GetPipeline() : nullptr;
-        RenderInfo.VertexBuffer = VertexBuffer;
-        RenderInfo.IndexBuffer = IndexBuffer;
-        RenderInfo.StartIndex = Section.FirstIndex;
-        RenderInfo.IndexCount = Section.IndexCount;
-        RenderInfo.Texture = Texture.get();
-        RenderInfo.UVOffset = mUVOffsets[SectionIndex];
-        RenderInfo.Model = ModelMatrix;
-        RenderInfo.Color = Material ? FVector4(Material->GetDiffuseColor().x, Material->GetDiffuseColor().y, Material->GetDiffuseColor().z, Material->GetOpacity()) : Color;
-        RenderInfo.UseVertexColor = Material == nullptr;
-        RenderInfo.ObjectInternalIndex = mOwner->InternalIndex;
+            RenderInfo.SortKey = MakeRenderSortKey(PipelineID, MaterialID, MeshID);
+            RenderInfo.Pipeline = Material->GetPipeline().get();
+            RenderInfo.VertexBuffer = mMeshAsset->GetVertexBuffer(LOD);
+            RenderInfo.IndexBuffer = mMeshAsset->GetIndexBuffer(LOD);
+            RenderInfo.StartIndex = Section.FirstIndex;
+            RenderInfo.IndexCount = Section.IndexCount;
+            RenderInfo.Texture = Material->GetDiffuseTexture().get();
+            RenderInfo.UVOffset = mUVOffsets[SectionIndex];
+            RenderInfo.Model = Transform.MakeMatrix();
+            RenderInfo.Color = FVector4(DiffuseColor.x, DiffuseColor.y, DiffuseColor.z, Opacity);
+            RenderInfo.UseVertexColor = false;
+            RenderInfo.ObjectInternalIndex = mOwner->InternalIndex;
+        }
+        else
+        {
+			RenderInfo.SortKey = MakeRenderSortKey(1, 0, mMeshAsset->GetMeshID(LOD));
+			RenderInfo.Pipeline = nullptr;
+			RenderInfo.VertexBuffer = mMeshAsset->GetVertexBuffer(LOD);
+			RenderInfo.IndexBuffer = mMeshAsset->GetIndexBuffer(LOD);
+			RenderInfo.StartIndex = Section.FirstIndex;
+			RenderInfo.IndexCount = Section.IndexCount;
+			RenderInfo.Texture = nullptr;
+			RenderInfo.UVOffset = mUVOffsets[SectionIndex];
+			RenderInfo.Model = Transform.MakeMatrix();
+			RenderInfo.Color = Color;
+			RenderInfo.UseVertexColor = true;
+			RenderInfo.ObjectInternalIndex = mOwner->InternalIndex;
+        }
     }
+
+	mRenderProxy->SetActiveRenderInfoNum(ActiveSectionCount);
 }
 
 bool UStaticMeshComponent::RayCastComponent(const FPickingRay& PickingRay, float& OutHitT) const
@@ -173,24 +193,26 @@ void UStaticMeshComponent::SetMesh(const TSharedPtr<FStaticMeshAsset>& InMesh)
 
     if (!InMesh)
     {
-		mMeshAsset = nullptr;
-		mMaterialAssets.Empty();
-		mUVOffsets.Empty();
-        MarkBoundsDirty();
-		return;
+        mMeshAsset = nullptr;
+        mMaterialAssets.Empty();
+        mUVOffsets.Empty();
+        mRenderProxy->ReleaseRenderInfos();
     }
-
-    const auto& Sections = InMesh->GetSections();
-    mMaterialAssets.SetNum(Sections.Num());
-    mUVOffsets.SetNum(Sections.Num());
-    for (int32 i = 0; i < Sections.Num(); i++)
+    else
     {
-        auto& Section = Sections[i];
-        mMaterialAssets[i] = Section.MaterialAssetID.IsValid() ? FAssetManager::Get().GetAssetAs<FMaterialAsset>(Section.MaterialAssetID, true) : nullptr;
+        const auto& Sections = InMesh->GetSections();
+        mMaterialAssets.SetNum(Sections.Num());
+        mUVOffsets.SetNum(Sections.Num());
+        for (int32 i = 0; i < Sections.Num(); i++)
+        {
+            auto& Section = Sections[i];
+            mMaterialAssets[i] = Section.MaterialAssetID.IsValid() ? FAssetManager::Get().GetAssetAs<FMaterialAsset>(Section.MaterialAssetID, true) : nullptr;
+        }
+        mMeshAsset = InMesh;
     }
-    mMeshAsset = InMesh;
 
     MarkBoundsDirty();
+    MarkRenderDirty();
 }
 
 uint32 UStaticMeshComponent::GetLODForView(const FVector& ViewOrigin) const

@@ -19,7 +19,7 @@ class UPlaneComponent : public UPrimitiveComponent
 public:
 	UPlaneComponent()
 	{
-        SetTickable(true);
+		SetTickable(true); // 파생된 AtlasAnimation도 이 설정을 상속합니다.
 		mMeshAsset = FAssetManager::Get().GetAssetAs<FStaticMeshAsset>(FName("PlaneMesh"), true);
 	}
 
@@ -145,7 +145,7 @@ class USpotLightComponent : public USceneComponent
 	REFLECT_CLASS(USpotLightComponent, USceneComponent)
 
 public:
-    USpotLightComponent() { SetTickable(true); }
+	USpotLightComponent() { SetTickable(true); }
 
 	void Tick(float DeltaTime) override
 	{
@@ -189,7 +189,7 @@ class ASpotLight : public AActor
 
 public:
 	ASpotLight() = default;
-	
+
 	void Initialize()
 	{
 		Super::Initialize();
@@ -243,21 +243,8 @@ public:
 	UText3DComponent()
 	{
 		SetRenderable(true);
-        SetTickable(true);
+		SetTickable(true);
 	}
-
-    bool ShouldTick() const override
-    {
-        // UUID는 표시 보조 기능이므로 숨겨진 동안 갱신 대상에서도 제외합니다.
-        return IsTickable() && FShowFlags::Get().IsEnabled(EShowFlag::UUIDText);
-    }
-
-    void Tick(float DeltaTime) override
-    {
-        // 텍스트의 부모 위치 추적은 Tick에서 한 번 처리하고 각 Viewport에서는 결과를 사용합니다.
-        if (!mOwner || !mOwner->GetRootComponent()) return;
-        SetRelativeLocation(mOwner->GetTransform().GetLocation() + FVector(0.f, 0.f, 1.f));
-    }
 
 	void SerializeClass(json::JSON& outJson) const override
 	{
@@ -349,7 +336,7 @@ public:
 			QuadInfo.EnableDepthWrite = mEnableDepthWrite;
 
 			RenderCollector.AddQuadInfo(QuadInfo);
-		});
+			});
 	}
 
 	inline void SetBillboard(bool billboard) { mbBillboard = billboard; }

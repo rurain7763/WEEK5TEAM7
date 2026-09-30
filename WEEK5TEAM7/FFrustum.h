@@ -198,6 +198,7 @@ struct FFrustum
 			}
 
 			const int32 IntersectingMask = VectorSIMD::MoveMask(VectorSIMD::CompareLT(Distance, Radius)) & ValidMask;
+
 			if (IntersectingMask != 0)
 			{
 				bIntersecting = true;

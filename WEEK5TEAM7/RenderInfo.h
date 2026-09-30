@@ -7,6 +7,7 @@
 #include "TArray.h"
 #include "FFrustum.h"
 #include "FBVH.h"
+#include "TRangePool.h"
 #include <algorithm>
 
 class FCamera;
@@ -32,17 +33,15 @@ enum class ERenderBlendMode
 struct FRenderInfo
 {
 	uint64 SortKey = 0;
-	TSharedPtr<FRenderPipeline> Pipeline;
-	
-	// RenderInfo는 한 viewport의 collect/render 동안만 살아 있는 비소유 패킷이다.
-	// 실제 수명은 mesh/material asset이 보장하므로 매 오브젝트마다 COM/shared_ptr
-	// 참조 카운트를 증감하지 않는다.
+	FRenderPipeline* Pipeline;
+	// 버퍼 소유권은 메시 에셋 또는 GraphicsManager에 있습니다.
+	// 수집부터 Draw 제출까지 버퍼를 교체/해제하지 않고, 다음 프레임에는 다시 수집합니다.
 	ID3D11Buffer* VertexBuffer = nullptr;
 	uint32 VertexCount = 0;
 	ID3D11Buffer* IndexBuffer = nullptr;
 	uint32 StartIndex = 0;
 	uint32 IndexCount = 0;
-	FTexture2DAsset* Texture = nullptr;
+	FTexture2DAsset* Texture;
 	FVector2 UVOffset = { 0.f, 0.f };
 	FMatrix Model;
 	uint32 ObjectInternalIndex;
@@ -102,26 +101,8 @@ public:
 	FFrustum Frustum;
 	bool bNeedPickTargets = false;
 
-	TArray<FRenderInfo> RenderInfos; // 메시 패스
 	TArray<FRenderLineInfo> LineInfos; // 라인 패스
 	FBVH<UPrimitiveComponent*>* BVH = nullptr;
-
-	inline FRenderInfo& AddRenderInfo(uint64 SortKey)
-	{
-		// 새로 들어온 키가 이전 키보다 작으면 전체 배열은 정렬 상태가 아니다.
-		if (bHasPreviousSortKey && PreviousSortKey > SortKey)
-		{
-			bRenderInfosSorted = false;
-		}
-
-		PreviousSortKey = SortKey;
-		bHasPreviousSortKey = true;
-
-		FRenderInfo& RenderInfo = RenderInfos.Emplace();
-		RenderInfo.SortKey = SortKey;
-
-		return RenderInfo;
-	}
 
 	inline void AddQuadInfo(const FRenderQuadInfo& QuadInfo)
 	{
@@ -147,40 +128,11 @@ public:
 		Quad2DInfos.Add(Quad2DInfo);
 	}
 
-	// Sort the RenderInfos based on Texture, VertexBuffer, and IndexBuffer to minimize state changes during rendering.
-	inline void Sort()
-	{
-		std::sort(RenderInfos.begin(), RenderInfos.end(), [](const FRenderInfo& A, const FRenderInfo& B) {
-			const auto TextureA = A.Texture ? A.Texture->GetSRV() : nullptr;
-			const auto TextureB = B.Texture ? B.Texture->GetSRV() : nullptr;
-
-			if (TextureA != TextureB)
-			{
-				return TextureA < TextureB;
-			}
-
-			const auto VBA = A.VertexBuffer;
-			const auto VBB = B.VertexBuffer;
-
-			if (VBA != VBB)
-			{
-				return VBA < VBB;
-			}
-
-			return A.IndexBuffer < B.IndexBuffer;
-		});
-	}
-
 	inline void Clear()
 	{
 		BVH = nullptr;
 		bNeedPickTargets = false;
-
-		bRenderInfosSorted = true;
-		bHasPreviousSortKey = false;
-		PreviousSortKey = 0;
-
-		RenderInfos.Reset(DEFAULT_RESERVE_MEM);
+		VisibleRenderInfoIndices.Reset(DEFAULT_RESERVE_MEM);
 		LineInfos.Reset(DEFAULT_RESERVE_MEM);
 		OpaqueQuadInfos.Reset(DEFAULT_RESERVE_MEM);
 		TransparentQuadInfos.Reset(DEFAULT_RESERVE_MEM);
@@ -192,11 +144,97 @@ public:
 	inline const TArray<FRenderQuadInfo>& GetTransparentQuadInfos() const { return TransparentQuadInfos; }
 	inline const TArray<FRenderQuadInfo>& GetOverlayQuadInfos() const { return OverlayQuadInfos; }
 	inline const TArray<FRenderQuad2DInfo>& GetQuad2DInfos() const { return Quad2DInfos; }
+	
+	inline const TRangePool<FRenderInfo>& GetRenderInfoPool() const { return RenderInfoPool; }
+	inline TArray<int32>& GetVisibleRenderInfoIndices() { return VisibleRenderInfoIndices; }
 
 private:
+	friend class FRenderProxy;
+
+	TRangePool<FRenderInfo> RenderInfoPool;
+	TArray<int32> VisibleRenderInfoIndices;
+
 	TArray<FRenderQuadInfo> OpaqueQuadInfos;
 	TArray<FRenderQuadInfo> TransparentQuadInfos;
 	TArray<FRenderQuadInfo> OverlayQuadInfos;
 
 	TArray<FRenderQuad2DInfo> Quad2DInfos;
+};
+
+class FRenderProxy
+{
+public:
+	FRenderProxy() = default;
+	~FRenderProxy()
+	{
+		ReleaseRenderInfos();
+	}
+
+	inline void SetCollector(FRenderCollector& InCollector)
+	{
+		if (Collector == &InCollector)
+		{
+			return;
+		}
+
+		ReleaseRenderInfos();
+		Collector = &InCollector;
+	}
+
+	inline void ReserveRenderInfos(int32 Count)
+	{
+		if (RenderInfoBlock.IsValid())
+		{
+			if (RenderInfoBlock.Size >= Count)
+			{
+				return;
+			}
+
+			Collector->RenderInfoPool.Release(RenderInfoBlock);
+		}
+
+		RenderInfoBlock = Collector->RenderInfoPool.Allocate(Count);
+		ActiveRenderInfoNum = 0;
+	}
+
+	inline void ReleaseRenderInfos()
+	{
+		if (!RenderInfoBlock.IsValid())
+		{
+			return;
+		}
+
+		Collector->RenderInfoPool.Release(RenderInfoBlock);
+		RenderInfoBlock = {};
+		ActiveRenderInfoNum = 0;
+	}
+
+	inline void SetActiveRenderInfoNum(int32 Count)
+	{
+		ActiveRenderInfoNum = Count;
+	}
+
+	inline FRenderInfo& GetRenderInfo(uint32 Index)
+	{
+		return Collector->RenderInfoPool.Get(RenderInfoBlock, Index);
+	}
+
+	inline void Submit()
+	{
+		if (!RenderInfoBlock.IsValid())
+		{
+			return;
+		}
+
+		for (uint32 i = 0; i < ActiveRenderInfoNum; ++i)
+		{
+			Collector->VisibleRenderInfoIndices.Emplace(RenderInfoBlock.Index + i);
+		}
+	}
+
+private:
+	FRenderCollector* Collector = nullptr;
+
+	FRangePoolBlock RenderInfoBlock;
+	uint32 ActiveRenderInfoNum = 0;
 };

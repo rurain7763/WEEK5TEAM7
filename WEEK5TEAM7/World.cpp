@@ -10,17 +10,17 @@
 #include "FBVH.h"
 #include "FInstrumentor.h"
 #include "UTextComponent.h"
+#include "ShowFlags.h"
 
-UWorld::UWorld()
-    : bLastUUIDTextVisible(FShowFlags::Get().IsEnabled(EShowFlag::UUIDText))
-{
-}
+UWorld::UWorld() = default;
 
 UWorld::~UWorld()
 {
+	mPrimitiveComponents.Empty();
+
 	for (AActor* removeActor : mActors)
 	{
-        removeActor->mWorld = nullptr;
+		removeActor->mWorld = nullptr;
 		FObjectFactory::DestroyObject(removeActor);
 	}
 }
@@ -71,13 +71,32 @@ void UWorld::DeserializeClass(const json::JSON& inJson)
 	}
 }
 
+void UWorld::RegisterActorComponents(AActor* actor)
+{
+	if (!actor) return;
+
+	for (UActorComponent* component : actor->GetComponents())
+	{
+		RegisterComponent(component);
+	}
+}
+
+void UWorld::UnregisterActorComponents(AActor* actor)
+{
+	if (!actor) return;
+
+	for (UActorComponent* component : actor->GetComponents())
+	{
+		UnregisterComponent(component);
+	}
+}
+
 void UWorld::AddActor(AActor* actor)
 {
 	assert(actor != nullptr);
 	assert(getActorIndex(actor->UUID) == -1);
 
 	actor->mWorld = this;
-    RefreshTickRegistration(actor);
 	for (UActorComponent* component : actor->GetComponents())
 	{
 		RegisterComponent(component);
@@ -98,9 +117,6 @@ bool UWorld::RemoveActor(uint32 uuid)
 	}
 	
 	AActor* ActorToRemove = mActors[ActorIndex];
-    ActiveActors.Remove(ActorToRemove);
-    // 현재 컴포넌트 Tick에서 월드를 나가면 그 Actor의 남은 컴포넌트는 이번 프레임에 실행하지 않습니다.
-    ActorToRemove->ActiveTickComponents.CancelTick();
 	for (UActorComponent* component : ActorToRemove->GetComponents())
 	{
 		UnregisterComponent(component);
@@ -114,31 +130,25 @@ bool UWorld::RemoveActor(uint32 uuid)
 
 void UWorld::RegisterComponent(UActorComponent* Component)
 {
-    if (ComponentRegistrations.Contains(Component)) return;
+	RefreshComponentTick(Component);
 	UPrimitiveComponent* PrimitiveComponent = Component->Cast<UPrimitiveComponent>();
-    const bool bUUID = Component->IsA<UText3DComponent>();
-    ComponentRegistrations.Add(Component, { PrimitiveComponent, Component->IsRenderable(), bUUID });
-    // 월드 밖에서 표시 옵션이 바뀐 뒤 재진입한 경우에도 현재 실행 조건을 반영합니다.
-    if (bUUID && Component->GetOwner()) Component->GetOwner()->RefreshComponentTickRegistration(Component);
 	if (PrimitiveComponent)
 	{
 		mPrimitiveComponents.Add(PrimitiveComponent);
+		mShouldRenderComponents.Add(Component);
 		mbBVHDirty = true;
 	}
 	else if (Component->IsRenderable())
 	{
-        if (bUUID) mUUIDRenderableComponents.Add(Component);
-        else mNonPrimitiveRenderableComponents.Add(Component);
+		mNonPrimitiveRenderableComponents.Add(Component);
 	}
 }
 
 void UWorld::UnregisterComponent(UActorComponent* Component)
 {
-    const auto* Found = ComponentRegistrations.Find(Component);
-    if (!Found) return;
-    const FComponentRegistration Registration = *Found;
-    ComponentRegistrations.Remove(Component);
-	UPrimitiveComponent* PrimitiveComponent = Registration.Primitive;
+	mTickableComponents.Remove(Component);
+	mUUIDTickableComponents.Remove(Component);
+	UPrimitiveComponent* PrimitiveComponent = Component->Cast<UPrimitiveComponent>();
 	if (PrimitiveComponent)
 	{
 		int32 index = mPrimitiveComponents.Find(PrimitiveComponent);
@@ -147,23 +157,88 @@ void UWorld::UnregisterComponent(UActorComponent* Component)
 			mPrimitiveComponents.RemoveAtSwap(index);
 			mbBVHDirty = true;
 		}
-	}
-	else if (Registration.bRenderable)
-	{
-        auto& List = Registration.bUUID ? mUUIDRenderableComponents : mNonPrimitiveRenderableComponents;
-		int32 index = List.Find(Component);
+
+		index = mShouldRenderComponents.Find(Component);
 		if (index != -1)
 		{
-			List.RemoveAtSwap(index);
+			mShouldRenderComponents.RemoveAtSwap(index);
+		}
+	}
+	else if (Component->IsRenderable())
+	{
+		int32 index = mNonPrimitiveRenderableComponents.Find(Component);
+		if (index != -1)
+		{
+			mNonPrimitiveRenderableComponents.RemoveAtSwap(index);
+		}
+
+		index = mShouldRenderComponents.Find(Component);
+		if (index != -1)
+		{
+			mShouldRenderComponents.RemoveAtSwap(index);
 		}
 	}
 }
 
-void UWorld::RefreshTickRegistration(AActor* Actor)
+void UWorld::FComponentTickList::Add(UActorComponent* Component)
 {
-    if (Actor->GetWorld() != this) return;
-    if (Actor->HasTickableComponents()) ActiveActors.Add(Actor);
-    else ActiveActors.Remove(Actor);
+	if (!Indices.Contains(Component))
+		Indices.Add(Component, Components.Add(Component));
+}
+
+void UWorld::FComponentTickList::Remove(UActorComponent* Component)
+{
+	const uint32* Found = Indices.Find(Component);
+	if (!Found) return;
+	const uint32 Index = *Found;
+	Indices.Remove(Component);
+	if (bTicking)
+	{
+		// Tick 내부에서 제거되어도 뒤의 컴포넌트를 건너뛰거나 해제된 포인터를 호출하지 않습니다.
+		Components[Index] = nullptr;
+		bNeedsCompaction = true;
+		return;
+	}
+	Components.RemoveAtSwap(Index);
+	if (Index < static_cast<uint32>(Components.Num()))
+		*Indices.Find(Components[Index]) = Index;
+}
+
+void UWorld::FComponentTickList::Tick(float DeltaTime, int32 Count)
+{
+	bTicking = true;
+	for (int32 Index = 0; Index < Count; ++Index)
+	{
+		if (UActorComponent* Component = Components[Index])
+			Component->Tick(DeltaTime);
+	}
+	bTicking = false;
+	if (bNeedsCompaction)
+	{
+		// 순회 중 삭제가 발생한 프레임에만 빈 슬롯을 정리합니다.
+		for (int32 Index = Components.Num() - 1; Index >= 0; --Index)
+		{
+			if (Components[Index]) continue;
+			Components.RemoveAtSwap(Index);
+			if (Index < Components.Num())
+				*Indices.Find(Components[Index]) = static_cast<uint32>(Index);
+		}
+		bNeedsCompaction = false;
+	}
+}
+
+void UWorld::RefreshComponentTick(UActorComponent* Component)
+{
+	if (!Component->IsTickable())
+	{
+		mTickableComponents.Remove(Component);
+		mUUIDTickableComponents.Remove(Component);
+		return;
+	}
+	if (Component->Cast<UText3DComponent>())
+		mUUIDTickableComponents.Add(Component);
+	else
+		mTickableComponents.Add(Component);
 }
 
 void UWorld::MarkBoundsDirty(UActorComponent* Component)
@@ -175,30 +250,21 @@ void UWorld::MarkBoundsDirty(UActorComponent* Component)
 	}
 }
 
-void UWorld::RefreshUUIDTickVisibility()
+void UWorld::RequestRenderUpdate(UActorComponent* Component)
 {
-    const bool bVisible = FShowFlags::Get().IsEnabled(EShowFlag::UUIDText);
-    if (bLastUUIDTextVisible == bVisible) return;
-    PROFILE_SCOPE("World/RefreshUUIDTickVisibility");
-    bLastUUIDTextVisible = bVisible;
-    // 매 프레임 전체 컴포넌트를 검사하지 않고, 표시 전환 시 UUID 목록만 한 번 갱신합니다.
-    for (UActorComponent* Component : mUUIDRenderableComponents)
-    {
-        if (AActor* Owner = Component->GetOwner()) Owner->RefreshComponentTickRegistration(Component);
-    }
+	mShouldRenderComponents.Add(Component);
 }
 
 void UWorld::Tick(float deltaTime)
 {
-    RefreshUUIDTickVisibility();
-    {
-        PROFILE_SCOPE("World/ActiveTick");
-        ActiveActors.Tick(deltaTime);
-    }
+	// 전체 Actor/Component 목록을 훑지 않고 실제 갱신 대상만 순회합니다.
+	mTickableComponents.Tick(deltaTime, mTickableComponents.Components.Num());
+	// 숨긴 UUID는 컴포넌트별 조건 검사도 하지 않고 목록 전체를 건너뜁니다.
+	if (FShowFlags::Get().IsEnabled(EShowFlag::UUIDText))
+		mUUIDTickableComponents.Tick(deltaTime, mUUIDTickableComponents.Components.Num());
 
 	if (mbBVHDirty)
 	{
-        PROFILE_SCOPE("World/BVHBuild");
 		mBVH.Release();
 		for (UPrimitiveComponent* primitiveComponent : mPrimitiveComponents)
 		{
@@ -211,48 +277,57 @@ void UWorld::Tick(float deltaTime)
 
 void UWorld::Render(float deltaTime, FRenderCollector& outCollector)
 {
-    {
-        PROFILE_SCOPE("World/CollectNonPrimitive");
-        for (UActorComponent* Component : mNonPrimitiveRenderableComponents) Component->Render(outCollector);
-    }
-    // 목록 순회 전에 옵션을 검사하여 숨겨진 UUID 개수에 비례하는 비용을 없앱니다.
-    if (FShowFlags::Get().IsEnabled(EShowFlag::UUIDText))
-    {
-        PROFILE_SCOPE("World/CollectUUID");
-        for (UActorComponent* Component : mUUIDRenderableComponents) Component->Render(outCollector);
-    }
-    {
-        PROFILE_SCOPE("World/BVHQuery");
-        QueryStack.Empty();
-        VisibleRanges.Empty();
-        if (mBVH.IsValid()) QueryStack.Add(mBVH.GetRootNode());
-        while (!QueryStack.IsEmpty())
-        {
-            FBVHNode* Node = QueryStack.Last();
-            QueryStack.Pop();
-            if (!Node) continue;
-            const int32 Result = outCollector.Frustum.Intersects(Node->BoundingBox);
-            if (Result == -1) continue;
-            if (Result == 1 || Node->IsLeaf()) VisibleRanges.Add(Node->ItemRange);
-            else
-            {
-                QueryStack.Add(Node->Left);
-                QueryStack.Add(Node->Right);
-            }
-        }
-    }
-    {
-        PROFILE_SCOPE("World/CollectPrimitives");
-        // 기존 BVH의 연속 범위를 사용하여 개별 가시 객체 배열을 복사하지 않습니다.
-		for (const auto& Range : VisibleRanges)
+	for (UActorComponent* Component : mNonPrimitiveRenderableComponents)
+	{
+		Component->Render(outCollector);
+	}
+	
+	for (UActorComponent* Component : mShouldRenderComponents)
+	{
+		Component->Render(outCollector);
+	}
+	mShouldRenderComponents.Empty();
+
+	if (FShowFlags::Get().IsEnabled(EShowFlag::Primitive))
+	{
+		if (mBVH.IsValid())
 		{
-			for (int32 I = 0; I < Range.Count; ++I)
+			TArray<FBVHNode*> NodeStack;
+			NodeStack.Add(mBVH.GetRootNode());
+			while (NodeStack.Num() > 0)
 			{
-				mBVH.GetPayload(Range.Offset + I)->Render(outCollector);
+				FBVHNode* CurrentNode = NodeStack.Last();
+				NodeStack.Pop();
+
+				if (CurrentNode == nullptr)
+				{
+					continue;
+				}
+
+				int32 CollisionResult = outCollector.Frustum.Intersects(CurrentNode->BoundingBox);
+				if (CollisionResult == -1)
+				{
+					continue;
+				}
+
+				if (CollisionResult == 1 || CurrentNode->IsLeaf())
+				{
+					for (int32 i = 0; i < CurrentNode->ItemRange.Count; ++i)
+					{
+						UPrimitiveComponent* Object = mBVH.GetPayload(CurrentNode->ItemRange.Offset + i);
+						Object->GetRenderProxy()->Submit();
+					}
+				}
+				else
+				{
+					NodeStack.Add(CurrentNode->Left);
+					NodeStack.Add(CurrentNode->Right);
+				}
 			}
 		}
-    }
-    outCollector.BVH = &mBVH;
+	}
+
+	outCollector.BVH = &mBVH;
 }
 int32 UWorld::getActorIndex(uint32 actorUUID) const
 {

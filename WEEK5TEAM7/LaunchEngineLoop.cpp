@@ -36,6 +36,8 @@
 #include "ShowFlags.h"
 #include "FFrustum.h"
 #include "FInstrumentor.h"
+#include <timeapi.h>
+#pragma comment(lib, "winmm.lib")
 
 #if IS_OBJ_VIEWER
 #include "FObjViewer.h"
@@ -45,6 +47,9 @@ void FEngineLoop::Init(HINSTANCE hInstance, WNDPROC WndProc)
 {
 	PROFILE_BEGIN_SESSION("Engine", "engine-loop-profile.json");
 	PROFILE_FUNCTION();
+
+	timeBeginPeriod(1);
+	SetPriorityClass(GetCurrentProcess(), HIGH_PRIORITY_CLASS);
 
 	// Initialize window infos
 	WCHAR WindowClass[] = L"JungleWindowClass";
@@ -256,7 +261,6 @@ static void RenderPerformanceOverlay(FRenderCollector& RenderCollector, FFrameTi
 			Quad2DInfo.TextureSRV = FontAtlasAsset->GetSRV();
 			Quad2DInfo.TextureFormat = FontAtlasAsset->GetFormat();
 			Quad2DInfo.SubUV = FVector4(SubUVRect.X, SubUVRect.Y, SubUVRect.Width, SubUVRect.Height);
-			Quad2DInfo.BlendMode = ERenderBlendMode::Transparent;
 
 			RenderCollector.AddQuad2DInfo(Quad2DInfo);
 		});
@@ -268,7 +272,6 @@ void FEngineLoop::Tick(bool bPumpMessages)
 
 	if (GInTick) return;
 	GInTick = true;
-	PROFILE_FUNCTION();
 
 	FrameTimer->StartFrame();
 	float deltaTime = FrameTimer->GetDeltaTime();
@@ -539,6 +542,8 @@ void FEngineLoop::End()
 
 		delete mGraphicsManager;
 	}
+
+	timeEndPeriod(1);
 
 	PROFILE_END_SESSION();
 }

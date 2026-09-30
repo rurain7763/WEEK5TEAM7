@@ -471,27 +471,17 @@ public:
 	void BindFrameBuffer();
 	void BindRenderTarget(const TSharedPtr<FRenderTarget2D>& RenderTarget, const TSharedPtr<FDepthStencil>& DepthStencil, bool bClear = true);
 
-	void Render(const TSharedPtr<FRenderPipeline>& Pipeline, UINT NumVertices);
+	void Render(const FRenderPipeline* Pipeline, UINT NumVertices);
 
 	void RenderLines(const TArray<FRenderLineInfo>& Lines);
 
 	void RenderQuad(const FRenderQuadInfo& Info);
 
-	void RenderPrimitive(const TSharedPtr<FRenderPipeline>& Pipeline, Microsoft::WRL::ComPtr<ID3D11Buffer> Buffer, UINT NumVertices);
-	void RenderPrimitive(Microsoft::WRL::ComPtr<ID3D11Buffer> Buffer, UINT NumVertices, const FMatrix& Model);
-	void RenderPrimitive(Microsoft::WRL::ComPtr<ID3D11Buffer> Buffer, UINT NumVertices, const FMatrix& Model, const FVector4& Color);
+	void RenderPrimitive(const FRenderPipeline* Pipeline, ID3D11Buffer* Buffer, UINT NumVertices, bool bShouldBindPipeline = true);
+	void RenderPrimitive(ID3D11Buffer* Buffer, UINT NumVertices, const FMatrix& Model);
+	void RenderPrimitive(ID3D11Buffer* Buffer, UINT NumVertices, const FMatrix& Model, const FVector4& Color);
 	void RenderPrimitiveIndexed(const FRenderInfo& RenderInfo, uint32 StencilRef = 0);
-	void RenderPrimitiveIndexed(const TSharedPtr<FRenderPipeline>& Pipeline, const FRenderInfo& RenderInfo, uint32 StencilRef = 0, int32 BatchIndex = -1);
-
-    // 정렬 완료 후 한 번 업로드하고, 이후 Draw에서는 해당 인덱스의 상수 구간을 선택합니다.
-    bool UploadMeshConstants(const TArray<FRenderInfo>& RenderInfos);
-    bool IsMeshConstantBatchSupported() const { return MeshConstantBatch.IsSupported(); }
-    uint32 GetMeshConstantUploadMapCount() const { return MeshConstantBatch.GetUploadMapCount(); }
-    inline static bool bBatchMeshConstants = false;
-    inline static bool bReuseMeshBindings = true;
-    // 이 호출 안에서만 연속된 파이프라인·텍스처 바인딩을 재사용합니다. 다른 패스로 넘어가면 재사용하지 않습니다.
-    void RenderMeshes(const TArray<FRenderInfo>& RenderInfos, const TSharedPtr<FRenderPipeline>& DefaultPipeline, const FMatrix& ViewProjection);
-    uint32 GetMeshPipelineApplyCount() const { return MeshPipelineApplyCount; }
+	void RenderPrimitiveIndexed(const FRenderPipeline* Pipeline, const FRenderInfo& RenderInfo, uint32 StencilRef = 0, bool bShouldBindPipeline = true);
 
 	void RenderQuad2D(const FRenderQuad2DInfo& Info);
 	void RenderLine2D(const FVector2& Start, const FVector2& End, const FVector4& Color, float Thickness = 1.0f);
@@ -533,19 +523,13 @@ private:
 
 	void CreateDepthStencilBuffer();
 
-	void BindPipeline(const TSharedPtr<FRenderPipeline>& Pipeline, uint32 StencilRef = 0, bool bBatchConstants = false);
+	void BindPipeline(const FRenderPipeline* Pipeline, uint32 StencilRef = 0);
 	void BindVertexBuffer(ID3D11Buffer* VertexBuffer, UINT Stride);
 	void BindIndexBuffer(ID3D11Buffer* IndexBuffer);
-    void DrawMeshGeometry(const FRenderInfo& RenderInfo, uint32 Stride);
-    void BindMeshConstants(uint32 Index);
 
 private:
     ID3D11Device* Device = nullptr;
     ID3D11DeviceContext* DeviceContext = nullptr;
-    FConstantBufferBatch MeshConstantBatch;
-    // 일반 바인딩으로 돌아갈 때 b0의 구간 오프셋까지 초기화해야 합니다.
-    bool bObjectConstantsRanged = false;
-    uint32 MeshPipelineApplyCount = 0;
     IDXGISwapChain* SwapChain = nullptr;
 
 	FSamplerStatePool SamplerStatePool;

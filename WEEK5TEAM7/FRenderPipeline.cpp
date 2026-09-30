@@ -24,6 +24,7 @@ FRenderPipeline::~FRenderPipeline()
 
 void FRenderPipeline::Release()
 {
+	++BindingVersion;
 	for (int32 Index = 0; Index < ViewModeCount; ++Index)
 	{
 		if (RasterizerStates[Index])
@@ -75,6 +76,7 @@ static D3D11_FILL_MODE GetFillModeForViewMode(EViewModeIndex ViewMode)
 
 void FRenderPipeline::SetRasterRizerState(D3D11_CULL_MODE CullMode, int32 DepthBias, std::initializer_list<EViewModeIndex> ViewModes)
 {
+	++BindingVersion;
 	for (int32 Index = 0; Index < ViewModeCount; ++Index)
 	{
 		if (RasterizerStates[Index])
@@ -127,24 +129,34 @@ ID3D11RasterizerState* FRenderPipeline::GetRasterizerState(EViewModeIndex ViewMo
 
 void FRenderPipeline::SetDepthStencilState(bool bEnableDepthTest, bool bEnableDepthWrite)
 {
+	++BindingVersion;
 	FDepthStencilStateKey Key{ bEnableDepthTest, bEnableDepthWrite, false, D3D11_COMPARISON_ALWAYS, D3D11_STENCIL_OP_KEEP };
 	DepthStencilState = DepthStencilStatePool->GetOrCreateDepthStencilState(Device, Key);
 }
 
 void FRenderPipeline::SetDepthStencilState(bool bEnableDepthTest, bool bEnableDepthWrite, D3D11_COMPARISON_FUNC StencilFunc, D3D11_STENCIL_OP StencilPassOp)
 {
+	++BindingVersion;
 	FDepthStencilStateKey Key{ bEnableDepthTest, bEnableDepthWrite, true, StencilFunc, StencilPassOp };
 	DepthStencilState = DepthStencilStatePool->GetOrCreateDepthStencilState(Device, Key);
 }
 
 void FRenderPipeline::SetBlendState(ERenderBlendMode BlendMode, bool bColorWriteEnable)
 {
+	++BindingVersion;
 	FBlendStateKey Key{ BlendMode, bColorWriteEnable };
 	BlendState = BlendStatePool->GetOrCreateBlendState(Device, Key);
 }
 
+void FRenderPipeline::SetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY Topology)
+{
+	++BindingVersion;
+	PrimitiveTopology = Topology;
+}
+
 void FRenderPipeline::SetShader(const FString& ShaderPath)
 {
+	++BindingVersion;
 	std::wstring WShaderPath = Utf2Wide(ShaderPath);
 
 	ID3DBlob* VertexShaderCSO;
@@ -173,6 +185,7 @@ void FRenderPipeline::SetShader(const FString& ShaderPath)
 
 void FRenderPipeline::SetShaderResource(uint32 Slot, Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> SRV)
 {
+	++BindingVersion;
 	if (Slot >= ShaderResourceViews.Num())
 	{
 		ShaderResourceViews.SetNum(Slot + 1);
@@ -188,6 +201,7 @@ void FRenderPipeline::SetShaderResource(uint32 Slot, Microsoft::WRL::ComPtr<ID3D
 
 void FRenderPipeline::ClearShaderResource()
 {
+	++BindingVersion;
 	if (DeviceContext && ShaderResourceViews.Num() > 0)
 	{
 		ID3D11ShaderResourceView* nullSRVs[16] = { nullptr };
@@ -199,6 +213,7 @@ void FRenderPipeline::ClearShaderResource()
 
 void FRenderPipeline::SetSamplerState(uint32 Slot, D3D11_FILTER Filter, D3D11_TEXTURE_ADDRESS_MODE AddressU, D3D11_TEXTURE_ADDRESS_MODE AddressV)
 {
+	++BindingVersion;
 	if (Slot >= SamplerStates.Num())
 	{
 		SamplerStates.SetNum(Slot + 1);
@@ -212,5 +227,6 @@ void FRenderPipeline::SetSamplerState(uint32 Slot, D3D11_FILTER Filter, D3D11_TE
 
 void FRenderPipeline::ClearSamplerState()
 {
+	++BindingVersion;
 	SamplerStates.Empty();
 }

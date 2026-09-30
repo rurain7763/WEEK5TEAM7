@@ -57,7 +57,6 @@ public:
 	void UpdateProjectionTransition(float deltaTime);
 
 	inline FRenderCollector& GetRenderCollector() { return mRenderCollector; }
-	inline TArray<FRenderInfo>& GetRenderInfos() { return mRenderCollector.RenderInfos; }
 
 	inline int32 GetGridGap() { return GridGap; }
 	void SetGridGap(int32 GridGap);

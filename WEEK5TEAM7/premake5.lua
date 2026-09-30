@@ -15,6 +15,10 @@ project "WEEK5TEAM7"
         "../Assets/**",
     }
 
+    removefiles {
+        "nvapi/Sample_Code/**",
+    }
+
     -- 에셋은 탐색기에 보이기만 하고 빌드에는 걸리지 않게 한다
     vpaths {
         ["Assets/*"] = "../Assets/**",
@@ -27,6 +31,7 @@ project "WEEK5TEAM7"
 
     includedirs {
         ".",
+        "nvapi",
         "ImGui",
         "Json",
         "%{wks.location}/Vendor/include",
@@ -47,7 +52,8 @@ project "WEEK5TEAM7"
         "imm32",
         "user32",
         "comdlg32",
-        "Ole32"
+        "Ole32",
+	"nvapi64"
     }
 
     filter "configurations:Debug"
@@ -75,6 +81,16 @@ project "WEEK5TEAM7"
         links {
             "freetype" 
         }
+
+    filter "platforms:x64"
+        libdirs { "nvapi/amd64" }
+        links { "nvapi64" }
+
+    filter "platforms:x86"
+        libdirs { "nvapi/x86" }
+        links { "nvapi" }
+
+    filter {}
 
 
 

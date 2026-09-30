@@ -287,6 +287,7 @@ private:
         }
         struct FChildHit { uint32 Index; float Enter; };
         FChildHit Hits[8];
+
 #if 1
         uint32 Count = 0;
 

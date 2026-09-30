@@ -74,6 +74,7 @@ public:
 	uint32 GetVertexCount(uint32 LOD = 0) const;
 	ID3D11Buffer* GetIndexBuffer(uint32 LOD = 0) const;
 	uint32 GetIndexCount(uint32 LOD = 0) const;
+
 	inline uint32 GetSubMeshCount() const { return Sections.Num(); }
 	inline const FAABB& GetLocalBoundingBox() const { return BoundingBox; }
 	inline const TArray<FStaticMeshSection>& GetSections(uint32 LOD = 0) const { const auto* G = GetGeneratedLOD(LOD); return G ? G->Data.Sections : Sections; }
