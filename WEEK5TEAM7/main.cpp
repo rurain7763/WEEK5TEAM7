@@ -1,4 +1,4 @@
-﻿#include <windows.h>
+#include <windows.h>
 #include <nvapi.h>
 #include <NvApiDriverSettings.h>
 #include "NvapiHelpers.h"
@@ -10,6 +10,7 @@
 #include "Object.h"
 #include "EngineStatics.h"
 
+//#pragma comment(linker, "/MANIFESTUAC:\"level='requireAdministrator' uiAccess='false'\"")
 extern "C" {
 	__declspec(dllexport) DWORD NvOptimusEnablement = 0x00000001;
 	__declspec(dllexport) int AmdPowerXpressRequestHighPerformance = 1;
@@ -149,21 +150,52 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	NvAPI_Status status = NvAPI_Initialize();
 	if (status == NVAPI_OK)
 	{
-		status = nvapi_example::WriteDwordSettingForCurrentExecutable(
-			PREFERRED_PSTATE_STRING,
-			PREFERRED_PSTATE_PREFER_MAX);
-	}
-
-	if (status != NVAPI_OK)
-	{
-		NvAPI_ShortString errorDesc = { 0 };
-		NvAPI_GetErrorMessage(status, errorDesc);
-		char debugMsg[256];
-		sprintf_s(debugMsg, "[NVAPI] WriteDwordSetting failed! Code: %d (%s)\n", status, errorDesc);
-		OutputDebugStringA(debugMsg);
-		if (IsDebuggerPresent())
+		auto ApplySetting = [](const char* name, NvAPI_Status res) {
+			if (res != NVAPI_OK) {
+				NvAPI_ShortString errDesc = { 0 };
+				NvAPI_GetErrorMessage(res, errDesc);
+				char buf[256];
+				sprintf_s(buf, "[NVAPI FAIL] %s failed! Code: %d (%s)\n", name, res, errDesc);
+				OutputDebugStringA(buf);
+			}
+			else {
+				char buf[256];
+				sprintf_s(buf, "[NVAPI OK] %s applied.\n", name);
+				OutputDebugStringA(buf);
+			}
+			};
+		// 1. 최고 클럭 고정
+		ApplySetting("PSTATE", nvapi_example::WriteDwordSettingForCurrentExecutable(
+			PREFERRED_PSTATE_STRING, PREFERRED_PSTATE_PREFER_MAX));
+		// 2. 드라이버 워커 스레드 즉시 활성화
+		ApplySetting("OGL_THREAD_CONTROL", nvapi_example::WriteDwordSettingForCurrentExecutable(
+			OGL_THREAD_CONTROL_STRING, OGL_THREAD_CONTROL_ENABLE));
+		// 3. 사전 렌더링 프레임 2로 확장
+		ApplySetting("PRERENDERLIMIT", nvapi_example::WriteDwordSettingForCurrentExecutable(
+			PRERENDERLIMIT_STRING, 2));
+		// 4. PowerThrottle 해제 (0 = DISABLED 스로틀링 해제!)
+		ApplySetting("PowerThrottle(OFF)", nvapi_example::WriteDwordSettingByIdForCurrentExecutable(
+			0x00AE785C, 0));
+		// 5. 외장 GPU 강제 (Optimus Shim)
+		ApplySetting("SHIM_MCCOMPAT", nvapi_example::WriteDwordSettingByIdForCurrentExecutable(
+			0x10F9DC80, 1));
+		ApplySetting("SHIM_RENDERING_MODE", nvapi_example::WriteDwordSettingByIdForCurrentExecutable(
+			0x10F9DC81, 1));
+		// 6. Perf Strategy - Load Balance Mode 강제 활성화 (0x008F14F5)
+		ApplySetting("PerfStrategy_LoadBalance", nvapi_example::WriteDwordSettingByIdForCurrentExecutable(
+			0x008F14F5, 1));
+		// 7. PS Reduction Load Balanced 강제 활성화 (0x00DB834A)
+		ApplySetting("PSReduction_LoadBalance", nvapi_example::WriteDwordSettingByIdForCurrentExecutable(
+			0x00DB834A, 1));
+		// ----------------------------------------------------
+		// [검증] 드라이버 DB에 실제 저장된 값 다시 읽어오기
+		// ----------------------------------------------------
+		NvU32 checkVal = 0;
+		if (nvapi_example::ReadDwordSettingByIdForCurrentExecutable(0x008F14F5, &checkVal) == NVAPI_OK)
 		{
-			__debugbreak();
+			char buf[256];
+			sprintf_s(buf, "[NVAPI VERIFY] PerfStrategy_LoadBalance actual value in driver: %u\n", checkVal);
+			OutputDebugStringA(buf);
 		}
 	}
 	// nvAPI <<<<<<<<<<<<<<<<<<<<<<<

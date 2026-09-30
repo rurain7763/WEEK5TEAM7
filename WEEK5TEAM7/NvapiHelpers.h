@@ -41,6 +41,20 @@ NvAPI_Status ReadDwordSettingForCurrentExecutable(
 NvAPI_Status WriteDwordSettingForCurrentExecutable(
     const wchar_t* settingName,
     NvU32 value);
+NvAPI_Status WriteDwordSettingByIdForExecutable(
+    const wchar_t* executablePath,
+    NvU32 settingId,
+    NvU32 value);
+NvAPI_Status WriteDwordSettingByIdForCurrentExecutable(
+    NvU32 settingId,
+    NvU32 value);
+NvAPI_Status ReadDwordSettingByIdForExecutable(
+    const wchar_t* executablePath,
+    NvU32 settingId,
+    NvU32* value);
+NvAPI_Status ReadDwordSettingByIdForCurrentExecutable(
+    NvU32 settingId,
+    NvU32* value);
 
     NvAPI_Status PrintGpuInfo();
     NvAPI_Status PrintSliState(ID3D11Device* device);

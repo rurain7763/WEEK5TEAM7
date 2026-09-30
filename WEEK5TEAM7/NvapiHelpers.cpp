@@ -307,6 +307,73 @@ NvAPI_Status WriteDwordSettingForCurrentExecutable(
         executablePath.c_str(), settingName, value);
 }
 
+NvAPI_Status WriteDwordSettingByIdForExecutable(
+    const wchar_t* executablePath,
+    NvU32 settingId,
+    NvU32 value) {
+    if (!executablePath) return NVAPI_INVALID_ARGUMENT;
+
+    DrsSession session;
+    if (session.Status() != NVAPI_OK) return session.Status();
+
+    NvDRSProfileHandle profile = nullptr;
+    NvAPI_Status status = FindProfileForExecutable(session.Get(), executablePath, &profile);
+    if (status != NVAPI_OK) return status;
+
+    NVDRS_SETTING setting{};
+    setting.version = NVDRS_SETTING_VER;
+    setting.settingId = settingId;
+    setting.settingType = NVDRS_DWORD_TYPE;
+    setting.u32CurrentValue = value;
+
+    status = NvAPI_DRS_SetSetting(session.Get(), profile, &setting);
+    if (status != NVAPI_OK) return status;
+    return NvAPI_DRS_SaveSettings(session.Get());
+}
+
+NvAPI_Status WriteDwordSettingByIdForCurrentExecutable(
+    NvU32 settingId,
+    NvU32 value) {
+    std::wstring executablePath;
+    const NvAPI_Status status = GetCurrentExecutablePath(executablePath);
+    if (status != NVAPI_OK) return status;
+    return WriteDwordSettingByIdForExecutable(
+        executablePath.c_str(), settingId, value);
+}
+
+NvAPI_Status ReadDwordSettingByIdForExecutable(
+    const wchar_t* executablePath,
+    NvU32 settingId,
+    NvU32* value) {
+    if (!executablePath || !value) return NVAPI_INVALID_ARGUMENT;
+
+    DrsSession session;
+    if (session.Status() != NVAPI_OK) return session.Status();
+
+    NvDRSProfileHandle profile = nullptr;
+    NvAPI_Status status = FindProfileForExecutable(session.Get(), executablePath, &profile);
+    if (status != NVAPI_OK) return status;
+
+    NVDRS_SETTING setting{};
+    setting.version = NVDRS_SETTING_VER;
+    status = NvAPI_DRS_GetSetting(session.Get(), profile, settingId, &setting);
+    if (status != NVAPI_OK) return status;
+    if (setting.settingType != NVDRS_DWORD_TYPE) return NVAPI_INVALID_ARGUMENT;
+
+    *value = setting.u32CurrentValue;
+    return NVAPI_OK;
+}
+
+NvAPI_Status ReadDwordSettingByIdForCurrentExecutable(
+    NvU32 settingId,
+    NvU32* value) {
+    std::wstring executablePath;
+    const NvAPI_Status status = GetCurrentExecutablePath(executablePath);
+    if (status != NVAPI_OK) return status;
+    return ReadDwordSettingByIdForExecutable(
+        executablePath.c_str(), settingId, value);
+}
+
 // Print memory, temperature, and current graphics/memory clocks for NVIDIA GPUs.
 NvAPI_Status PrintGpuInfo() {
     NvPhysicalGpuHandle gpus[NVAPI_MAX_PHYSICAL_GPUS]{};
