@@ -197,8 +197,7 @@ void FEngineLoop::InitAssetManager()
 	mAssetManager->RegisterAsset(FontAtlasAsset);
 }
 
-
-static void RenderPerformanceOverlay(FRenderCollector& RenderCollector, FFrameTimer* FrameTimer, float ViewportWidth, float ViewportHeight)
+void FEngineLoop::RenderPerformanceOverlay(FRenderCollector& RenderCollector, FFrameTimer* FrameTimer, float ViewportWidth, float ViewportHeight)
 {
 	PROFILE_FUNCTION();
 
@@ -220,7 +219,6 @@ static void RenderPerformanceOverlay(FRenderCollector& RenderCollector, FFrameTi
 	int ViewHeight = static_cast<int>(ViewportHeight);
 	float FPS = FrameTimer ? FrameTimer->GetFPS() : 0.0f;
 	float FrameTimeMs = FrameTimer ? (FrameTimer->GetDeltaTime() * 1000.0f) : 0.0f;
-	auto PickStat = FInstrumentor::Get().GetRealtimeStats("MousePicking");
 
 	const bool bCullingEnabled = FShowFlags::Get().IsEnabled(EShowFlag::FrustumCulling);
 	const bool bOcclusionEnabled = FShowFlags::Get().IsEnabled(EShowFlag::OcclusionCulling);
@@ -240,9 +238,9 @@ static void RenderPerformanceOverlay(FRenderCollector& RenderCollector, FFrameTi
 		FPS, FrameTimeMs,
 		bCullingEnabled ? L"ON" : L"OFF",
 		bOcclusionEnabled ? L"ON" : L"OFF", CulledByHiZ, TotalObjects,
-		PickStat.LastDurationMs,
-		PickStat.CallCount,
-		PickStat.TotalDurationMs
+		LastMousePickingElapsedMs,
+		MousePickingTryCount,
+		TotalMousePickingElapsedMs
 	);
 
 	// 텍스트 전체의 픽셀 Width Height
@@ -301,68 +299,311 @@ void FEngineLoop::Tick(bool bPumpMessages)
 			mGraphicsManager->OnResize(WindowApplication.PendingWidth, WindowApplication.PendingHeight);
 			WindowApplication.bPendingResize = false;
 		}
+
+		if (WindowApplication.Input.WasPressed(VK_ESCAPE))
+		{
+			bEditorMode = !bEditorMode;
+		}
 	}
 
+	// Run after the world tick so GPU culling uses the updated bounds.
+	const auto UpdateOcclusionFrame = [this]()
 	{
-		PROFILE_SCOPE("Frame/SceneTick");
-		// BVH 방식과 같은 첫 렌더 뷰를 기준으로 모든 메시의 Tick에서 LOD를 계산합니다.
-		const int32 LODViewportIndex = mEditorLayout.bIsSplitView ? 0 : mEditorLayout.MaximizedViewportIndex;
-		mSceneManager->GetCurrentWorld()->SetLODViewOrigin(
-			mViewports[LODViewportIndex].Client->GetCamera().Transform.GetLocation());
-		mSceneManager->Tick(deltaTime);
-	}
+		UWorld* CurrentWorld = mSceneManager ? mSceneManager->GetCurrentWorld() : nullptr;
+		if (CurrentWorld && CurrentWorld->IsAABBsDirty())
+		{
+			FHiZOcclusionManager::Get().UpdateAABBs(
+				mGraphicsManager->GetRenderer()->GetDevice(),
+				mGraphicsManager->GetRenderer()->GetDeviceContext(),
+				CurrentWorld->GetCachedEntryAABBs()
+			);
+			CurrentWorld->SetAABBsClean();
+		}
 
+		// Read back previous results after any AABB buffer updates.
+		FHiZOcclusionManager::Get().BeginFrame(mGraphicsManager->GetRenderer()->GetDeviceContext());
+	};
+
+	if (bEditorMode)
 	{
-		PROFILE_SCOPE("Frame/ProjectionTransition");
-		mGraphicsManager->UpdateProjectionTransition(deltaTime);
-	}
+		{
+			PROFILE_SCOPE("Frame/SceneTick");
+			// BVH 방식과 같은 첫 렌더 뷰를 기준으로 모든 메시의 Tick에서 LOD를 계산합니다.
+			const int32 LODViewportIndex = mEditorLayout.bIsSplitView ? 0 : mEditorLayout.MaximizedViewportIndex;
+			mSceneManager->GetCurrentWorld()->SetLODViewOrigin(
+				mViewports[LODViewportIndex].Client->GetCamera().Transform.GetLocation());
+			mSceneManager->Tick(deltaTime);
+		}
+		UpdateOcclusionFrame();
 
-	const float NearZ = 0.1f;
-	const float FarZ = 2000.0f;
-	const bool bIsSplit = mEditorLayout.bIsSplitView;
-	const int32 ActiveIndex = mEditorLayout.MaximizedViewportIndex;
-	const int32 ViewportCount = mEditorLayout.bIsSplitView ? 4 : 1;
+		{
+			PROFILE_SCOPE("Frame/ProjectionTransition");
+			mGraphicsManager->UpdateProjectionTransition(deltaTime);
+		}
 
-	if (bIsSplit)
-	{
-		for (int32 i = 0;i < 4;++i)
-			mViewports[i].Window = mEditorLayout.ViewportWindows[i];
+		const float NearZ = 0.1f;
+		const float FarZ = 2000.0f;
+		const bool bIsSplit = mEditorLayout.bIsSplitView;
+		const int32 ActiveIndex = mEditorLayout.MaximizedViewportIndex;
+		const int32 ViewportCount = mEditorLayout.bIsSplitView ? 4 : 1;
+
+		if (bIsSplit)
+		{
+			for (int32 i = 0;i < 4;++i)
+			{
+				mViewports[i].Window = mEditorLayout.ViewportWindows[i];
+			}
+		}
+		else
+		{
+			mViewports[ActiveIndex].Window = mEditorLayout.RootWindow;
+		}
+
+		mGraphicsManager->UpdateGpuRenderTime();
+		if (ConsoleWindow::Get().bShowStatRender)
+		{
+			mGraphicsManager->BeginGpuRenderTimer();
+		}
+
+		mGraphicsManager->GetRenderer()->ResetDrawCallCount();
+
+		{
+			PROFILE_SCOPE("Frame/Viewports");
+			for (int32 i = 0; i < ViewportCount; ++i)
+			{
+				PROFILE_SCOPE("Viewport");
+				int32 CurrentIndex = bIsSplit ? i : ActiveIndex;
+				FEditorViewport* CurrentViewport = &mViewports[CurrentIndex];
+
+				const FRect& ViewportRect = CurrentViewport->Window->Rect;
+
+				FCamera& Camera = CurrentViewport->Client->GetCamera();
+				Camera.mAspect = ViewportRect.Width / ViewportRect.Height;
+				Camera.mNear = NearZ;
+				Camera.mFar = FarZ;
+
+				RenderCollector.Clear();
+				RenderCollector.Camera = &Camera;
+
+				bool bIsOrtho = CurrentViewport->Client->IsOrtho();
+				float CurrentRatio = bIsOrtho ? 0.0f : mGraphicsManager->GetPerspectiveRatio();
+
+				// 뷰포트가 직교 타입이면 현재 -5000 ~ 5000으로 보이게 하드코딩, 나중에 카메라 위치에 따라 랜더 거리를 늘려야 함
+				Camera.mNear = bIsOrtho ? -5000.0f : Camera.mNear;
+				Camera.mFar = bIsOrtho ? 5000.0f : Camera.mFar;
+
+				{
+					PROFILE_SCOPE("Viewport/Update");
+					CurrentViewport->Client->Update(deltaTime, CurrentRatio, RenderCollector);
+				}
+
+				FMatrix ViewProjection = Camera.GetViewMatrix() * Camera.GetUnifiedProjectionMatrix(Camera.mOrthoDistance, CurrentRatio);
+				FMatrix InvViewProjection = Camera.GetInverseUnifiedProjectionMatrix(Camera.mOrthoDistance, CurrentRatio) * Camera.GetViewMatrix().AffineInverse();
+				RenderCollector.Frustum = FFrustum::Create(ViewProjection);
+
+				const FInputState& Input = WindowApplication.Input;
+				bool bIsAssetDragging = (ImGui::GetDragDropPayload() != nullptr);
+				RenderCollector.bNeedPickTargets = CurrentViewport->Client->IsActive() && Input.WasPressed(VK_LBUTTON) && !CurrentViewport->Client->mGizmo.IsDragging() && !CurrentViewport->Client->mGizmo.IsMouseOverHandle() && !bIsAssetDragging;
+
+				{
+					PROFILE_SCOPE("Viewport/Collect");
+					mSceneManager->Render(deltaTime, RenderCollector);
+				}
+
+				// 마우스 피킹 처리
+				// 뷰포트가 ImGui 창이 되면서 그 위에서는 io.WantCaptureMouse 가 항상 true 다.
+				// 그대로 두면 씬을 클릭해도 선택이 되지 않는다. 카메라/기즈모와 같은 기준을 쓴다.
+				{
+					if (RenderCollector.bNeedPickTargets)
+					{
+						AActor* HitActor = nullptr;
+						{
+							PROFILE_SCOPE("MousePicking");
+							auto StartTimepoint = std::chrono::steady_clock::now();
+
+							HitActor = CurrentViewport->Client->PerformMousePicking(CurrentViewport->Window->Rect, CurrentRatio, RenderCollector);
+
+							auto endTimepoint = std::chrono::steady_clock::now();
+							auto highResStart = FloatingPointMicroseconds{ StartTimepoint.time_since_epoch() };
+							auto elapsedTime = std::chrono::time_point_cast<std::chrono::microseconds>(endTimepoint).time_since_epoch() - std::chrono::time_point_cast<std::chrono::microseconds>(StartTimepoint).time_since_epoch();
+
+							LastMousePickingElapsedMs = elapsedTime.count() * 0.001f;
+							MousePickingTryCount++;
+							TotalMousePickingElapsedMs += LastMousePickingElapsedMs;
+						}
+
+						if (HitActor)
+						{
+							mSceneManager->SetSelectedActor(HitActor);
+						}
+						else
+						{
+							mSceneManager->ResetSelectedActor();
+						}
+					}
+				}
+
+				// 선택된 액터 처리
+				TArray<UPrimitiveComponent*> HighlightedComponents;
+
+				AActor* SelectedActor = mSceneManager->GetSelectedActor();
+				{
+					PROFILE_SCOPE("Viewport/SelectionAndGizmo");
+					if (SelectedActor)
+					{
+						FTransform Transform = SelectedActor->GetTransform();
+
+						for (UActorComponent* Component : SelectedActor->GetComponents())
+						{
+							UPrimitiveComponent* PrimitiveComponent = Component->Cast<UPrimitiveComponent>();
+							if (PrimitiveComponent)
+							{
+								// 선택된 액터의 AABB를 화면에 표시
+								const FAABB& AABB = PrimitiveComponent->GetBoundingBox();
+
+								AABB.ForEachCornerLines([&RenderCollector](const FVector& Start, const FVector& End) {
+									FVector4 WorldStart = FVector4(Start, 1.f);
+									FVector4 WorldEnd = FVector4(End, 1.f);
+
+									FRenderLineInfo LineInfo;
+									LineInfo.Start = WorldStart.ToVec3();
+									LineInfo.End = WorldEnd.ToVec3();
+									LineInfo.Color = FVector4(1.f, 0.f, 0.f, 1.f); // 빨간색
+									LineInfo.Thickness = 5.0f;
+
+									RenderCollector.LineInfos.Add(LineInfo);
+									});
+
+								HighlightedComponents.Add(PrimitiveComponent);
+							}
+
+							// 선택된 액터의 컴포넌트 시각화
+							FComponentVisualizer* Visualizer = mComponentVisualizerManager->FindVisualizer(Component->GetClass());
+							if (Visualizer)
+							{
+								Visualizer->VisualizeComponent(Component, RenderCollector);
+							}
+						}
+
+						CurrentViewport->Client->mGizmo.Tick(SelectedActor, CurrentViewport->Window->Rect, CurrentViewport->Client->IsActive(), InvViewProjection);
+					}
+				}
+
+				//Render Threads
+				{
+					PROFILE_SCOPE("Viewport/Render");
+					CurrentViewport->Viewport->Resize(*mGraphicsManager->GetRenderer(), ViewportRect.Width, ViewportRect.Height);
+					mGraphicsManager->Prepare(&CurrentViewport->Client->mCamera, ViewportRect.Width, ViewportRect.Height, *CurrentViewport->Viewport, CurrentViewport->Client->GetViewMode(), CurrentViewport->Client->GetViewportType());
+					mGraphicsManager->GetRenderer()->BindRenderTarget(CurrentViewport->Viewport->RenderTarget, CurrentViewport->Viewport->DepthStencil);
+					mGraphicsManager->RenderHighLight(HighlightedComponents);
+					if (CurrentViewport->Client->IsActive() || !bIsSplit)
+					{
+						RenderPerformanceOverlay(RenderCollector, FrameTimer, ViewportRect.Width, ViewportRect.Height);
+					}
+					mGraphicsManager->Render();
+
+					CurrentViewport->Client->mGizmo.Render(SelectedActor, CurrentViewport->Client->mCamera.Transform.GetLocation(), CurrentViewport->Window->Rect, ViewProjection, CurrentViewport->Client->IsOrtho(), CurrentViewport->Client->GetCamera().mOrthoDistance);
+				}
+			}
+		}
+
+		mGraphicsManager->EndGpuRenderTimer();
+
+		FGuiReference GuiReference;
+		GuiReference.FrameTimer = FrameTimer;
+		GuiReference.SceneManager = mSceneManager;
+		GuiReference.GraphicsManager = mGraphicsManager;
+		GuiReference.FileManager = mFileManager;
+		GuiReference.AssetManager = mAssetManager;
+		GuiReference.EditorLayout = &mEditorLayout;
+		if (bIsSplit)
+		{
+			GuiReference.EditorCamera = &GetMainViewport().Client->GetCamera();
+			GuiReference.ViewportClient = GetMainViewport().Client.get();
+			GuiReference.Viewports = mViewports;
+			GuiReference.ViewportCount = MaxViewportCount;
+		}
+		else
+		{
+			GuiReference.EditorCamera = &mViewports[MainViewportIndex].Client->GetCamera();
+			GuiReference.ViewportClient = mViewports[ActiveIndex].Client.get();
+			GuiReference.Viewports = &mViewports[ActiveIndex];
+			GuiReference.ViewportCount = 1;
+		}
+
+		{
+			PROFILE_SCOPE("Frame/EditorUI");
+			mEditorUIManager->Render(GuiReference);
+
+#if IS_OBJ_VIEWER
+			mObjViewer.UpdateObjGUI(*mGraphicsManager);
+#endif
+			// 나중에 Ui 매니저에서 관리하도록 분리 필요
+			ImGui::SetMouseCursor(mMouseCursor);
+
+			FRect ViewportRect;
+			ViewportRect.X = mEditorUIManager->GetViewportX();
+			ViewportRect.Y = mEditorUIManager->GetViewportY();
+			ViewportRect.Width = mEditorUIManager->GetViewportWidth();
+			ViewportRect.Height = mEditorUIManager->GetViewportHeight();
+			mEditorLayout.Resize(ViewportRect);
+		}
+
+		{
+			PROFILE_SCOPE("Frame/ImGuiSubmit");
+			mGraphicsManager->GetRenderer()->BindFrameBuffer();
+
+			ImGui::Render();
+			ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
+		}
 	}
 	else
 	{
-		mViewports[ActiveIndex].Window = mEditorLayout.RootWindow;
-	}
+		URenderer* Renderer = mGraphicsManager->GetRenderer();
 
-	mGraphicsManager->UpdateGpuRenderTime();
-	if (ConsoleWindow::Get().bShowStatRender)
-	{
-		mGraphicsManager->BeginGpuRenderTimer();
-	}
-
-	mGraphicsManager->GetRenderer()->ResetDrawCallCount();
-
-	// Check if World AABBs are dirty and update GPU StructuredBuffer
-	UWorld* CurrentWorld = mSceneManager ? mSceneManager->GetCurrentWorld() : nullptr;
-	if (CurrentWorld && CurrentWorld->IsAABBsDirty())
-	{
-		FHiZOcclusionManager::Get().UpdateAABBs(
-			mGraphicsManager->GetRenderer()->GetDevice(),
-			mGraphicsManager->GetRenderer()->GetDeviceContext(),
-			CurrentWorld->GetCachedEntryAABBs()
-		);
-		CurrentWorld->SetAABBsClean();
-	}
-
-	// Begin frame: read back previous frame's GPU culling results (zero-stall)
-	FHiZOcclusionManager::Get().BeginFrame(mGraphicsManager->GetRenderer()->GetDeviceContext());
-
-	{
-		PROFILE_SCOPE("Frame/Viewports");
-		for (int32 i = 0; i < ViewportCount; ++i)
+		static TSharedPtr<FEditorViewport> MainViewport;
+		if (!MainViewport)
 		{
+			MainViewport = MakeShared<FEditorViewport>();
+			MainViewport->Window = mEditorLayout.RootWindow;
+			MainViewport->Viewport = MakeShared<FViewport>();
+		}
+
+		const int32 CameraIndex = mEditorLayout.bIsSplitView ? MainViewportIndex : mEditorLayout.MaximizedViewportIndex;
+		MainViewport->Window->SetRect(FRect{ 0, 0, (float)Renderer->GetWidth(), (float)Renderer->GetHeight() });
+		MainViewport->Client = mViewports[CameraIndex].Client;
+		MainViewport->Viewport->RenderTarget = Renderer->GetFrameBuffer();
+		MainViewport->Viewport->DepthStencil = Renderer->GetDepthStencilBuffer();
+
+		{
+			PROFILE_SCOPE("Frame/SceneTick");
+			// BVH 방식과 같은 첫 렌더 뷰를 기준으로 모든 메시의 Tick에서 LOD를 계산합니다.
+			mSceneManager->GetCurrentWorld()->SetLODViewOrigin(MainViewport->Client->GetCamera().Transform.GetLocation());
+			mSceneManager->Tick(deltaTime);
+		}
+		UpdateOcclusionFrame();
+
+		{
+			PROFILE_SCOPE("Frame/ProjectionTransition");
+			mGraphicsManager->UpdateProjectionTransition(deltaTime);
+		}
+
+		const float NearZ = 0.1f;
+		const float FarZ = 2000.0f;
+
+		mGraphicsManager->UpdateGpuRenderTime();
+		if (ConsoleWindow::Get().bShowStatRender)
+		{
+			mGraphicsManager->BeginGpuRenderTimer();
+		}
+
+		mGraphicsManager->GetRenderer()->ResetDrawCallCount();
+
+		{
+			PROFILE_SCOPE("Frame/Viewports");
 			PROFILE_SCOPE("Viewport");
-			int32 CurrentIndex = bIsSplit ? i : ActiveIndex;
-			FEditorViewport* CurrentViewport = &mViewports[CurrentIndex];
+
+			FEditorViewport* CurrentViewport = MainViewport.get();
 
 			const FRect& ViewportRect = CurrentViewport->Window->Rect;
 
@@ -408,7 +649,17 @@ void FEngineLoop::Tick(bool bPumpMessages)
 					AActor* HitActor = nullptr;
 					{
 						PROFILE_SCOPE("MousePicking");
+						auto StartTimepoint = std::chrono::steady_clock::now();
+
 						HitActor = CurrentViewport->Client->PerformMousePicking(CurrentViewport->Window->Rect, CurrentRatio, RenderCollector);
+
+						auto endTimepoint = std::chrono::steady_clock::now();
+						auto highResStart = FloatingPointMicroseconds{ StartTimepoint.time_since_epoch() };
+						auto elapsedTime = std::chrono::time_point_cast<std::chrono::microseconds>(endTimepoint).time_since_epoch() - std::chrono::time_point_cast<std::chrono::microseconds>(StartTimepoint).time_since_epoch();
+
+						LastMousePickingElapsedMs = elapsedTime.count() * 0.001f;
+						MousePickingTryCount++;
+						TotalMousePickingElapsedMs += LastMousePickingElapsedMs;
 					}
 
 					if (HitActor)
@@ -471,10 +722,10 @@ void FEngineLoop::Tick(bool bPumpMessages)
 			//Render Threads
 			{
 				PROFILE_SCOPE("Viewport/Render");
-				CurrentViewport->Viewport->Resize(*mGraphicsManager->GetRenderer(), ViewportRect.Width, ViewportRect.Height);
 				mGraphicsManager->Prepare(&CurrentViewport->Client->mCamera, ViewportRect.Width, ViewportRect.Height, *CurrentViewport->Viewport, CurrentViewport->Client->GetViewMode(), CurrentViewport->Client->GetViewportType());
+				Renderer->BindRenderTarget(CurrentViewport->Viewport->RenderTarget, CurrentViewport->Viewport->DepthStencil);
 				mGraphicsManager->RenderHighLight(HighlightedComponents);
-				if (CurrentViewport->Client->IsActive() || !bIsSplit)
+				if (CurrentViewport->Client->IsActive())
 				{
 					RenderPerformanceOverlay(RenderCollector, FrameTimer, ViewportRect.Width, ViewportRect.Height);
 				}
@@ -483,56 +734,8 @@ void FEngineLoop::Tick(bool bPumpMessages)
 				CurrentViewport->Client->mGizmo.Render(SelectedActor, CurrentViewport->Client->mCamera.Transform.GetLocation(), CurrentViewport->Window->Rect, ViewProjection, CurrentViewport->Client->IsOrtho(), CurrentViewport->Client->GetCamera().mOrthoDistance);
 			}
 		}
-	}
 
-	mGraphicsManager->EndGpuRenderTimer();
-
-	FGuiReference GuiReference;
-	GuiReference.FrameTimer = FrameTimer;
-	GuiReference.SceneManager = mSceneManager;
-	GuiReference.GraphicsManager = mGraphicsManager;
-	GuiReference.FileManager = mFileManager;
-	GuiReference.AssetManager = mAssetManager;
-	GuiReference.EditorLayout = &mEditorLayout;
-	if (bIsSplit)
-	{
-		GuiReference.EditorCamera = &GetMainViewport().Client->GetCamera();
-		GuiReference.ViewportClient = GetMainViewport().Client.get();
-		GuiReference.Viewports = mViewports;
-		GuiReference.ViewportCount = MaxViewportCount;
-	}
-	else
-	{
-		GuiReference.EditorCamera = &mViewports[MainViewportIndex].Client->GetCamera();
-		GuiReference.ViewportClient = mViewports[ActiveIndex].Client.get();
-		GuiReference.Viewports = &mViewports[ActiveIndex];
-		GuiReference.ViewportCount = 1;
-	}
-
-	{
-		PROFILE_SCOPE("Frame/EditorUI");
-		mEditorUIManager->Render(GuiReference);
-
-#if IS_OBJ_VIEWER
-		mObjViewer.UpdateObjGUI(*mGraphicsManager);
-#endif
-		// 나중에 Ui 매니저에서 관리하도록 분리 필요
-		ImGui::SetMouseCursor(mMouseCursor);
-
-		FRect ViewportRect;
-		ViewportRect.X = mEditorUIManager->GetViewportX();
-		ViewportRect.Y = mEditorUIManager->GetViewportY();
-		ViewportRect.Width = mEditorUIManager->GetViewportWidth();
-		ViewportRect.Height = mEditorUIManager->GetViewportHeight();
-		mEditorLayout.Resize(ViewportRect);
-	}
-
-	{
-		PROFILE_SCOPE("Frame/ImGuiSubmit");
-		mGraphicsManager->GetRenderer()->BindFrameBuffer();
-
-		ImGui::Render();
-		ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
+		mGraphicsManager->EndGpuRenderTimer();
 	}
 
 	{

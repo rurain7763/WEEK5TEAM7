@@ -121,8 +121,6 @@ void FGraphicsManager::Prepare(const FCamera* mCamera, float viewportWidth, floa
 	// 깊이 테스트가 켜져 있으면 나중에 그린 FarCube 가 깊이 비교에서 탈락해
 	// NearCube(주황)가 앞에 남고, 꺼져 있으면 FarCube(파랑)가 그 위를 덮어쓴다.
 	//mRenderer->UpdateConstantViewProjection(viewProjection);
-
-	mRenderer->BindRenderTarget(Viewport.RenderTarget, Viewport.DepthStencil);
 }
 
 void FGraphicsManager::RenderHighLight(const TArray<UPrimitiveComponent*>& Primitives)

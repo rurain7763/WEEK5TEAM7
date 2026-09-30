@@ -519,8 +519,8 @@ public:
 	uint64 GetDrawCallCount() const { return DrawCallCount; }
 	void ResetDrawCallCount() { DrawCallCount = 0; }
 
-	void DrawIndexed(UINT IndexCount, UINT StartIndex = 0) const;
-	void Draw(UINT VertexCount) const;
+	inline const TSharedPtr<FRenderTarget2D> GetFrameBuffer() const { return FrameBufferRenderTarget; }
+	inline const TSharedPtr<FDepthStencil> GetDepthStencilBuffer() const { return DepthStencilRenderTarget; }
 
 private:
 	void CreateDeviceAndSwapChain(HWND hWindow);
@@ -545,11 +545,8 @@ private:
 	FDepthStencilStatePool DepthStencilStatePool;
 	FBlendStatePool BlendStatePool;
 
-    ID3D11Texture2D* FrameBuffer = nullptr;
-    ID3D11RenderTargetView* FrameBufferRTV = nullptr;
-
-	ID3D11Texture2D* DepthStencilBuffer = nullptr;			// 실제 깊이값이 저장될 메모리
-	ID3D11DepthStencilView* DepthStencilView = nullptr;		// 그 메모리를 "출력 대상"으로 보는 뷰
+	TSharedPtr<FRenderTarget2D> FrameBufferRenderTarget;
+	TSharedPtr<FDepthStencil> DepthStencilRenderTarget;
 
 	TSharedPtr<FRenderTarget2D> BindedRenderTarget;
 	TSharedPtr<FDepthStencil> BindedDepthStencil;
