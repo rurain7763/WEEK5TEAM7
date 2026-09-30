@@ -11,28 +11,19 @@
 
 UStaticMeshComponent::UStaticMeshComponent()
 {
-    SetTickable(false);
+    // 가시성과 관계없이 Tick에서 공통 기준 뷰의 LOD를 갱신합니다.
+    SetTickable(true);
 }
 
 void UStaticMeshComponent::Tick(float DeltaTime)
 {
     Super::Tick(DeltaTime);
-}
+    if (!mMeshAsset || !mOwner || !mOwner->GetWorld()) return;
 
-void UStaticMeshComponent::UpdateLODForView(const FVector& ViewOrigin, FRenderCollector& RenderCollector)
-{
-    if (!mMeshAsset) return;
-
-    const uint32 DesiredLOD = GetLODForView(ViewOrigin);
-    const uint32 ResolvedLOD = mMeshAsset->HasLOD(DesiredLOD) ? DesiredLOD : 0;
-    const uint32 MeshID = mMeshAsset->GetMeshID(ResolvedLOD);
-
-    if (mLODIndex != ResolvedLOD || mLODMeshID != MeshID)
-    {
-        mLODIndex = ResolvedLOD;
-        mLODMeshID = MeshID;
-        Render(RenderCollector);
-    }
+    const uint32 LOD = GetLODForView(mOwner->GetWorld()->GetLODViewOrigin());
+    // LOD가 달라진 경우에만 프록시 갱신을 요청합니다.
+    if (mLODIndex != LOD || mLODMeshID != mMeshAsset->GetMeshID(LOD))
+        SetMesh(mMeshAsset, LOD);
 }
 
 void UStaticMeshComponent::SerializeClass(json::JSON& outJson) const
@@ -194,7 +185,8 @@ bool UStaticMeshComponent::RayCastComponent(const FPickingRay& PickingRay, float
     // 반환 T는 원래 Near~Far 구간의 비율(0~1)이므로 호출자의 최단 거리 비교에 그대로 사용합니다.
     // 끝점을 줄이지 않고 T 상한만 전달합니다. 비균일 스케일에서도 같은 T가 같은 충돌점을 나타냅니다.
     // 로컬 트리는 MaxHitT * LocalRay.Length를 사용해 먼 노드와 삼각형 AABB를 즉시 제외합니다.
-    return mMeshAsset->RayCastLocal(LocalRay, OutHitT, nullptr, MaxHitT, GetLODForView(PickingRay.ViewOrigin));
+    // 갱신 대기 중인 값이 아니라 실제 프록시에 반영된 LOD로 화면과 같은 형상을 검사합니다.
+    return mMeshAsset->RayCastLocal(LocalRay, OutHitT, nullptr, MaxHitT, mRenderedLODIndex);
 }
 
 FAABB UStaticMeshComponent::GetBoundingBox() const
@@ -261,7 +253,8 @@ uint32 UStaticMeshComponent::GetLODForView(const FVector& ViewOrigin) const
 {
     if (!mMeshAsset) return 0;
     FVector Center;
-    if (!mbAABBDirty)
+    // Tick은 공간 조회보다 먼저 실행될 수 있으므로 Transform 버전도 확인합니다.
+    if (!mbAABBDirty && mCachedTransformVersion == GetTransform().GetTransformVersion())
     {
         Center = (mCachedWorldAABB.Min + mCachedWorldAABB.Max) * 0.5f;
     }

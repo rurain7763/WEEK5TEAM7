@@ -12,7 +12,6 @@
 #include "UTextComponent.h"
 #include "ShowFlags.h"
 #include "FHiZOcclusionManager.h"
-#include "Camera.h"
 
 UWorld::~UWorld()
 {
@@ -254,7 +253,6 @@ void UWorld::Render(float deltaTime, FRenderCollector& outCollector)
 		{
 			PROFILE_SCOPE("World/BVHQuery");
 			const bool bOcclusionEnabled = FShowFlags::Get().IsEnabled(EShowFlag::OcclusionCulling);
-			const FVector ViewOrigin = outCollector.Camera ? outCollector.Camera->Transform.GetLocation() : mLODViewOrigin;
 
 			QueryStack.Empty();
 			QueryStack.Add(mBVH.GetRootNode());
@@ -285,7 +283,6 @@ void UWorld::Render(float deltaTime, FRenderCollector& outCollector)
 						UPrimitiveComponent* Object = mBVH.GetPayload(EntryIndex);
 						if (Object && Object->GetRenderProxy())
 						{
-							Object->UpdateLODForView(ViewOrigin, outCollector);
 							Object->GetRenderProxy()->Submit();
 						}
 					}

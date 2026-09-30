@@ -21,7 +21,6 @@ public:
 	virtual void DeserializeClass(const json::JSON& inJson) override;
 
 	virtual void Render(FRenderCollector& RenderCollector) override;
-	virtual void UpdateLODForView(const FVector& ViewOrigin, FRenderCollector& RenderCollector) {}
 
 	virtual FAABB GetBoundingBox() const;
 	virtual const TArray<FVertex>& GetMeshVertices() const;

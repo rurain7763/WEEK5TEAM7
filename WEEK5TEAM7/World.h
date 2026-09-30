@@ -36,7 +36,7 @@ public:
 	TArray<AActor*>& GetActors() { return mActors; }
 
 	void Tick(float deltaTime);
-	// 비교 실험용: Tick 시작 전에 기준 뷰의 위치를 한 번 전달합니다.
+	// 모든 메시가 공유할 LOD 기준 카메라 위치를 Tick 시작 전에 전달합니다.
 	void SetLODViewOrigin(const FVector& ViewOrigin) { mLODViewOrigin = ViewOrigin; }
 	const FVector& GetLODViewOrigin() const { return mLODViewOrigin; }
 	void Render(float deltaTime, FRenderCollector& outCollector);
