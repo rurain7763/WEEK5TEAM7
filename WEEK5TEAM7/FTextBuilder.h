@@ -130,6 +130,7 @@ TextBuilder.Build(L"Hello, World!\nThis is a test.", Width, Height, [&](const FR
 	Quad2DInfo.Size = { TextRect.Width, TextRect.Height };
 	Quad2DInfo.Color = { 1.f, 0.f, 1.f, 1.f };
 	Quad2DInfo.TextureSRV = FontAtlasAsset->GetSRV();
+	Quad2DInfo.TextureFormat = FontAtlasAsset->GetFormat();
 	Quad2DInfo.SubUV = { SubUVRect.X, SubUVRect.Y, SubUVRect.Width, SubUVRect.Height };
 	Quad2DInfo.BlendMode = ERenderBlendMode::Transparent;
 

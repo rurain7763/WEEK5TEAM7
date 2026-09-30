@@ -43,11 +43,22 @@ struct std::hash<FGuid>
 {
 	std::size_t operator()(const FGuid& Guid) const noexcept
 	{
-		std::size_t h1 = std::hash<uint32>{}(Guid.A);
-		std::size_t h2 = std::hash<uint32>{}(Guid.B);
-		std::size_t h3 = std::hash<uint32>{}(Guid.C);
-		std::size_t h4 = std::hash<uint32>{}(Guid.D);
+		const uint64 Lo = (uint64(Guid.A) << 32) | uint64(Guid.B);
+		const uint64 Hi = (uint64(Guid.C) << 32) | uint64(Guid.D);
 
-		return h1 ^ (h2 << 1) ^ (h3 << 2) ^ (h4 << 3);
+		// 두 절반을 각각 혼합한 뒤 결합한다.
+		// 단순 Lo ^ Hi는 두 절반이 같으면 항상 0이 된다.
+		uint64 X = Lo * 0x9E3779B185EBCA87ULL;
+		uint64 Y = Hi * 0xC2B2AE3D27D4EB4FULL;
+		uint64 H = X ^ ((Y << 31) | (Y >> 33));
+
+		// 상위 비트의 변화도 하위 비트로 퍼뜨린다.
+		H ^= H >> 33;
+		H *= 0xFF51AFD7ED558CCDULL;
+		H ^= H >> 33;
+		H *= 0xC4CEB9FE1A85EC53ULL;
+		H ^= H >> 33;
+
+		return static_cast<std::size_t>(H);
 	}
 };

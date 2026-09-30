@@ -1,5 +1,6 @@
 ﻿#include "ActorComponent.h"
 #include "RenderInfo.h"
+#include "Actor.h"
 
 UActorComponent::UActorComponent()
 	: mOwner(nullptr)
@@ -8,6 +9,15 @@ UActorComponent::UActorComponent()
 
 UActorComponent::~UActorComponent()
 {
+    if (mOwner) mOwner->RemoveComponent(UUID);
+}
+
+void UActorComponent::SetTickable(bool bTickable)
+{
+    if (IsTickable() == bTickable) return;
+    if (bTickable) mComponentFlags |= EActorComponentFlags::Tickable;
+    else mComponentFlags &= ~EActorComponentFlags::Tickable;
+    if (mOwner) mOwner->RefreshComponentTickRegistration(this);
 }
 
 void UActorComponent::SetOwner(AActor* owner)
@@ -38,7 +48,3 @@ void UActorComponent::GetRenderInfos(TArray<FRenderInfo>* outRenderInfos) const
 	// assert(false);
 }
 
-void UActorComponent::RegisterPickTarget(FRenderCollector& RenderCollector)
-{
-	// 충돌체가 없는 컴포넌트는 픽킹 대상이 아니다.
-}

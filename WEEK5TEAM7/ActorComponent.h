@@ -9,6 +9,8 @@ enum EActorComponentFlags
 {
 	EditorOnly = 1 << 0, // 에디터에서만 존재하는 컴포넌트. 게임에서는 제거된다.
 	DoNotSerialize = 1 << 1, // 직렬화하지 않는다. (에디터에서만 존재하는 컴포넌트는 기본적으로 직렬화하지 않는다.)
+	Renderable = 1 << 2, // 렌더링 가능한 컴포넌트. (UPrimitiveComponent 등)
+    Tickable = 1 << 3, // 매 프레임 갱신할 컴포넌트. 소유 Actor의 Tick 등록을 결정합니다.
 };
 
 class UActorComponent : public UObject
@@ -23,12 +25,13 @@ public:
 
 	// Todo: Make as pure class
 	virtual void Tick(float deltaTime);
+    // 생성자에서는 플래그만 지정합니다. Owner 연결 후 변경하면 Actor의 활성 목록도 갱신합니다.
+    void SetTickable(bool bTickable);
+    bool IsTickable() const { return (mComponentFlags & EActorComponentFlags::Tickable) != 0; }
+    // 등록 여부를 갱신할 때 평가합니다. Tickable 선언과 실제 실행 조건을 분리합니다.
+    virtual bool ShouldTick() const { return IsTickable(); }
 	virtual void Render(FRenderCollector& RenderCollector);
 	virtual void GetRenderInfos(TArray<FRenderInfo>* outRenderInfos) const;
-
-	// 이 컴포넌트가 마우스 픽킹 대상이면 컬렉터에 자신을 등록한다.
-	// 기본은 등록하지 않는다. 충돌체가 있는 컴포넌트만 재정의한다.
-	virtual void RegisterPickTarget(FRenderCollector& RenderCollector);
 
 	inline void SetEditorOnly(bool bEditorOnly) 
 	{ 
@@ -58,10 +61,25 @@ public:
 
 	inline bool ShouldSerialize() const { return (mComponentFlags & EActorComponentFlags::DoNotSerialize) == 0; }
 
+	inline void SetRenderable(bool bRenderable)
+	{
+		if (bRenderable)
+		{
+			mComponentFlags |= EActorComponentFlags::Renderable;
+		}
+		else
+		{
+			mComponentFlags &= ~EActorComponentFlags::Renderable;
+		}
+	}
+
+	inline bool IsRenderable() const { return (mComponentFlags & EActorComponentFlags::Renderable) != 0; }
+
 protected:
 	AActor* mOwner;
 
 private:
+    friend class AActor;
 	uint32 mComponentFlags = 0;
 };
 

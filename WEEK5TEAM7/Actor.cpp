@@ -4,12 +4,15 @@
 #include "SceneComponent.h"
 #include "UTextComponent.h"
 #include "ObjectFactory.h"
+#include "World.h"
 #include <format>
 
 AActor::~AActor()
 {
+    if (mWorld) mWorld->RemoveActor(UUID);
 	for (UActorComponent* removeComponent : mComponents)
 	{
+        removeComponent->mOwner = nullptr;
 		FObjectFactory::DestroyObject(removeComponent);
 	}
 }
@@ -99,7 +102,14 @@ void AActor::AddComponent(UActorComponent* actorComponent)
 	assert(getComponentIndex(actorComponent->UUID) == -1);
 
 	mComponents.Add(actorComponent);
+
 	actorComponent->SetOwner(this);
+    RefreshComponentTickRegistration(actorComponent);
+
+	if (mWorld)
+	{
+		mWorld->RegisterComponent(actorComponent);
+	}
 }
 
 void AActor::AddRootSceneComponent(USceneComponent* sceneComponent)
@@ -124,7 +134,15 @@ bool AActor::RemoveComponent(uint32 componentUUID)
 		return false;
 	}
 
-	//mComponents.RemoveAt(componentIndex, 1);
+	if (mWorld)
+	{
+		mWorld->UnregisterComponent(mComponents[componentIndex]);
+	}
+
+    ActiveTickComponents.Remove(mComponents[componentIndex]);
+    if (mWorld) mWorld->RefreshTickRegistration(this);
+    if (mComponents[componentIndex] == mRootComponent) mRootComponent = nullptr;
+    mComponents[componentIndex]->mOwner = nullptr;
 	mComponents.RemoveAtSwap(componentIndex);
 
 	return true;
@@ -155,24 +173,19 @@ const FTransform& AActor::GetTransform() const
 	}
 }
 
-FTransform& AActor::GetTransform()
-{
-	if (mRootComponent)
-	{
-		return mRootComponent->GetTransform();
-	}
-	else
-	{
-		throw std::runtime_error(std::format("{}: Actor has no root component", GetClass()->Name));
-	}
-}
-
 void AActor::Tick(float deltaTime)
 {
-	for (UActorComponent* component : mComponents)
-	{
-		component->Tick(deltaTime);
-	}
+    // 파생 Actor가 Tick을 재정의하면 Super::Tick을 호출하여 활성 컴포넌트도 실행합니다.
+    ActiveTickComponents.Tick(deltaTime);
+}
+
+void AActor::RefreshComponentTickRegistration(UActorComponent* Component)
+{
+    // SetOwner만 호출한 미등록 컴포넌트는 실행하지 않습니다. 검색은 등록 변경 시에만 발생합니다.
+    if (Component->GetOwner() != this || mComponents.Find(Component) == -1) return;
+    if (Component->ShouldTick()) ActiveTickComponents.Add(Component);
+    else ActiveTickComponents.Remove(Component);
+    if (mWorld) mWorld->RefreshTickRegistration(this);
 }
 
 void AActor::Render(FRenderCollector& RenderCollector)
@@ -180,12 +193,6 @@ void AActor::Render(FRenderCollector& RenderCollector)
 	for (UActorComponent* component : mComponents)
 	{
 		component->Render(RenderCollector);
-
-		// 마우스 클릭 시에만 픽킹 대상을 수집하여 매 프레임 불필요한 가상함수 호출 및 배열 삽입 방지
-		if (RenderCollector.bNeedPickTargets)
-		{
-			component->RegisterPickTarget(RenderCollector);
-		}
 	}
 }
 

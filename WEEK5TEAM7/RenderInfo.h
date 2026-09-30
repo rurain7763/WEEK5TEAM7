@@ -6,6 +6,7 @@
 #include "Assets.h"
 #include "TArray.h"
 #include "FFrustum.h"
+#include "FBVH.h"
 #include <algorithm>
 
 class FCamera;
@@ -32,12 +33,16 @@ struct FRenderInfo
 {
 	uint64 SortKey = 0;
 	TSharedPtr<FRenderPipeline> Pipeline;
-	Microsoft::WRL::ComPtr<ID3D11Buffer> VertexBuffer;
+	
+	// RenderInfo는 한 viewport의 collect/render 동안만 살아 있는 비소유 패킷이다.
+	// 실제 수명은 mesh/material asset이 보장하므로 매 오브젝트마다 COM/shared_ptr
+	// 참조 카운트를 증감하지 않는다.
+	ID3D11Buffer* VertexBuffer = nullptr;
 	uint32 VertexCount = 0;
-	Microsoft::WRL::ComPtr<ID3D11Buffer> IndexBuffer;
+	ID3D11Buffer* IndexBuffer = nullptr;
 	uint32 StartIndex = 0;
 	uint32 IndexCount = 0;
-	TSharedPtr<FTexture2DAsset> Texture;
+	FTexture2DAsset* Texture = nullptr;
 	FVector2 UVOffset = { 0.f, 0.f };
 	FMatrix Model;
 	uint32 ObjectInternalIndex;
@@ -55,6 +60,7 @@ struct FRenderQuadInfo
 	FMatrix Model;
 	FVector4 Color = { 1.f, 1.f, 1.f, 1.f };
 	Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> TextureSRV;
+	DXGI_FORMAT TextureFormat = DXGI_FORMAT_UNKNOWN;
 	FVector4 SubUV = { 0.f, 0.f, 1.f, 1.f };
 	ERenderBlendMode BlendMode = ERenderBlendMode::Opaque;
 	bool EnableDepthTest = true;
@@ -67,6 +73,7 @@ struct FRenderQuad2DInfo
 	FVector2 Size;
 	FVector4 Color = { 1.f, 1.f, 1.f, 1.f };
 	Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> TextureSRV;
+	DXGI_FORMAT TextureFormat = DXGI_FORMAT_UNKNOWN;
 	FVector4 SubUV = { 0.f, 0.f, 1.f, 1.f };
 	float Rotation = 0.f;
 	ERenderBlendMode BlendMode = ERenderBlendMode::Opaque;
@@ -87,13 +94,34 @@ struct FRenderCollector
 public:
 	enum { DEFAULT_RESERVE_MEM = 1024U };
 
+	bool bRenderInfosSorted = true;
+	bool bHasPreviousSortKey = false;
+	uint64 PreviousSortKey = 0;
+
 	FCamera* Camera = nullptr;
 	FFrustum Frustum;
 	bool bNeedPickTargets = false;
 
 	TArray<FRenderInfo> RenderInfos; // 메시 패스
 	TArray<FRenderLineInfo> LineInfos; // 라인 패스
-	TArray<UPrimitiveComponent*> PickTargets;
+	FBVH<UPrimitiveComponent*>* BVH = nullptr;
+
+	inline FRenderInfo& AddRenderInfo(uint64 SortKey)
+	{
+		// 새로 들어온 키가 이전 키보다 작으면 전체 배열은 정렬 상태가 아니다.
+		if (bHasPreviousSortKey && PreviousSortKey > SortKey)
+		{
+			bRenderInfosSorted = false;
+		}
+
+		PreviousSortKey = SortKey;
+		bHasPreviousSortKey = true;
+
+		FRenderInfo& RenderInfo = RenderInfos.Emplace();
+		RenderInfo.SortKey = SortKey;
+
+		return RenderInfo;
+	}
 
 	inline void AddQuadInfo(const FRenderQuadInfo& QuadInfo)
 	{
@@ -131,24 +159,29 @@ public:
 				return TextureA < TextureB;
 			}
 
-			const auto VBA = A.VertexBuffer.Get();
-			const auto VBB = B.VertexBuffer.Get();
+			const auto VBA = A.VertexBuffer;
+			const auto VBB = B.VertexBuffer;
 
 			if (VBA != VBB)
 			{
 				return VBA < VBB;
 			}
 
-			return A.IndexBuffer.Get() < B.IndexBuffer.Get();
+			return A.IndexBuffer < B.IndexBuffer;
 		});
 	}
 
 	inline void Clear()
 	{
+		BVH = nullptr;
 		bNeedPickTargets = false;
+
+		bRenderInfosSorted = true;
+		bHasPreviousSortKey = false;
+		PreviousSortKey = 0;
+
 		RenderInfos.Reset(DEFAULT_RESERVE_MEM);
 		LineInfos.Reset(DEFAULT_RESERVE_MEM);
-		PickTargets.Reset(DEFAULT_RESERVE_MEM);
 		OpaqueQuadInfos.Reset(DEFAULT_RESERVE_MEM);
 		TransparentQuadInfos.Reset(DEFAULT_RESERVE_MEM);
 		OverlayQuadInfos.Reset(DEFAULT_RESERVE_MEM);

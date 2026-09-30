@@ -254,6 +254,7 @@ static void RenderPerformanceOverlay(FRenderCollector& RenderCollector, FFrameTi
 			Quad2DInfo.Size = { TextRect.Width, TextRect.Height };
 			Quad2DInfo.Color = FVector4(0.0f, 1.0f, 0.0f, 1.0f);
 			Quad2DInfo.TextureSRV = FontAtlasAsset->GetSRV();
+			Quad2DInfo.TextureFormat = FontAtlasAsset->GetFormat();
 			Quad2DInfo.SubUV = FVector4(SubUVRect.X, SubUVRect.Y, SubUVRect.Width, SubUVRect.Height);
 			Quad2DInfo.BlendMode = ERenderBlendMode::Transparent;
 

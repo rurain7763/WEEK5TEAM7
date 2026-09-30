@@ -66,10 +66,26 @@ public:
 	void RemoveAtSwap(uint32 index);
 	void RemoveLast();
 
+	void Pop()
+	{
+		assert(mDatas.empty() == false);
+		mDatas.pop_back();
+	}
+
 	T& Last()
 	{
 		assert(mDatas.empty() == false);
 		return mDatas.back();
+	}
+
+	int32 Find(const T& Item) const
+	{
+		auto iter = std::find(mDatas.begin(), mDatas.end(), Item);
+		if (iter != mDatas.end())
+		{
+			return static_cast<int32>(std::distance(mDatas.begin(), iter));
+		}
+		return -1;
 	}
 
 	inline const T* Data() const { return mDatas.data(); }

@@ -9,6 +9,7 @@
 #include <string>
 #include <thread>
 #include <sstream>
+#include <unordered_map>
 
 using FloatingPointMicroseconds = std::chrono::duration<double, std::micro>;
 
@@ -91,6 +92,38 @@ public:
 		}
 	}
 
+    // 설정 적용 완료 시점을 기존 프로파일과 같은 시계로 기록합니다.
+    void WriteLODMarker(int32 ForcedLOD, uint32 MeshCount, uint32 Failures, bool Regenerated)
+    {
+        if (!CurrentSession) return;
+        const char* Name = ForcedLOD == 0 ? "LOD0 Applied" :
+            ForcedLOD == 1 ? "LOD1 Applied" : ForcedLOD == 2 ? "LOD2 Applied" : "LOD Automatic Applied";
+        const auto Timestamp = FloatingPointMicroseconds{ std::chrono::steady_clock::now().time_since_epoch() };
+        OutputStream << std::fixed << std::setprecision(3)
+            << ",{\"cat\":\"LOD\",\"name\":\"" << Name
+            << "\",\"ph\":\"i\",\"s\":\"t\",\"pid\":0,\"tid\":" << std::this_thread::get_id()
+            << ",\"ts\":" << Timestamp.count()
+            << ",\"args\":{\"forced_lod\":" << ForcedLOD
+            << ",\"mesh_assets\":" << MeshCount << ",\"generation_failures\":" << Failures
+            << ",\"regenerated\":" << (Regenerated ? "true" : "false") << "}}";
+        OutputStream.flush();
+    }
+    // 렌더 업로드 경로 전환 시점을 trace에 남겨 같은 장면의 전후 구간을 구분합니다.
+    void WriteRenderBatchMarker(bool bEnabled)
+    {
+        WriteRenderOptionMarker("Render CB Batch", bEnabled);
+    }
+
+    void WriteRenderOptionMarker(const char* Name, bool bEnabled)
+    {
+        if (!CurrentSession) return;
+        const auto Timestamp = FloatingPointMicroseconds{ std::chrono::steady_clock::now().time_since_epoch() };
+        OutputStream << std::fixed << std::setprecision(3)
+            << ",{\"cat\":\"Render\",\"name\":\"" << Name << " " << (bEnabled ? "ON" : "OFF")
+            << "\",\"ph\":\"i\",\"s\":\"t\",\"pid\":0,\"tid\":" << std::this_thread::get_id()
+            << ",\"ts\":" << Timestamp.count() << "}";
+        OutputStream.flush();
+    }
 	static FInstrumentor& Get()
 	{
 		static FInstrumentor instance;
