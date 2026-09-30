@@ -9,8 +9,6 @@
 #include "GraphicsManager.h"
 #include "Camera.h"
 #include "FInstrumentor.h"
-#include "SceneManager.h"
-#include "World.h"
 
 FEditorUIManager::FEditorUIManager(URenderer& InRenderer)
 	: mRenderer(InRenderer)
@@ -313,14 +311,6 @@ void FEditorUIManager::Render(FGuiReference& GuiReference)
 				++PrimitiveCount;
 			}
 			ImGui::Text("Primitives: %u", PrimitiveCount);
-			if (GuiReference.SceneManager)
-				if (const UWorld* World = GuiReference.SceneManager->GetCurrentWorld())
-				{
-					const auto& LODStats = World->GetLODQueryStats();
-					ImGui::Text("BVH nodes / frustum tests: %u / %u", LODStats.VisitedNodes, LODStats.FrustumTests);
-					ImGui::Text("LOD tests / reused ranges: %u / %u", LODStats.LODTests, LODStats.ReusedRanges);
-					ImGui::Text("LOD changed components: %u", LODStats.ChangedComponents);
-				}
 
 			UINT SpotLightCount = 0;
 			for (TObjectIterator<USpotLightComponent> It(false); It; ++It)

@@ -8,7 +8,7 @@ class UStaticMeshComponent : public UPrimitiveComponent
 	REFLECT_CLASS(UStaticMeshComponent, UPrimitiveComponent)
 
 public:
-	UStaticMeshComponent() = default;
+	UStaticMeshComponent();
 	virtual ~UStaticMeshComponent() = default;
 
 	using UPrimitiveComponent::Initialize;
@@ -17,6 +17,7 @@ public:
 	virtual void DeserializeClass(const json::JSON& inJson) override;
 
 	virtual void Render(FRenderCollector& RenderCollector) override;
+	virtual void Tick(float DeltaTime) override;
 
 	FAABB GetBoundingBox() const override;
     uint32 GetLODForView(const FVector& ViewOrigin) const;
@@ -62,11 +63,9 @@ public:
 
 	const FVector4& GetColor() const { return Color; }
 
-	// 같은 에셋의 LOD만 바꾸면 머티리얼/UV와 공통 AABB를 유지하고 렌더 갱신만 요청합니다.
+	// LOD만 바꾸는 경우 머티리얼/UV와 공통 경계를 유지하고 프록시 갱신만 요청합니다.
 	void SetMesh(const TSharedPtr<FStaticMeshAsset>& InMesh, uint32 LODIndex = 0);
-	inline const TSharedPtr<FStaticMeshAsset>& GetMesh() const { return mMeshAsset; }
-	uint32 GetLODIndex() const { return mLODIndex; }
-	uint32 GetRenderedLODIndex() const { return mRenderedLODIndex; }
+	inline TSharedPtr<FStaticMeshAsset> GetMesh() { return mMeshAsset; }
 
 	FVector2 GetUVOffset(int32 index) const { return mUVOffsets[index]; }
 	
@@ -88,7 +87,7 @@ private:
 	TSharedPtr<FStaticMeshAsset> mMeshAsset;
 	uint32 mLODIndex = 0;
 	uint32 mRenderedLODIndex = 0;
-	uint64 mMeshResourceVersion = 0;
+	uint32 mLODMeshID = 0;
 	TArray<TSharedPtr<FMaterialAsset>> mMaterialAssets;
 	TSharedPtr<FTexture2DAsset> mTextureAsset;
 	TArray<FVector2> mUVOffsets;

@@ -9,6 +9,23 @@
 #include "FLogManager.h"
 #include "World.h"
 
+UStaticMeshComponent::UStaticMeshComponent()
+{
+    // 비교 실험용: 가시성과 무관하게 모든 정적 메시를 기존 Tickable 목록에 등록합니다.
+    SetTickable(true);
+}
+
+void UStaticMeshComponent::Tick(float DeltaTime)
+{
+    Super::Tick(DeltaTime);
+    if (!mMeshAsset || !mOwner || !mOwner->GetWorld()) return;
+
+    const uint32 LOD = GetLODForView(mOwner->GetWorld()->GetLODViewOrigin());
+    // 같은 LOD의 버퍼를 편집 도구에서 재생성한 경우에도 프록시를 갱신합니다.
+    if (mLODIndex != LOD || mLODMeshID != mMeshAsset->GetMeshID(LOD))
+        SetMesh(mMeshAsset, LOD);
+}
+
 void UStaticMeshComponent::SerializeClass(json::JSON& outJson) const
 {
     USceneComponent::SerializeClass(outJson);
@@ -93,7 +110,7 @@ void UStaticMeshComponent::Render(FRenderCollector& RenderCollector)
     }
 
 	const FTransform& Transform = GetTransform();
-    // BVH가 요청한 LOD로 프록시만 갱신합니다. 여기서는 카메라 거리를 계산하지 않습니다.
+    // 거리 계산은 Tick에서 끝냈으므로 프록시 갱신 시에는 저장된 LOD만 사용합니다.
     const uint32 LOD = mLODIndex;
     const auto& Sections = mMeshAsset->GetSections(LOD);
 
@@ -168,7 +185,6 @@ bool UStaticMeshComponent::RayCastComponent(const FPickingRay& PickingRay, float
     // 전체 삼각형 순회 대신 공유 트리에서 후보를 찾고 해당 삼각형만 검사합니다.
     // 반환 T는 원래 Near~Far 구간의 비율(0~1)이므로 호출자의 최단 거리 비교에 그대로 사용합니다.
     // 향후 외부 BVH가 최단 거리를 제공하면 네 번째 인자로 BestWorldDistance / PickingRay.Length를 전달합니다.
-    // 갱신 대기 중인 LOD가 아니라 현재 화면에 제출하는 프록시의 LOD로 피킹합니다.
     return mMeshAsset->RayCastLocal(LocalRay, OutHitT, nullptr, 1.0f, mRenderedLODIndex);
 }
 
@@ -194,19 +210,18 @@ FAABB UStaticMeshComponent::GetBoundingBox() const
 void UStaticMeshComponent::SetMesh(const TSharedPtr<FStaticMeshAsset>& InMesh, uint32 LODIndex)
 {
     const uint32 ResolvedLOD = InMesh && InMesh->HasLOD(LODIndex) ? LODIndex : 0;
-    const uint64 ResourceVersion = InMesh ? InMesh->GetLODResourceVersion() : 0;
+    const uint32 MeshID = InMesh ? InMesh->GetMeshID(ResolvedLOD) : 0;
     if (mMeshAsset == InMesh)
     {
-        if (mLODIndex == ResolvedLOD && mMeshResourceVersion == ResourceVersion) return;
+        if (mLODIndex == ResolvedLOD && mLODMeshID == MeshID) return;
         mLODIndex = ResolvedLOD;
-        mMeshResourceVersion = ResourceVersion;
+        mLODMeshID = MeshID;
         MarkRenderDirty();
-        if (mOwner && mOwner->GetWorld()) mOwner->GetWorld()->InvalidateMeshLOD(this);
         return;
     }
 
     mLODIndex = ResolvedLOD;
-    mMeshResourceVersion = ResourceVersion;
+    mLODMeshID = MeshID;
     mbAABBDirty = true;
 
     if (!InMesh)
