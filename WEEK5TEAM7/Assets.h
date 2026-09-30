@@ -70,10 +70,11 @@ public:
 	FStaticMeshAsset(const FGuid& InAssetID, const FName& InAssetName, URenderer& InRenderer, const FVertex* InVertices, uint32 InVertexCount, const uint32* InIndices, uint32 InIndexCount);
 	FStaticMeshAsset(const FGuid& InAssetID, const FName& InAssetName, URenderer& InRenderer, const FStaticMeshBuildData& InBuildData);
 
-	Microsoft::WRL::ComPtr<ID3D11Buffer> GetVertexBuffer(uint32 LOD = 0) const;
+	ID3D11Buffer* GetVertexBuffer(uint32 LOD = 0) const;
 	uint32 GetVertexCount(uint32 LOD = 0) const;
-	Microsoft::WRL::ComPtr<ID3D11Buffer> GetIndexBuffer(uint32 LOD = 0) const;
+	ID3D11Buffer* GetIndexBuffer(uint32 LOD = 0) const;
 	uint32 GetIndexCount(uint32 LOD = 0) const;
+
 	inline uint32 GetSubMeshCount() const { return Sections.Num(); }
 	inline const FAABB& GetLocalBoundingBox() const { return BoundingBox; }
 	inline const TArray<FStaticMeshSection>& GetSections(uint32 LOD = 0) const { const auto* G = GetGeneratedLOD(LOD); return G ? G->Data.Sections : Sections; }

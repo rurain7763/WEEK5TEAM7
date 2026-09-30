@@ -1,5 +1,7 @@
 #include "Console.h"
 #include "FLogManager.h"
+#include "Renderer.h"
+#include "FInstrumentor.h"
 #include "ImGui/imgui.h"
 #include "ImGui/imgui_internal.h"
 #include "ImGui/imgui_impl_dx11.h"
@@ -212,6 +214,10 @@ ConsoleWindow::ConsoleWindow()
 	Commands.push_back("STAT RENDER");
 	Commands.push_back("STAT ALL");
 	Commands.push_back("STAT NONE");
+    Commands.push_back("RENDER CBBATCH ON");
+    Commands.push_back("RENDER CBBATCH OFF");
+    Commands.push_back("RENDER BINDREUSE ON");
+    Commands.push_back("RENDER BINDREUSE OFF");
 	AutoScroll = true;
 	ScrollToBottom = false;
 }

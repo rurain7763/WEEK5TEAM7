@@ -245,6 +245,19 @@ public:
 		SetTickable(true);
 	}
 
+    bool ShouldTick() const override
+    {
+        // UUID는 표시 보조 기능이므로 숨겨진 동안 갱신 대상에서도 제외합니다.
+        return IsTickable() && FShowFlags::Get().IsEnabled(EShowFlag::UUIDText);
+    }
+
+    void Tick(float DeltaTime) override
+    {
+        // 텍스트의 부모 위치 추적은 Tick에서 한 번 처리하고 각 Viewport에서는 결과를 사용합니다.
+        if (!mOwner || !mOwner->GetRootComponent()) return;
+        SetRelativeLocation(mOwner->GetTransform().GetLocation() + FVector(0.f, 0.f, 1.f));
+    }
+
 	void SerializeClass(json::JSON& outJson) const override
 	{
 		Super::SerializeClass(outJson);
@@ -270,13 +283,6 @@ public:
 		}
 	}
 
-	void Tick(float DeltaTime) override
-	{
-		// NOTE: Text3DComponent의 위치와 회전을 부모 액터에 맞춘다. 현재 Hierarchy 매트릭스 구현이 없으므로 부모 액터의 위치와 회전만 가져와서 적용한다.
-		const FTransform& ParentTransform = mOwner->GetTransform();
-		SetRelativeLocation(ParentTransform.GetLocation() + FVector(0.f, 0.f, 1.f));
-	}
-
 	void Render(FRenderCollector& RenderCollector) override
 	{
 		// Show Flags에서 끄면 쿼드를 아예 만들지 않는다.
@@ -285,6 +291,8 @@ public:
 		{
 			return;
 		}
+
+        if (!mOwner || !mOwner->GetRootComponent()) return;
 
 		if (!mFontAtlasAsset)
 		{

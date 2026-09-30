@@ -8,6 +8,7 @@
 #include "Vector.h"
 #include "RenderInfo.h"
 #include "FRenderPipeline.h"
+#include "FConstantBufferBatch.h"
 
 struct FCameraConstants
 {
@@ -522,13 +523,19 @@ private:
 
 	void CreateDepthStencilBuffer();
 
-	void BindPipeline(const TSharedPtr<FRenderPipeline>& Pipeline, uint32 StencilRef = 0);
+	void BindPipeline(const TSharedPtr<FRenderPipeline>& Pipeline, uint32 StencilRef = 0, bool bBatchConstants = false);
 	void BindVertexBuffer(ID3D11Buffer* VertexBuffer, UINT Stride);
 	void BindIndexBuffer(ID3D11Buffer* IndexBuffer);
+    void DrawMeshGeometry(const FRenderInfo& RenderInfo, uint32 Stride);
+    void BindMeshConstants(uint32 Index);
 
 private:
     ID3D11Device* Device = nullptr;
     ID3D11DeviceContext* DeviceContext = nullptr;
+    FConstantBufferBatch MeshConstantBatch;
+    // 일반 바인딩으로 돌아갈 때 b0의 구간 오프셋까지 초기화해야 합니다.
+    bool bObjectConstantsRanged = false;
+    uint32 MeshPipelineApplyCount = 0;
     IDXGISwapChain* SwapChain = nullptr;
 
 	FSamplerStatePool SamplerStatePool;
