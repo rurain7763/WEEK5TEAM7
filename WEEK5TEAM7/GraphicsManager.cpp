@@ -181,7 +181,7 @@ void FGraphicsManager::RenderHighLight(const TArray<UPrimitiveComponent*>& Primi
 		RenderInfo.IndexCount = static_cast<uint32>(Indices.Num());
 		RenderInfo.Model = Transform.MakeMatrix();
 
-		mRenderer->RenderPrimitiveIndexed(mHighlightMarkPipeline, RenderInfo, 1);
+		mRenderer->RenderPrimitiveIndexed(mHighlightMarkPipeline.get(), RenderInfo, 1);
 	}
 
 	// Draw Pass: 잠시 DepthStencil을 해제
@@ -197,7 +197,7 @@ void FGraphicsManager::RenderHighLight(const TArray<UPrimitiveComponent*>& Primi
 	
 	mHighlightDrawPipeline->UpdateConstantBuffer(0, OutlineConstants);
 
-	mRenderer->Render(mHighlightDrawPipeline, 6);
+	mRenderer->Render(mHighlightDrawPipeline.get(), 6);
 
 	// Draw Pass가 끝나면 원래 DepthStencil을 복원한다.
 	mRenderer->ClearAllShaderResources();
@@ -226,31 +226,51 @@ void FGraphicsManager::Render()
 
 	{
 		PROFILE_SCOPE("Viewport/GraphicsRender/SubmitMeshes");
+
+		FRenderPipeline* LastPipeline = nullptr;
+		FTexture2DAsset* LastTexture = nullptr;
+		uint32 LastPipelineVersion = 0;
+
 		for (const int32 Index : VisibleRenderInfoIndices)
 		{
 			const FRenderInfo& Info = RenderInfos[Index];
 
-			const auto& Pipeline = Info.Pipeline ? Info.Pipeline : mMeshPipeline;
-			Pipeline->UpdateConstantBuffer(1, mViewUnifiedProjectionMatrix);
-			Pipeline->UpdateConstantBuffer(0, FConstants{ Info.Model, Info.Color, Info.UVOffset, Info.UseVertexColor, Info.Texture ? 1 : 0 });
-			Pipeline->SetSamplerState(0, D3D11_FILTER_MIN_MAG_MIP_LINEAR, D3D11_TEXTURE_ADDRESS_WRAP, D3D11_TEXTURE_ADDRESS_WRAP);
-			if (Info.Texture)
+			const auto& Pipeline = Info.Pipeline ? Info.Pipeline : mMeshPipeline.get();
+
+			const bool bPipelineChanged = Pipeline != LastPipeline;
+			const bool bBindingChanged = bPipelineChanged || Info.Texture != LastTexture;
+			if (bPipelineChanged)
 			{
-				Pipeline->SetShaderResource(0, Info.Texture->GetSRV());
+				Pipeline->UpdateConstantBuffer(1, mViewUnifiedProjectionMatrix);
+				Pipeline->SetSamplerState(0, D3D11_FILTER_MIN_MAG_MIP_LINEAR, D3D11_TEXTURE_ADDRESS_WRAP, D3D11_TEXTURE_ADDRESS_WRAP);
 			}
-			else
+			if (bBindingChanged)
 			{
-				Pipeline->ClearShaderResource();
+				if (Info.Texture) Pipeline->SetShaderResource(0, Info.Texture->GetSRV());
+				else Pipeline->ClearShaderResource();
 			}
+			// 설정 함수도 버전을 올리므로 샘플러와 텍스처 설정이 끝난 값을 비교합니다.
+			const uint32 PipelineVersion = Pipeline->GetBindingVersion();
+			const bool bShouldBindPipeline = !(
+				Pipeline == LastPipeline && Info.Texture == LastTexture
+				&& PipelineVersion == LastPipelineVersion);
+			// 개별 Draw의 상수는 기존 동적 상수 버퍼에 Map/Unmap으로 갱신합니다.
+			const FConstants Constants{ Info.Model, Info.Color, Info.UVOffset, Info.UseVertexColor, Info.Texture ? 1 : 0 };
+			Pipeline->UpdateConstantBuffer(0, Constants);
+
 
 			if (Info.IndexBuffer)
 			{
-				mRenderer->RenderPrimitiveIndexed(Pipeline, Info);
+				mRenderer->RenderPrimitiveIndexed(Pipeline, Info, 0, bShouldBindPipeline);
 			}
 			else
 			{
-				mRenderer->RenderPrimitive(Pipeline, Info.VertexBuffer, Info.VertexCount);
+				mRenderer->RenderPrimitive(Pipeline, Info.VertexBuffer, Info.VertexCount, bShouldBindPipeline);
 			}
+
+			LastPipeline = Pipeline;
+			LastTexture = Info.Texture;
+			LastPipelineVersion = PipelineVersion;
 		}
 	}
 

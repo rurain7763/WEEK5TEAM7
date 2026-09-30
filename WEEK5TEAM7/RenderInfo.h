@@ -33,7 +33,7 @@ enum class ERenderBlendMode
 struct FRenderInfo
 {
 	uint64 SortKey = 0;
-	TSharedPtr<FRenderPipeline> Pipeline;
+	FRenderPipeline* Pipeline;
 	// 버퍼 소유권은 메시 에셋 또는 GraphicsManager에 있습니다.
 	// 수집부터 Draw 제출까지 버퍼를 교체/해제하지 않고, 다음 프레임에는 다시 수집합니다.
 	ID3D11Buffer* VertexBuffer = nullptr;
@@ -41,7 +41,7 @@ struct FRenderInfo
 	ID3D11Buffer* IndexBuffer = nullptr;
 	uint32 StartIndex = 0;
 	uint32 IndexCount = 0;
-	TSharedPtr<FTexture2DAsset> Texture;
+	FTexture2DAsset* Texture;
 	FVector2 UVOffset = { 0.f, 0.f };
 	FMatrix Model;
 	uint32 ObjectInternalIndex;
