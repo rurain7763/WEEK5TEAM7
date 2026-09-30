@@ -1,3 +1,5 @@
+#include "FInstrumentor.h"
+#include <chrono>
 #include "Assets.h"
 #include "FileManager.h"
 #include "Stb/stb_image.h"
@@ -124,32 +126,38 @@ FStaticMeshAsset::FStaticMeshAsset(const FGuid& InAssetID, const FName& InAssetN
 	
 	VertexBuffer = InRenderer.CreateVertexBuffer(InBuildData.Vertices.Data(), static_cast<uint32>(InBuildData.Vertices.Num()));
 	IndexBuffer = InRenderer.CreateIndexBuffer(InBuildData.Indices.Data(), static_cast<uint32>(InBuildData.Indices.Num()));
-    LocalOctree.Build(Vertices, Indices, BoundingBox, LocalOctreeMaxDepth);
+    // 에셋 단위로 생성하며 모든 컴포넌트가 공유합니다.
+    if (!RebuildLODs(InRenderer, AppliedLODSettings))
+        LocalOctree.Build(Vertices, Indices, BoundingBox, LocalOctreeMaxDepth);
 }
 
-bool FStaticMeshAsset::RayCastLocal(const FPickingRay& Ray, float& OutHitT, FMeshOctreeQueryStats* OutStats, float MaxHitT) const
+bool FStaticMeshAsset::RayCastLocal(const FPickingRay& Ray, float& OutHitT, FMeshOctreeQueryStats* OutStats, float MaxHitT, uint32 LOD) const
 {
-    return LocalOctree.RayCast(Ray, Vertices, Indices, OutHitT, OutStats, MaxHitT);
+    return GetLocalOctree(LOD).RayCast(Ray, GetVertices(LOD), GetIndices(LOD), OutHitT, OutStats, MaxHitT);
 }
 
-Microsoft::WRL::ComPtr<ID3D11Buffer> FStaticMeshAsset::GetVertexBuffer() const
+ID3D11Buffer* FStaticMeshAsset::GetVertexBuffer(uint32 LOD) const
 {
-	return VertexBuffer->Buffer;
+	const auto* G = GetGeneratedLOD(LOD);
+	const auto& Buffer = G ? G->VertexBuffer : VertexBuffer;
+	return Buffer ? Buffer->Buffer.Get() : nullptr;
 }
 
-uint32 FStaticMeshAsset::GetVertexCount() const
+uint32 FStaticMeshAsset::GetVertexCount(uint32 LOD) const
 {
-	return VertexBuffer->VertexCount;
+	return static_cast<uint32>(GetVertices(LOD).Num());
 }
 
-Microsoft::WRL::ComPtr<ID3D11Buffer> FStaticMeshAsset::GetIndexBuffer() const
+ID3D11Buffer * FStaticMeshAsset::GetIndexBuffer(uint32 LOD) const
 {
-	return IndexBuffer->Buffer;
+	const auto* G = GetGeneratedLOD(LOD);
+    const auto& Buffer = G ? G->IndexBuffer : IndexBuffer;
+    return Buffer ? Buffer->Buffer.Get() : nullptr;
 }
 
-uint32 FStaticMeshAsset::GetIndexCount() const
+uint32 FStaticMeshAsset::GetIndexCount(uint32 LOD) const
 {
-	return IndexBuffer->IndexCount;
+	return static_cast<uint32>(GetIndices(LOD).Num());
 }
 
 TSharedPtr<FAsset> FStaticMeshAssetLoader::LoadAsset(const FGuid& AssetID, const FName& AssetName, FArchive& Ar)
@@ -159,7 +167,6 @@ TSharedPtr<FAsset> FStaticMeshAssetLoader::LoadAsset(const FGuid& AssetID, const
 	FStaticMeshFileIO::Load(Ar, BuildData);
 
 	return MakeShared<FStaticMeshAsset>(AssetID, AssetName, Renderer, BuildData);
-	
 }
 
 void FStaticMeshAssetLoader::UnloadAsset(TSharedPtr<FAsset> Asset)
@@ -388,19 +395,25 @@ const FVector4& FSpriteAtlasAsset::GetFrameSubUV(int32 FrameIndex) const
 	return FrameSubUVs[static_cast<uint32>(FrameIndex)];
 }
 
-TSharedPtr<FTexture2DAsset> FMaterialAsset::GetDiffuseTexture() const
+FMaterialAsset::FMaterialAsset(const FGuid& InAssetID, const FName& InAssetName, const FVector& InAmbientColor, const FVector& InDiffuseColor, const FVector& InSpecularColor, const FGuid& InDiffuseTexture, const FGuid& InSpecularTexture, const FGuid& InNormalTexture, const float InOpacity)
+	: FAsset(InAssetID, InAssetName, EAssetType::Material)
+	, AmbientColor(InAmbientColor)
+	, DiffuseColor(InDiffuseColor)
+	, SpecularColor(InSpecularColor)
+	, DiffuseTexture(InDiffuseTexture)
+	, SpecularTexture(InSpecularTexture)
+	, NormalTexture(InNormalTexture)
+	, Opacity(InOpacity)
+	, MaterialID(NextMaterialID++)
 {
-	return FAssetManager::Get().GetAssetAs<FTexture2DAsset>(DiffuseTexture, true);
+	DiffuseTextureAsset = FAssetManager::Get().GetAssetAs<FTexture2DAsset>(DiffuseTexture, true);
+	SpecularTextureAsset = FAssetManager::Get().GetAssetAs<FTexture2DAsset>(SpecularTexture, true);
+	NormalTextureAsset = FAssetManager::Get().GetAssetAs<FTexture2DAsset>(NormalTexture, true);
 }
 
-TSharedPtr<FTexture2DAsset> FMaterialAsset::GetSpecularTexture() const
+uint16 FMaterialAsset::GetPipelineID() const
 {
-	return FAssetManager::Get().GetAssetAs<FTexture2DAsset>(SpecularTexture, true);
-}
-
-TSharedPtr<FTexture2DAsset> FMaterialAsset::GetNormalTexture() const
-{
-	return FAssetManager::Get().GetAssetAs<FTexture2DAsset>(NormalTexture, true);
+	return Pipeline ? Pipeline->GetPipelineID() : 1;
 }
 
 TSharedPtr<FAsset> FMaterialAssetLoader::LoadAsset(const FGuid& AssetID, const FName& AssetName, FArchive& Ar)
@@ -438,8 +451,86 @@ void FMaterialAssetLoader::UnloadAsset(TSharedPtr<FAsset> Asset)
 	// NOTE: Nothing to do for now
 }
 
-uint16 FMaterialAsset::GetPipelineID() const
+
+
+
+
+
+namespace
 {
-	return Pipeline ? Pipeline->GetPipelineID() : 1;
+struct FScopedLODTiming
+{
+    double& Output;
+    std::chrono::steady_clock::time_point Start = std::chrono::steady_clock::now();
+    ~FScopedLODTiming() { Output = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - Start).count(); }
+};
 }
 
+void FStaticMeshAsset::SetLODSelection(const FMeshLODSelection& Settings)
+{
+    if (Settings.ForcedLOD < -1 || Settings.ForcedLOD > 2
+        || !std::isfinite(Settings.Distances[0]) || !std::isfinite(Settings.Distances[1])
+        || Settings.Distances[0] < 0 || Settings.Distances[1] < Settings.Distances[0]) return;
+    LODSelection = Settings;
+}
+
+bool FStaticMeshAsset::RebuildLODs(URenderer& Renderer, const FMeshLODSettings& Settings)
+{
+    PROFILE_SCOPE("Mesh/LODBuild");
+    FScopedLODTiming Timing{LastLODBuildMs};
+    if (!Settings.IsValid()) { LODError = FString("Invalid LOD settings"); return false; }
+    try
+    {
+        FStaticMeshBuildData Source;
+        Source.Vertices = Vertices; Source.Indices = Indices; Source.Sections = Sections;
+        TSharedPtr<FGeneratedMeshLOD> Pending[2];
+        for (uint32 I = 0; I < 2; ++I)
+        {
+            Pending[I] = MakeShared<FGeneratedMeshLOD>();
+            auto& LOD = *Pending[I];
+            if (!BuildSimplifiedMeshLOD(Source, Settings.TriangleRatios[I], Settings.MaxErrors[I], LOD.Data, LOD.SimplificationError))
+            {
+                LODError = FString("Invalid source mesh or simplification failed"); return false;
+            }
+            LOD.VertexBuffer = Renderer.CreateVertexBuffer(LOD.Data.Vertices.Data(), LOD.Data.Vertices.Num());
+            LOD.IndexBuffer = Renderer.CreateIndexBuffer(LOD.Data.Indices.Data(), LOD.Data.Indices.Num());
+            if (!LOD.VertexBuffer || !LOD.IndexBuffer || !LOD.VertexBuffer->Buffer || !LOD.IndexBuffer->Buffer)
+            {
+                LODError = FString("LOD GPU buffer creation failed"); return false;
+            }
+            LOD.Octree.Build(LOD.Data.Vertices, LOD.Data.Indices, BoundingBox, Settings.OctreeDepths[I+1]);
+            LOD.MeshID = NextMeshID++;
+        }
+        FMeshPickingOctree PendingRoot;
+        PendingRoot.Build(Vertices, Indices, BoundingBox, Settings.OctreeDepths[0]);
+        // 준비된 후보만 교체하여 생성 실패 시 기존 메시와 버퍼를 유지합니다.
+        LocalOctree = std::move(PendingRoot);
+        for (uint32 I = 0; I < 2; ++I) GeneratedLODs[I] = std::move(Pending[I]);
+        AppliedLODSettings = Settings;
+        LODError = FString();
+        return true;
+    }
+    catch (const std::exception& Error) { LODError = FString(Error.what()); return false; }
+}
+
+bool FStaticMeshAsset::RebuildLODOctrees(const FMeshLODSettings& Settings)
+{
+    PROFILE_SCOPE("Mesh/LODOctreeBuild");
+    FScopedLODTiming Timing{LastOctreeBuildMs};
+    // 메시 생성 조건은 그대로 두고 깊이만 적용합니다.
+    for (int32 Depth : Settings.OctreeDepths)
+        if (Depth < 0 || Depth > 16) { LODError = FString("Octree depth must be 0..16"); return false; }
+    try
+    {
+        FMeshPickingOctree Pending[3];
+        for (uint32 I = 0; I < 3; ++I)
+            if (HasLOD(I)) Pending[I].Build(GetVertices(I), GetIndices(I), BoundingBox, Settings.OctreeDepths[I]);
+        LocalOctree = std::move(Pending[0]);
+        for (uint32 I = 1; I < 3; ++I)
+            if (GeneratedLODs[I-1]) GeneratedLODs[I-1]->Octree = std::move(Pending[I]);
+        for (uint32 I = 0; I < 3; ++I) AppliedLODSettings.OctreeDepths[I] = Settings.OctreeDepths[I];
+        LODError = FString();
+        return true;
+    }
+    catch (const std::exception& Error) { LODError = FString(Error.what()); return false; }
+}

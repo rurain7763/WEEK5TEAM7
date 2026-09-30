@@ -470,17 +470,17 @@ public:
 	void BindFrameBuffer();
 	void BindRenderTarget(const TSharedPtr<FRenderTarget2D>& RenderTarget, const TSharedPtr<FDepthStencil>& DepthStencil, bool bClear = true);
 
-	void Render(const TSharedPtr<FRenderPipeline>& Pipeline, UINT NumVertices);
+	void Render(const FRenderPipeline* Pipeline, UINT NumVertices);
 
 	void RenderLines(const TArray<FRenderLineInfo>& Lines);
 
 	void RenderQuad(const FRenderQuadInfo& Info);
 
-	void RenderPrimitive(const TSharedPtr<FRenderPipeline>& Pipeline, Microsoft::WRL::ComPtr<ID3D11Buffer> Buffer, UINT NumVertices);
-	void RenderPrimitive(Microsoft::WRL::ComPtr<ID3D11Buffer> Buffer, UINT NumVertices, const FMatrix& Model);
-	void RenderPrimitive(Microsoft::WRL::ComPtr<ID3D11Buffer> Buffer, UINT NumVertices, const FMatrix& Model, const FVector4& Color);
+	void RenderPrimitive(const FRenderPipeline* Pipeline, ID3D11Buffer* Buffer, UINT NumVertices, bool bShouldBindPipeline = true);
+	void RenderPrimitive(ID3D11Buffer* Buffer, UINT NumVertices, const FMatrix& Model);
+	void RenderPrimitive(ID3D11Buffer* Buffer, UINT NumVertices, const FMatrix& Model, const FVector4& Color);
 	void RenderPrimitiveIndexed(const FRenderInfo& RenderInfo, uint32 StencilRef = 0);
-	void RenderPrimitiveIndexed(const TSharedPtr<FRenderPipeline>& Pipeline, const FRenderInfo& RenderInfo, uint32 StencilRef = 0);
+	void RenderPrimitiveIndexed(const FRenderPipeline* Pipeline, const FRenderInfo& RenderInfo, uint32 StencilRef = 0, bool bShouldBindPipeline = true);
 
 	void RenderQuad2D(const FRenderQuad2DInfo& Info);
 	void RenderLine2D(const FVector2& Start, const FVector2& End, const FVector4& Color, float Thickness = 1.0f);
@@ -522,7 +522,7 @@ private:
 
 	void CreateDepthStencilBuffer();
 
-	void BindPipeline(const TSharedPtr<FRenderPipeline>& Pipeline, uint32 StencilRef = 0);
+	void BindPipeline(const FRenderPipeline* Pipeline, uint32 StencilRef = 0);
 	void BindVertexBuffer(ID3D11Buffer* VertexBuffer, UINT Stride);
 	void BindIndexBuffer(ID3D11Buffer* IndexBuffer);
 

@@ -1,4 +1,5 @@
 #include "Actor.h"
+#include "World.h"
 #include "JsonUtil.h"
 #include "RenderInfo.h"
 #include "SceneComponent.h"
@@ -136,6 +137,7 @@ bool AActor::RemoveComponent(uint32 componentUUID)
 		mWorld->UnregisterComponent(mComponents[componentIndex]);
 	}
 
+	mComponents[componentIndex]->SetOwner(nullptr);
 	mComponents.RemoveAtSwap(componentIndex);
 
 	return true;
@@ -168,10 +170,7 @@ const FTransform& AActor::GetTransform() const
 
 void AActor::Tick(float deltaTime)
 {
-	for (UActorComponent* component : mComponents)
-	{
-		component->Tick(deltaTime);
-	}
+	// 컴포넌트 Tick은 World의 활성 목록에서 직접 실행합니다.
 }
 
 void AActor::Render(FRenderCollector& RenderCollector)
@@ -192,7 +191,7 @@ void AActor::GetRenderInfos(TArray<FRenderInfo>* outRenderInfos) const
 	}
 }
 
-bool AActor::GetFirstRenderInfo(FRenderInfo &outRenderInfo) const
+bool AActor::GetFirstRenderInfo(FRenderInfo& outRenderInfo) const
 {
 	TArray<FRenderInfo> renderInfos;
 	GetRenderInfos(&renderInfos);

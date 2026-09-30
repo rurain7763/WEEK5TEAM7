@@ -36,6 +36,8 @@
 #include "ShowFlags.h"
 #include "FFrustum.h"
 #include "FInstrumentor.h"
+#include <timeapi.h>
+#pragma comment(lib, "winmm.lib")
 
 #if IS_OBJ_VIEWER
 #include "FObjViewer.h"
@@ -45,6 +47,9 @@ void FEngineLoop::Init(HINSTANCE hInstance, WNDPROC WndProc)
 {
 	PROFILE_BEGIN_SESSION("Engine", "engine-loop-profile.json");
 	PROFILE_FUNCTION();
+
+	timeBeginPeriod(1);
+	SetPriorityClass(GetCurrentProcess(), HIGH_PRIORITY_CLASS);
 
 	// Initialize window infos
 	WCHAR WindowClass[] = L"JungleWindowClass";
@@ -255,7 +260,6 @@ static void RenderPerformanceOverlay(FRenderCollector& RenderCollector, FFrameTi
 			Quad2DInfo.Color = FVector4(0.0f, 1.0f, 0.0f, 1.0f);
 			Quad2DInfo.TextureSRV = FontAtlasAsset->GetSRV();
 			Quad2DInfo.SubUV = FVector4(SubUVRect.X, SubUVRect.Y, SubUVRect.Width, SubUVRect.Height);
-			Quad2DInfo.BlendMode = ERenderBlendMode::Transparent;
 
 			RenderCollector.AddQuad2DInfo(Quad2DInfo);
 		});
@@ -267,7 +271,6 @@ void FEngineLoop::Tick(bool bPumpMessages)
 
 	if (GInTick) return;
 	GInTick = true;
-	PROFILE_FUNCTION();
 
 	FrameTimer->StartFrame();
 	float deltaTime = FrameTimer->GetDeltaTime();
@@ -287,6 +290,10 @@ void FEngineLoop::Tick(bool bPumpMessages)
 
 	{
 		PROFILE_SCOPE("Frame/SceneTick");
+		// BVH 방식과 같은 첫 렌더 뷰를 기준으로 모든 메시의 Tick에서 LOD를 계산합니다.
+		const int32 LODViewportIndex = mEditorLayout.bIsSplitView ? 0 : mEditorLayout.MaximizedViewportIndex;
+		mSceneManager->GetCurrentWorld()->SetLODViewOrigin(
+			mViewports[LODViewportIndex].Client->GetCamera().Transform.GetLocation());
 		mSceneManager->Tick(deltaTime);
 	}
 
@@ -538,6 +545,8 @@ void FEngineLoop::End()
 
 		delete mGraphicsManager;
 	}
+
+	timeEndPeriod(1);
 
 	PROFILE_END_SESSION();
 }

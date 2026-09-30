@@ -1,4 +1,5 @@
 #include "GraphicsManager.h"
+#include "FInstrumentor.h"
 #include "Renderer.h"
 #include "Camera.h"
 #include "Console.h"
@@ -173,14 +174,14 @@ void FGraphicsManager::RenderHighLight(const TArray<UPrimitiveComponent*>& Primi
 		mHighlightMarkPipeline->UpdateConstantBuffer(0, Constants);
 
 		FRenderInfo RenderInfo{};
-		RenderInfo.VertexBuffer = mHighlightVertexBuffer->Buffer;
+		RenderInfo.VertexBuffer = mHighlightVertexBuffer->Buffer.Get();
 		RenderInfo.VertexCount = static_cast<uint32>(Vertices.Num());
-		RenderInfo.IndexBuffer = mHighlightIndexBuffer->Buffer;
+		RenderInfo.IndexBuffer = mHighlightIndexBuffer->Buffer.Get();
 		RenderInfo.StartIndex = 0;
 		RenderInfo.IndexCount = static_cast<uint32>(Indices.Num());
 		RenderInfo.Model = Transform.MakeMatrix();
 
-		mRenderer->RenderPrimitiveIndexed(mHighlightMarkPipeline, RenderInfo, 1);
+		mRenderer->RenderPrimitiveIndexed(mHighlightMarkPipeline.get(), RenderInfo, 1);
 	}
 
 	// Draw Pass: 잠시 DepthStencil을 해제
@@ -196,7 +197,7 @@ void FGraphicsManager::RenderHighLight(const TArray<UPrimitiveComponent*>& Primi
 	
 	mHighlightDrawPipeline->UpdateConstantBuffer(0, OutlineConstants);
 
-	mRenderer->Render(mHighlightDrawPipeline, 6);
+	mRenderer->Render(mHighlightDrawPipeline.get(), 6);
 
 	// Draw Pass가 끝나면 원래 DepthStencil을 복원한다.
 	mRenderer->ClearAllShaderResources();
@@ -205,73 +206,76 @@ void FGraphicsManager::RenderHighLight(const TArray<UPrimitiveComponent*>& Primi
 
 void FGraphicsManager::Render()
 {
-	/*PROFILE_SCOPE("Viewport/GraphicsRender");
+    PROFILE_SCOPE("Viewport/GraphicsRender");
+    {
+        PROFILE_SCOPE("Viewport/GraphicsRender/RenderLines");
+        mRenderer->RenderLines(mRenderCollector.LineInfos);
+    }
+
+	const auto& RenderInfoPool = mRenderCollector.GetRenderInfoPool();
+	const auto& RenderInfos = RenderInfoPool.GetPool();
+	auto& VisibleRenderInfoIndices = mRenderCollector.GetVisibleRenderInfoIndices();
+
+    {
+        PROFILE_SCOPE("Viewport/GraphicsRender/sort");
+      //  std::sort(mRenderCollector.RenderInfos.begin(), mRenderCollector.RenderInfos.end());
+        std::sort(VisibleRenderInfoIndices.begin(), VisibleRenderInfoIndices.end(), [&RenderInfoPool, &RenderInfos, &VisibleRenderInfoIndices](int32 A, int32 B) { 
+			return RenderInfos[A].SortKey < RenderInfos[B].SortKey;
+		});
+    }
 
 	{
-		PROFILE_SCOPE("Viewport/GraphicsRender/RenderLines");
-		mRenderer->RenderLines(mRenderCollector.LineInfos);
-	}
-<<<<<<< HEAD
-	
-=======
->>>>>>> d90503aa70a2aaaf6105d82bba53fedbbdd3db8c
+		PROFILE_SCOPE("Viewport/GraphicsRender/SubmitMeshes");
 
-	{
-		PROFILE_SCOPE("Viewport/GraphicsRender/sort");
-		std::sort(mRenderCollector.RenderInfos.begin(), mRenderCollector.RenderInfos.end());
-	}*/
-	mRenderer->RenderLines(mRenderCollector.LineInfos);
-	std::sort(mRenderCollector.RenderInfos.begin(), mRenderCollector.RenderInfos.end());
+		FRenderPipeline* LastPipeline = nullptr;
+		FTexture2DAsset* LastTexture = nullptr;
+		uint32 LastPipelineVersion = 0;
 
-	mMeshPipeline->ClearShaderResource();
-	mMeshPipeline->ClearSamplerState();
-	mMeshPipeline->UpdateConstantBuffer(1, mViewUnifiedProjectionMatrix);
-	mMeshPipeline->SetSamplerState(0, D3D11_FILTER_MIN_MAG_MIP_LINEAR, D3D11_TEXTURE_ADDRESS_WRAP, D3D11_TEXTURE_ADDRESS_WRAP);
-
-	TSharedPtr<FRenderPipeline> LastPipeline = nullptr;
-	TSharedPtr<FTexture2DAsset> LastTexture = nullptr;
-	bool bFirst = true;
-
-	for (const FRenderInfo& RenderInfo : mRenderCollector.RenderInfos)
-	{
-		TSharedPtr<FRenderPipeline> ActivePipeline = RenderInfo.Pipeline ? RenderInfo.Pipeline : mMeshPipeline;
-
-		if (ActivePipeline != LastPipeline)
+		for (const int32 Index : VisibleRenderInfoIndices)
 		{
-			ActivePipeline->UpdateConstantBuffer(1, mViewUnifiedProjectionMatrix);
-			ActivePipeline->SetSamplerState(0, D3D11_FILTER_MIN_MAG_MIP_LINEAR, D3D11_TEXTURE_ADDRESS_WRAP, D3D11_TEXTURE_ADDRESS_WRAP);
-			LastPipeline = ActivePipeline;
-		}
+			const FRenderInfo& Info = RenderInfos[Index];
 
-		if (bFirst || RenderInfo.Texture != LastTexture || ActivePipeline != LastPipeline)
-		{
-			if (RenderInfo.Texture)
+			const auto& Pipeline = Info.Pipeline ? Info.Pipeline : mMeshPipeline.get();
+
+			const bool bPipelineChanged = Pipeline != LastPipeline;
+			const bool bBindingChanged = bPipelineChanged || Info.Texture != LastTexture;
+			if (bPipelineChanged)
 			{
-				ActivePipeline->SetShaderResource(0, RenderInfo.Texture->GetSRV());
+				Pipeline->UpdateConstantBuffer(1, mViewUnifiedProjectionMatrix);
+				Pipeline->SetSamplerState(0, D3D11_FILTER_MIN_MAG_MIP_LINEAR, D3D11_TEXTURE_ADDRESS_WRAP, D3D11_TEXTURE_ADDRESS_WRAP);
+			}
+			if (bBindingChanged)
+			{
+				if (Info.Texture) Pipeline->SetShaderResource(0, Info.Texture->GetSRV());
+				else Pipeline->ClearShaderResource();
+			}
+			// 설정 함수도 버전을 올리므로 샘플러와 텍스처 설정이 끝난 값을 비교합니다.
+			const uint32 PipelineVersion = Pipeline->GetBindingVersion();
+			const bool bShouldBindPipeline = !(
+				Pipeline == LastPipeline && Info.Texture == LastTexture
+				&& PipelineVersion == LastPipelineVersion);
+			// 개별 Draw의 상수는 기존 동적 상수 버퍼에 Map/Unmap으로 갱신합니다.
+			const FConstants Constants{ Info.Model, Info.Color, Info.UVOffset, Info.UseVertexColor, Info.Texture ? 1 : 0 };
+			Pipeline->UpdateConstantBuffer(0, Constants);
+
+
+			if (Info.IndexBuffer)
+			{
+				mRenderer->RenderPrimitiveIndexed(Pipeline, Info, 0, bShouldBindPipeline);
 			}
 			else
 			{
-				ActivePipeline->ClearShaderResource();
+				mRenderer->RenderPrimitive(Pipeline, Info.VertexBuffer, Info.VertexCount, bShouldBindPipeline);
 			}
-			LastTexture = RenderInfo.Texture;
-			bFirst = false;
+
+			LastPipeline = Pipeline;
+			LastTexture = Info.Texture;
+			LastPipelineVersion = PipelineVersion;
 		}
-
-		// 오브젝트 고유 상수버퍼 갱신
-		FConstants Constants{};
-		Constants.Matrix = RenderInfo.Model;
-		Constants.Color = RenderInfo.Color;
-		Constants.UseVertexColor = RenderInfo.UseVertexColor;
-		Constants.HasTexture = RenderInfo.Texture ? 1 : 0;
-		Constants.UVOffset = RenderInfo.UVOffset;
-
-		ActivePipeline->UpdateConstantBuffer(0, Constants);
-
-		mRenderer->RenderPrimitiveIndexed(ActivePipeline, RenderInfo);
 	}
 
 	{
-		//PROFILE_SCOPE("Viewport/GraphicsRender/RenderQuad");
+		PROFILE_SCOPE("Viewport/GraphicsRender/RenderQuad");
 
 		for (const FRenderQuadInfo& QuadInfo : mRenderCollector.GetOpaqueQuadInfos())
 		{

@@ -19,6 +19,7 @@ class UPlaneComponent : public UPrimitiveComponent
 public:
 	UPlaneComponent()
 	{
+		SetTickable(true); // 파생된 AtlasAnimation도 이 설정을 상속합니다.
 		mMeshAsset = FAssetManager::Get().GetAssetAs<FStaticMeshAsset>(FName("PlaneMesh"), true);
 	}
 
@@ -143,6 +144,8 @@ class USpotLightComponent : public USceneComponent
 	REFLECT_CLASS(USpotLightComponent, USceneComponent)
 
 public:
+	USpotLightComponent() { SetTickable(true); }
+
 	void Tick(float DeltaTime) override
 	{
 		// NOTE: SpotLightComponent의 위치와 회전을 부모 액터에 맞춘다. 현재 Hierarchy가 없으므로 부모 액터의 위치와 회전만 가져와서 적용한다.
@@ -185,7 +188,7 @@ class ASpotLight : public AActor
 
 public:
 	ASpotLight() = default;
-	
+
 	void Initialize()
 	{
 		Super::Initialize();
@@ -239,6 +242,7 @@ public:
 	UText3DComponent()
 	{
 		SetRenderable(true);
+		SetTickable(true);
 	}
 
 	void SerializeClass(json::JSON& outJson) const override
@@ -335,7 +339,7 @@ public:
 			QuadInfo.EnableDepthWrite = mEnableDepthWrite;
 
 			RenderCollector.AddQuadInfo(QuadInfo);
-		});
+			});
 	}
 
 	inline void SetBillboard(bool billboard) { mbBillboard = billboard; }

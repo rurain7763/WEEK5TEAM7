@@ -11,6 +11,7 @@ struct FPickingRay
 {
 	FVector Near;
 	FVector Far;
+    FVector ViewOrigin;
 	FVector Direction;   // Near -> Far 방향, 정규화되어 있다
 	float   Length = 0.f;// Near ~ Far 거리
 
@@ -19,6 +20,7 @@ struct FPickingRay
 	FPickingRay(const FVector& InNear, const FVector& InFar)
 		: Near(InNear)
 		, Far(InFar)
+        , ViewOrigin(InNear)
 	{
 		Direction = InFar - InNear;
 		Length = Direction.Length();
@@ -28,6 +30,9 @@ struct FPickingRay
 		}
 	}
 
+    // 렌더링과 같은 카메라 기준으로 Picking LOD를 선택합니다.
+    FPickingRay(const FVector& InNear, const FVector& InFar, const FVector& InViewOrigin)
+        : FPickingRay(InNear, InFar) { ViewOrigin = InViewOrigin; }
 	// AABB 판정용. Origin 은 Near, 길이는 Length 까지다.
 	FRay ToRay() const { return FRay(Near, Direction); }
 };

@@ -1,4 +1,6 @@
 #include "Renderer.h"
+#include "FInstrumentor.h"
+#include "NvapiHelpers.h"
 
 constexpr uint32 MaxLineInstances = 1024;
 
@@ -102,22 +104,31 @@ void URenderer::CreateDeviceAndSwapChain(HWND hWindow)
 	SwapChainDesc.BufferDesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
 	SwapChainDesc.SampleDesc.Count = 1;
 	SwapChainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
-	SwapChainDesc.BufferCount = 2;
+	SwapChainDesc.BufferCount = 3;
 	SwapChainDesc.OutputWindow = hWindow;
 	SwapChainDesc.Windowed = TRUE;
 	SwapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
 	SwapChainDesc.Flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING;
 
-	UINT CreateDeviceFlags = 0;
+	UINT CreateDeviceFlags = D3D11_CREATE_DEVICE_BGRA_SUPPORT | D3D11_CREATE_DEVICE_SINGLETHREADED;
 
 #if defined(_DEBUG)
 	CreateDeviceFlags |= D3D11_CREATE_DEVICE_DEBUG;
 #endif
 
 	D3D11CreateDeviceAndSwapChain(nullptr, D3D_DRIVER_TYPE_HARDWARE,
-		nullptr, D3D11_CREATE_DEVICE_BGRA_SUPPORT | CreateDeviceFlags,
+		nullptr, CreateDeviceFlags,
 		FeatureLevels, ARRAYSIZE(FeatureLevels), D3D11_SDK_VERSION,
 		&SwapChainDesc, &SwapChain, &Device, nullptr, &DeviceContext);
+
+	//Microsoft::WRL::ComPtr<IDXGIDevice1> DxgiDevice;
+	//if (SUCCEEDED(Device->QueryInterface(IID_PPV_ARGS(&DxgiDevice))))
+	//{
+	//	DxgiDevice->SetMaximumFrameLatency(1);
+	//}
+
+	// NVIDIA Reflex Low Latency Boost: GPU 클럭 램핑 지연을 없애고 시작부터 최고 클럭(P0)으로 강제 고정
+	NvAPI_Status reflexStatus = nvapi_example::EnableLowLatency(Device, true /* boost */);
 
 	SwapChain->GetDesc(&SwapChainDesc);
 	Width = SwapChainDesc.BufferDesc.Width;
@@ -367,7 +378,7 @@ TSharedPtr<FDepthStencil> URenderer::CreateDepthStencil(uint32 Width, uint32 Hei
 	return DepthStencil;
 }
 
-void URenderer::BindPipeline(const TSharedPtr<FRenderPipeline>& Pipeline, uint32 StencilRef)
+void URenderer::BindPipeline(const FRenderPipeline* Pipeline, uint32 StencilRef)
 {
 	// RSSetState는 드로우 직전마다 갈아치워지므로 뷰 모드 선택은 여기서 해야 한다.
 	// 이 모드를 지원하지 않는 파이프라인(2D/기즈모)은 Lit 상태로 폴백된다.
@@ -552,7 +563,7 @@ void URenderer::BindRenderTarget(const TSharedPtr<FRenderTarget2D>& RenderTarget
 	BindedDepthStencil = DepthStencil;
 }
 
-void URenderer::Render(const TSharedPtr<FRenderPipeline>& Pipeline, UINT NumVertices)
+void URenderer::Render(const FRenderPipeline* Pipeline, UINT NumVertices)
 {
 	BindPipeline(Pipeline);
 	BindVertexBuffer(nullptr, 0);
@@ -566,7 +577,7 @@ void URenderer::RenderLines(const TArray<FRenderLineInfo>& Lines)
 	uint32 Remaining = Lines.Num();
 	const FRenderLineInfo* Offset = Lines.Data();
 
-	BindPipeline(LinePipeline);
+	BindPipeline(LinePipeline.get());
 	BindVertexBuffer(nullptr, 0);
 
 	while (Remaining > 0)
@@ -599,7 +610,7 @@ void URenderer::RenderQuad(const FRenderQuadInfo& Info)
 	QuadPipeline->SetBlendState(Info.BlendMode);
 	QuadPipeline->SetDepthStencilState(Info.EnableDepthTest, Info.EnableDepthWrite);
 
-	BindPipeline(QuadPipeline);
+	BindPipeline(QuadPipeline.get());
 	BindVertexBuffer(nullptr, 0);
 
 	QuadPipeline->UpdateConstantBuffer(0, FQuadConstants{ Info.Model, Info.Color, Info.SubUV, Info.TextureSRV ? 1 : 0, TextureFormat == DXGI_FORMAT_R8_UNORM });
@@ -608,16 +619,17 @@ void URenderer::RenderQuad(const FRenderQuadInfo& Info)
 	++DrawCallCount;
 }
 
-void URenderer::RenderPrimitive(const TSharedPtr<FRenderPipeline>& Pipeline, Microsoft::WRL::ComPtr<ID3D11Buffer> Buffer, UINT NumVertices)
+void URenderer::RenderPrimitive(const FRenderPipeline* Pipeline, ID3D11Buffer* Buffer, UINT NumVertices, bool bShouldBindPipeline)
 {
-	BindPipeline(Pipeline);
-	BindVertexBuffer(Buffer.Get(), Pipeline->Stride);
+	if (bShouldBindPipeline)
+		BindPipeline(Pipeline);
+	BindVertexBuffer(Buffer, Pipeline->Stride);
 
 	DeviceContext->Draw(NumVertices, 0);
 	++DrawCallCount;
 }
 
-void URenderer::RenderPrimitive(Microsoft::WRL::ComPtr<ID3D11Buffer> Buffer, UINT NumVertices, const FMatrix& Model)
+void URenderer::RenderPrimitive(ID3D11Buffer* Buffer, UINT NumVertices, const FMatrix& Model)
 {
 	FConstants Constants;
 	Constants.Matrix = Model;
@@ -628,10 +640,10 @@ void URenderer::RenderPrimitive(Microsoft::WRL::ComPtr<ID3D11Buffer> Buffer, UIN
 
 	PrimitivePipeline->UpdateConstantBuffer(0, Constants);
 
-	RenderPrimitive(PrimitivePipeline, Buffer, NumVertices);
+	RenderPrimitive(PrimitivePipeline.get(), Buffer, NumVertices);
 }
 
-void URenderer::RenderPrimitive(Microsoft::WRL::ComPtr<ID3D11Buffer> Buffer, UINT NumVertices, const FMatrix& Model, const FVector4& Color)
+void URenderer::RenderPrimitive(ID3D11Buffer* Buffer, UINT NumVertices, const FMatrix& Model, const FVector4& Color)
 {
 	FConstants Constants;
 	Constants.Matrix = Model;
@@ -642,7 +654,7 @@ void URenderer::RenderPrimitive(Microsoft::WRL::ComPtr<ID3D11Buffer> Buffer, UIN
 
 	PrimitivePipeline->UpdateConstantBuffer(0, Constants);
 
-	RenderPrimitive(PrimitivePipeline, Buffer, NumVertices);
+	RenderPrimitive(PrimitivePipeline.get(), Buffer, NumVertices);
 }
 
 void URenderer::RenderPrimitiveIndexed(const FRenderInfo& RenderInfo, uint32 StencilRef)
@@ -656,7 +668,18 @@ void URenderer::RenderPrimitiveIndexed(const FRenderInfo& RenderInfo, uint32 Ste
 
 	PrimitivePipeline->UpdateConstantBuffer(0, Constants);
 
-	RenderPrimitiveIndexed(PrimitivePipeline, RenderInfo, StencilRef);
+	RenderPrimitiveIndexed(PrimitivePipeline.get(), RenderInfo, StencilRef);
+}
+
+void URenderer::RenderPrimitiveIndexed(const FRenderPipeline* Pipeline, const FRenderInfo& RenderInfo, uint32 StencilRef, bool bShouldBindPipeline)
+{
+	if (bShouldBindPipeline)
+		BindPipeline(Pipeline, StencilRef);
+	BindVertexBuffer(RenderInfo.VertexBuffer, Pipeline->Stride);
+	BindIndexBuffer(RenderInfo.IndexBuffer);
+
+	DeviceContext->DrawIndexed(RenderInfo.IndexCount, RenderInfo.StartIndex, 0);
+	++DrawCallCount;
 }
 
 void URenderer::DrawIndexed(UINT IndexCount, UINT StartIndex) const
@@ -669,23 +692,6 @@ void URenderer::Draw(UINT VertexCount) const
 {
 	DeviceContext->Draw(VertexCount, 0);
 	++DrawCallCount;
-}
-
-void URenderer::RenderPrimitiveIndexed(const TSharedPtr<FRenderPipeline>& Pipeline, const FRenderInfo& RenderInfo, uint32 StencilRef)
-{
-	BindPipeline(Pipeline, StencilRef);
-
-	BindVertexBuffer(RenderInfo.VertexBuffer.Get(), Pipeline->Stride);
-
-	if (RenderInfo.IndexBuffer)
-	{
-		BindIndexBuffer(RenderInfo.IndexBuffer.Get());
-		DrawIndexed(RenderInfo.IndexCount, RenderInfo.StartIndex);
-	}
-	else
-	{
-		Draw(RenderInfo.VertexCount);
-	}
 }
 
 void URenderer::RenderQuad2D(const FRenderQuad2DInfo& Info)
@@ -703,17 +709,18 @@ void URenderer::RenderQuad2D(const FRenderQuad2DInfo& Info)
 
 	Quad2DPipeline->UpdateConstantBuffer(0, FQuad2DConstants{ Projection2D, Info.Color, Info.Position, Info.Size, Info.SubUV, Info.Rotation, Info.TextureSRV ? 1 : 0, TextureFormat == DXGI_FORMAT_R8_UNORM });
 
-	BindPipeline(Quad2DPipeline);
+	BindPipeline(Quad2DPipeline.get());
 	BindVertexBuffer(nullptr, 0);
 
 	DeviceContext->Draw(6, 0);
+	++DrawCallCount;
 }
 
 void URenderer::RenderLine2D(const FVector2& Start, const FVector2& End, const FVector4& Color, float Thickness)
 {
 	Line2DPipeline->UpdateConstantBuffer(0, FLine2DConstants{ Projection2D, Color, Start, End, Thickness });
 
-	BindPipeline(Line2DPipeline);
+	BindPipeline(Line2DPipeline.get());
 	BindVertexBuffer(nullptr, 0);
 
 	DeviceContext->Draw(6, 0);
@@ -724,7 +731,7 @@ void URenderer::RenderCircle2D(const FVector2& Center, const FVector4& Color, fl
 {
 	Circle2DPipeline->UpdateConstantBuffer(0, FCircle2DConstants{ Projection2D, Color, Center, Radius });
 
-	BindPipeline(Circle2DPipeline);
+	BindPipeline(Circle2DPipeline.get());
 	BindVertexBuffer(nullptr, 0);
 
 	DeviceContext->Draw(6, 0);
@@ -735,7 +742,7 @@ void URenderer::RenderTriangle2D(const FVector2& Center, const FVector4& Color, 
 {
 	Triangle2DPipeline->UpdateConstantBuffer(0, FTriangle2DConstants{ Projection2D, Color, Center, Size, Rotation - PI * 0.5f });
 
-	BindPipeline(Triangle2DPipeline);
+	BindPipeline(Triangle2DPipeline.get());
 	BindVertexBuffer(nullptr, 0);
 
 	DeviceContext->Draw(3, 0);
@@ -750,7 +757,7 @@ void URenderer::RenderWorldAxis(const FMatrix& View, const FMatrix& Projection, 
 	DeviceContext->RSGetViewports(&ViewportCount, &Viewport);
 	WorldAxisPipeline->UpdateConstantBuffer(0, FWorldAxisConstants{ View, Projection, Color, Axis, Thickness, FVector2(Viewport.Width, Viewport.Height) });
 
-	BindPipeline(WorldAxisPipeline);
+	BindPipeline(WorldAxisPipeline.get());
 	BindVertexBuffer(nullptr, 0);
 
 	DeviceContext->Draw(6, 0);
@@ -761,7 +768,7 @@ void URenderer::RenderWorldGrid(const FMatrix& ViewProjection, const FVector& Ca
 {
 	WorldGridPipeline->UpdateConstantBuffer(0, FWorldGridConstants{ ViewProjection, CameraLocation, GridGap });
 
-	BindPipeline(WorldGridPipeline);
+	BindPipeline(WorldGridPipeline.get());
 	BindVertexBuffer(nullptr, 0);
 
 	DeviceContext->Draw(6, 0);
