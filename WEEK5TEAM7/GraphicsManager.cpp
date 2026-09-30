@@ -220,6 +220,7 @@ void FGraphicsManager::Render()
         // 이전 trace와 비교할 수 있도록 메시 제출 계측 이름을 유지합니다.
         PROFILE_SCOPE("Viewport/GraphicsRender/DrawMeshesLegacy");
         FRenderPipeline* LastPipeline = nullptr;
+        uint32 LastPipelineVersion = 0;
         FTexture2DAsset* LastTexture = nullptr;
         for (const FRenderInfo& Info : mRenderCollector.RenderInfos)
         {
@@ -239,11 +240,15 @@ void FGraphicsManager::Render()
             // 개별 Draw의 상수는 기존 동적 상수 버퍼에 Map/Unmap으로 갱신합니다.
             const FConstants Constants{ Info.Model, Info.Color, Info.UVOffset, Info.UseVertexColor, Info.Texture ? 1 : 0 };
             Pipeline->UpdateConstantBuffer(0, Constants);
-            // 이 루프 안에서는 파이프라인 상태·뷰 모드·스텐실 참조가 고정되며 외부 렌더 코드가 실행되지 않습니다.
+            // SRV·Sampler 준비로 버전이 바뀔 수 있으므로 모든 설정 이후에 비교합니다.
+            // 뷰 모드·스텐실 참조는 루프 안에서 고정되며 외부 렌더 코드가 실행되지 않습니다.
             // b0 내용만 갱신하는 것은 바인딩 대상의 변경이 아닙니다. VB/IB는 아래에서 매번 따로 비교합니다.
-            const bool bShouldBindPipeline = !URenderer::bReuseMeshBindings || bBindingChanged;
+            const uint32 CurrentPipelineVersion = Pipeline->GetBindingVersion();
+            const bool bCanReuse = !bBindingChanged && CurrentPipelineVersion == LastPipelineVersion;
+            const bool bShouldBindPipeline = !URenderer::bReuseMeshBindings || !bCanReuse;
             mRenderer->RenderPrimitiveIndexed(Pipeline, Info, 0, bShouldBindPipeline);
             LastPipeline = Pipeline.get();
+            LastPipelineVersion = CurrentPipelineVersion;
             LastTexture = Info.Texture;
         }
 	}
