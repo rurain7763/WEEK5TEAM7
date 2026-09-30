@@ -245,12 +245,6 @@ public:
         SetTickable(true);
 	}
 
-    bool ShouldTick() const override
-    {
-        // UUID는 표시 보조 기능이므로 숨겨진 동안 갱신 대상에서도 제외합니다.
-        return IsTickable() && FShowFlags::Get().IsEnabled(EShowFlag::UUIDText);
-    }
-
     void Tick(float DeltaTime) override
     {
         // 텍스트의 부모 위치 추적은 Tick에서 한 번 처리하고 각 Viewport에서는 결과를 사용합니다.

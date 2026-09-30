@@ -125,7 +125,7 @@ void UStaticMeshComponent::Render(FRenderCollector& RenderCollector)
     }
 }
 
-bool UStaticMeshComponent::RayCastComponent(const FPickingRay& PickingRay, float& OutHitT) const
+bool UStaticMeshComponent::RayCastComponent(const FPickingRay& PickingRay, float& OutHitT, float MaxHitT) const
 {
     if (!mMeshAsset) return false;
 
@@ -139,8 +139,9 @@ bool UStaticMeshComponent::RayCastComponent(const FPickingRay& PickingRay, float
 
     // 전체 삼각형 순회 대신 공유 트리에서 후보를 찾고 해당 삼각형만 검사합니다.
     // 반환 T는 원래 Near~Far 구간의 비율(0~1)이므로 호출자의 최단 거리 비교에 그대로 사용합니다.
-    // 향후 외부 BVH가 최단 거리를 제공하면 네 번째 인자로 BestWorldDistance / PickingRay.Length를 전달합니다.
-    return mMeshAsset->RayCastLocal(LocalRay, OutHitT, nullptr, 1.0f, GetLODForView(PickingRay.ViewOrigin));
+    // 끝점을 줄이지 않고 T 상한만 전달합니다. 비균일 스케일에서도 같은 T가 같은 충돌점을 나타냅니다.
+    // 로컬 트리는 MaxHitT * LocalRay.Length를 사용해 먼 노드와 삼각형 AABB를 즉시 제외합니다.
+    return mMeshAsset->RayCastLocal(LocalRay, OutHitT, nullptr, MaxHitT, GetLODForView(PickingRay.ViewOrigin));
 }
 
 FAABB UStaticMeshComponent::GetBoundingBox() const

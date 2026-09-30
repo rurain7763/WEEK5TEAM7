@@ -1,6 +1,7 @@
 ﻿#include "ActorComponent.h"
 #include "RenderInfo.h"
 #include "Actor.h"
+#include "World.h"
 
 UActorComponent::UActorComponent()
 	: mOwner(nullptr)
@@ -17,7 +18,7 @@ void UActorComponent::SetTickable(bool bTickable)
     if (IsTickable() == bTickable) return;
     if (bTickable) mComponentFlags |= EActorComponentFlags::Tickable;
     else mComponentFlags &= ~EActorComponentFlags::Tickable;
-    if (mOwner) mOwner->RefreshComponentTickRegistration(this);
+    if (mOwner && mOwner->GetWorld()) mOwner->GetWorld()->RefreshComponentTick(this);
 }
 
 void UActorComponent::SetOwner(AActor* owner)

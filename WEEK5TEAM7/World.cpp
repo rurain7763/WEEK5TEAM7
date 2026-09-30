@@ -11,11 +11,6 @@
 #include "FInstrumentor.h"
 #include "UTextComponent.h"
 
-UWorld::UWorld()
-    : bLastUUIDTextVisible(FShowFlags::Get().IsEnabled(EShowFlag::UUIDText))
-{
-}
-
 UWorld::~UWorld()
 {
 	for (AActor* removeActor : mActors)
@@ -77,7 +72,6 @@ void UWorld::AddActor(AActor* actor)
 	assert(getActorIndex(actor->UUID) == -1);
 
 	actor->mWorld = this;
-    RefreshTickRegistration(actor);
 	for (UActorComponent* component : actor->GetComponents())
 	{
 		RegisterComponent(component);
@@ -98,9 +92,6 @@ bool UWorld::RemoveActor(uint32 uuid)
 	}
 	
 	AActor* ActorToRemove = mActors[ActorIndex];
-    ActiveActors.Remove(ActorToRemove);
-    // 현재 컴포넌트 Tick에서 월드를 나가면 그 Actor의 남은 컴포넌트는 이번 프레임에 실행하지 않습니다.
-    ActorToRemove->ActiveTickComponents.CancelTick();
 	for (UActorComponent* component : ActorToRemove->GetComponents())
 	{
 		UnregisterComponent(component);
@@ -118,8 +109,7 @@ void UWorld::RegisterComponent(UActorComponent* Component)
 	UPrimitiveComponent* PrimitiveComponent = Component->Cast<UPrimitiveComponent>();
     const bool bUUID = Component->IsA<UText3DComponent>();
     ComponentRegistrations.Add(Component, { PrimitiveComponent, Component->IsRenderable(), bUUID });
-    // 월드 밖에서 표시 옵션이 바뀐 뒤 재진입한 경우에도 현재 실행 조건을 반영합니다.
-    if (bUUID && Component->GetOwner()) Component->GetOwner()->RefreshComponentTickRegistration(Component);
+    RefreshComponentTick(Component);
 	if (PrimitiveComponent)
 	{
 		mPrimitiveComponents.Add(PrimitiveComponent);
@@ -137,6 +127,9 @@ void UWorld::UnregisterComponent(UActorComponent* Component)
     const auto* Found = ComponentRegistrations.Find(Component);
     if (!Found) return;
     const FComponentRegistration Registration = *Found;
+    // 소멸 중 가상 타입에 의존하지 않고 등록 당시의 목록에서 제거합니다.
+    auto& TickList = Registration.bUUID ? mUUIDTickableComponents : mTickableComponents;
+    TickList.Remove(Component);
     ComponentRegistrations.Remove(Component);
 	UPrimitiveComponent* PrimitiveComponent = Registration.Primitive;
 	if (PrimitiveComponent)
@@ -159,11 +152,14 @@ void UWorld::UnregisterComponent(UActorComponent* Component)
 	}
 }
 
-void UWorld::RefreshTickRegistration(AActor* Actor)
+void UWorld::RefreshComponentTick(UActorComponent* Component)
 {
-    if (Actor->GetWorld() != this) return;
-    if (Actor->HasTickableComponents()) ActiveActors.Add(Actor);
-    else ActiveActors.Remove(Actor);
+    // Owner만 연결되고 아직 월드에 등록되지 않은 컴포넌트는 실행하지 않습니다.
+    const FComponentRegistration* Registration = ComponentRegistrations.Find(Component);
+    if (!Registration) return;
+    auto& TickList = Registration->bUUID ? mUUIDTickableComponents : mTickableComponents;
+    if (Component->IsTickable()) TickList.Add(Component);
+    else TickList.Remove(Component);
 }
 
 void UWorld::MarkBoundsDirty(UActorComponent* Component)
@@ -175,25 +171,17 @@ void UWorld::MarkBoundsDirty(UActorComponent* Component)
 	}
 }
 
-void UWorld::RefreshUUIDTickVisibility()
-{
-    const bool bVisible = FShowFlags::Get().IsEnabled(EShowFlag::UUIDText);
-    if (bLastUUIDTextVisible == bVisible) return;
-    PROFILE_SCOPE("World/RefreshUUIDTickVisibility");
-    bLastUUIDTextVisible = bVisible;
-    // 매 프레임 전체 컴포넌트를 검사하지 않고, 표시 전환 시 UUID 목록만 한 번 갱신합니다.
-    for (UActorComponent* Component : mUUIDRenderableComponents)
-    {
-        if (AActor* Owner = Component->GetOwner()) Owner->RefreshComponentTickRegistration(Component);
-    }
-}
-
 void UWorld::Tick(float deltaTime)
 {
-    RefreshUUIDTickVisibility();
     {
         PROFILE_SCOPE("World/ActiveTick");
-        ActiveActors.Tick(deltaTime);
+        mTickableComponents.Tick(deltaTime);
+        // 숨겨진 UUID는 컴포넌트 수와 관계없이 목록 전체를 건너뜁니다.
+        if (FShowFlags::Get().IsEnabled(EShowFlag::UUIDText))
+        {
+            PROFILE_SCOPE("World/UUIDTick");
+            mUUIDTickableComponents.Tick(deltaTime);
+        }
     }
 
 	if (mbBVHDirty)

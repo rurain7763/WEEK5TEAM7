@@ -11,7 +11,7 @@ class UWorld final : public UObject
 	REFLECT_CLASS(UWorld, UObject)
 
 public:
-	UWorld();
+	UWorld() = default;
 	virtual ~UWorld();
 
 	virtual void SerializeClass(json::JSON& outJson) const override;
@@ -22,9 +22,8 @@ public:
 
 	void RegisterComponent(UActorComponent* Component);
 	void UnregisterComponent(UActorComponent* component);
-    // 실행 가능한 Tickable 컴포넌트가 있는 Actor만 목록에 등록합니다.
-    void RefreshTickRegistration(AActor* Actor);
-    uint32 GetActiveActorTickCount() const { return ActiveActors.Num(); }
+    // 등록되었거나 Tickable 플래그가 변경된 컴포넌트만 활성 목록에 반영합니다.
+    void RefreshComponentTick(UActorComponent* Component);
 
 	void MarkBoundsDirty(UActorComponent* component);
 
@@ -35,8 +34,6 @@ public:
 
 private:
 	int32 getActorIndex(uint32 actorUUID) const;
-    // 표시 옵션이 바뀐 경우에만 UUID의 Tick 등록을 다시 계산합니다.
-    void RefreshUUIDTickVisibility();
 
 private:
 	enum
@@ -49,8 +46,9 @@ private:
 	TArray<UPrimitiveComponent*> mPrimitiveComponents;
 	TArray<UActorComponent*> mNonPrimitiveRenderableComponents; // Primitive는 아닌데 렌더링 기능이 있는 컴포넌트.
     TArray<UActorComponent*> mUUIDRenderableComponents;
-    TActiveTickList<AActor> ActiveActors;
-    bool bLastUUIDTextVisible = true;
+    // UUID는 표시 옵션을 순회 전에 한 번 검사하기 위해 별도의 Tick 목록에 둡니다.
+    TActiveTickList<UActorComponent> mTickableComponents;
+    TActiveTickList<UActorComponent> mUUIDTickableComponents;
     // 소멸 중 가상 타입 정보가 바뀌어도 등록 당시 목록에서 제거할 수 있게 보관합니다.
     struct FComponentRegistration
     {
