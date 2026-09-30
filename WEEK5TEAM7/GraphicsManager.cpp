@@ -174,9 +174,9 @@ void FGraphicsManager::RenderHighLight(const TArray<UPrimitiveComponent*>& Primi
 		mHighlightMarkPipeline->UpdateConstantBuffer(0, Constants);
 
 		FRenderInfo RenderInfo{};
-		RenderInfo.VertexBuffer = mHighlightVertexBuffer->Buffer;
+		RenderInfo.VertexBuffer = mHighlightVertexBuffer->Buffer.Get();
 		RenderInfo.VertexCount = static_cast<uint32>(Vertices.Num());
-		RenderInfo.IndexBuffer = mHighlightIndexBuffer->Buffer;
+		RenderInfo.IndexBuffer = mHighlightIndexBuffer->Buffer.Get();
 		RenderInfo.StartIndex = 0;
 		RenderInfo.IndexCount = static_cast<uint32>(Indices.Num());
 		RenderInfo.Model = Transform.MakeMatrix();
@@ -211,14 +211,40 @@ void FGraphicsManager::Render()
         PROFILE_SCOPE("Viewport/GraphicsRender/RenderLines");
         mRenderer->RenderLines(mRenderCollector.LineInfos);
     }
+
     {
         PROFILE_SCOPE("Viewport/GraphicsRender/sort");
         std::sort(mRenderCollector.RenderInfos.begin(), mRenderCollector.RenderInfos.end());
     }
-    {
-        PROFILE_SCOPE("Viewport/GraphicsRender/SubmitMeshes");
-        mRenderer->RenderMeshes(mRenderCollector.RenderInfos, mMeshPipeline, mViewUnifiedProjectionMatrix);
+
+	{
+		PROFILE_SCOPE("Viewport/GraphicsRender/SubmitMeshes");
+		for (const FRenderInfo& Info : mRenderCollector.RenderInfos)
+		{
+			const auto& Pipeline = Info.Pipeline ? Info.Pipeline : mMeshPipeline;
+			Pipeline->UpdateConstantBuffer(1, mViewUnifiedProjectionMatrix);
+			Pipeline->UpdateConstantBuffer(0, FConstants{ Info.Model, Info.Color, Info.UVOffset, Info.UseVertexColor, Info.Texture ? 1 : 0 });
+			Pipeline->SetSamplerState(0, D3D11_FILTER_MIN_MAG_MIP_LINEAR, D3D11_TEXTURE_ADDRESS_WRAP, D3D11_TEXTURE_ADDRESS_WRAP);
+			if (Info.Texture)
+			{
+				Pipeline->SetShaderResource(0, Info.Texture->GetSRV());
+			}
+			else
+			{
+				Pipeline->ClearShaderResource();
+			}
+
+			if (Info.IndexBuffer)
+			{
+				mRenderer->RenderPrimitiveIndexed(Pipeline, Info);
+			}
+			else
+			{
+				mRenderer->RenderPrimitive(Pipeline, Info.VertexBuffer, Info.VertexCount);
+			}
+		}
 	}
+
 	{
 		PROFILE_SCOPE("Viewport/GraphicsRender/RenderQuad");
 

@@ -9,10 +9,9 @@ class UStaticMeshComponent : public UPrimitiveComponent
 
 public:
 	UStaticMeshComponent() = default;
+	virtual ~UStaticMeshComponent() = default;
 
 	using UPrimitiveComponent::Initialize;
-
-	virtual ~UStaticMeshComponent() = default;
 
 	virtual void SerializeClass(json::JSON& outJson) const override;
 	virtual void DeserializeClass(const json::JSON& inJson) override;

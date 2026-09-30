@@ -668,6 +668,16 @@ void URenderer::RenderPrimitiveIndexed(const FRenderInfo& RenderInfo, uint32 Ste
 	RenderPrimitiveIndexed(PrimitivePipeline, RenderInfo, StencilRef);
 }
 
+void URenderer::RenderPrimitiveIndexed(const TSharedPtr<FRenderPipeline>& Pipeline, const FRenderInfo& RenderInfo, uint32 StencilRef)
+{
+	BindPipeline(Pipeline, StencilRef);
+	BindVertexBuffer(RenderInfo.VertexBuffer, Pipeline->Stride);
+	BindIndexBuffer(RenderInfo.IndexBuffer);
+
+	DeviceContext->DrawIndexed(RenderInfo.IndexCount, RenderInfo.StartIndex, 0);
+	++DrawCallCount;
+}
+
 void URenderer::DrawIndexed(UINT IndexCount, UINT StartIndex) const
 {
 	DeviceContext->DrawIndexed(IndexCount, StartIndex, 0);
@@ -678,95 +688,6 @@ void URenderer::Draw(UINT VertexCount) const
 {
 	DeviceContext->Draw(VertexCount, 0);
 	++DrawCallCount;
-}
-
-bool URenderer::UploadMeshConstants(const TArray<FRenderInfo>& RenderInfos)
-{
-    return MeshConstantBatch.Upload<FConstants>(RenderInfos.Num(), [&RenderInfos](uint32 Index)
-    {
-        const FRenderInfo& Info = RenderInfos[Index];
-        return FConstants{ Info.Model, Info.Color, Info.UVOffset, Info.UseVertexColor, Info.Texture ? 1 : 0 };
-    });
-}
-
-void URenderer::BindMeshConstants(uint32 Index)
-{
-    CurrentCBs[0] = MeshConstantBatch.Bind(Index);
-    bObjectConstantsRanged = true;
-}
-
-void URenderer::RenderMeshes(const TArray<FRenderInfo>& RenderInfos, const TSharedPtr<FRenderPipeline>& DefaultPipeline, const FMatrix& ViewProjection)
-{
-    MeshPipelineApplyCount = 0;
-    bool bUseBatch = false;
-    if (bBatchMeshConstants && !RenderInfos.IsEmpty())
-    {
-        PROFILE_SCOPE("Viewport/GraphicsRender/UploadMeshConstants");
-        bUseBatch = UploadMeshConstants(RenderInfos);
-    }
-    FInstrumentationTimer DrawTimer(bUseBatch ? "Viewport/GraphicsRender/DrawMeshesBatched" : "Viewport/GraphicsRender/DrawMeshesLegacy");
-    FRenderPipeline* LastPipeline = nullptr;
-    FTexture2DAsset* LastTexture = nullptr;
-    uint32 DrawIndex = 0;
-    for (const FRenderInfo& Info : RenderInfos)
-    {
-        const auto& Pipeline = Info.Pipeline ? Info.Pipeline : DefaultPipeline;
-        const bool bPipelineChanged = Pipeline.get() != LastPipeline;
-        const bool bBindingChanged = bPipelineChanged || Info.Texture.get() != LastTexture;
-        if (bPipelineChanged)
-        {
-            Pipeline->UpdateConstantBuffer(1, ViewProjection);
-            Pipeline->SetSamplerState(0, D3D11_FILTER_MIN_MAG_MIP_LINEAR, D3D11_TEXTURE_ADDRESS_WRAP, D3D11_TEXTURE_ADDRESS_WRAP);
-        }
-        if (bBindingChanged)
-        {
-            if (Info.Texture) Pipeline->SetShaderResource(0, Info.Texture->GetSRV());
-            else Pipeline->ClearShaderResource();
-        }
-        if (!bUseBatch)
-        {
-            const FConstants Constants{ Info.Model, Info.Color, Info.UVOffset, Info.UseVertexColor, Info.Texture ? 1 : 0 };
-            Pipeline->UpdateConstantBuffer(0, Constants);
-        }
-        // 이 루프 안에서는 파이프라인 상태·뷰 모드·스텐실 참조가 고정되며 외부 렌더 코드가 실행되지 않습니다.
-        // b0 내용만 갱신하는 것은 바인딩 대상의 변경이 아닙니다. VB/IB는 아래에서 매번 따로 비교합니다.
-        if (!bReuseMeshBindings || bBindingChanged)
-        {
-            BindPipeline(Pipeline, 0, bUseBatch);
-            ++MeshPipelineApplyCount;
-        }
-        if (bUseBatch) BindMeshConstants(DrawIndex);
-        DrawMeshGeometry(Info, Pipeline->Stride);
-        LastPipeline = Pipeline.get();
-        LastTexture = Info.Texture.get();
-        ++DrawIndex;
-    }
-}
-
-void URenderer::RenderPrimitiveIndexed(const TSharedPtr<FRenderPipeline>& Pipeline, const FRenderInfo& RenderInfo, uint32 StencilRef, int32 BatchIndex)
-{
-    const bool bBatchConstants = BatchIndex >= 0;
-	BindPipeline(Pipeline, StencilRef, bBatchConstants);
-    if (bBatchConstants)
-    {
-        BindMeshConstants(static_cast<uint32>(BatchIndex));
-    }
-	DrawMeshGeometry(RenderInfo, Pipeline->Stride);
-}
-
-void URenderer::DrawMeshGeometry(const FRenderInfo& RenderInfo, uint32 Stride)
-{
-	BindVertexBuffer(RenderInfo.VertexBuffer.Get(), Stride);
-
-	if (RenderInfo.IndexBuffer)
-	{
-		BindIndexBuffer(RenderInfo.IndexBuffer.Get());
-		DrawIndexed(RenderInfo.IndexCount, RenderInfo.StartIndex);
-	}
-	else
-	{
-		Draw(RenderInfo.VertexCount);
-	}
 }
 
 void URenderer::RenderQuad2D(const FRenderQuad2DInfo& Info)
