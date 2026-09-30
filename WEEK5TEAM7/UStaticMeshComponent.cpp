@@ -107,8 +107,9 @@ void UStaticMeshComponent::Render(FRenderCollector& RenderCollector)
         const FStaticMeshSection& Section = Sections[SectionIndex];
         if (Section.IndexCount == 0) continue;
 
-        const TSharedPtr<FMaterialAsset>& Material = mMaterialAssets[SectionIndex];
-		const TSharedPtr<FTexture2DAsset> Texture = Material ? Material->GetDiffuseTexture() : nullptr;
+        FMaterialAsset* const Material = mMaterialAssets[SectionIndex].get();
+		// Material이 소유하는 텍스처를 빌려 사용하여 섹션마다 shared_ptr 참조 카운트를 변경하지 않습니다.
+		FTexture2DAsset* const Texture = Material ? Material->GetDiffuseTexture().get() : nullptr;
 
         uint16 PipelineID = Material ? Material->GetPipelineID() : 1;
         uint32 MaterialID = Material ? Material->GetMaterialID() : 0;
@@ -121,7 +122,7 @@ void UStaticMeshComponent::Render(FRenderCollector& RenderCollector)
         RenderInfo.IndexBuffer = IndexBuffer;
         RenderInfo.StartIndex = Section.FirstIndex;
         RenderInfo.IndexCount = Section.IndexCount;
-        RenderInfo.Texture = Texture.get();
+        RenderInfo.Texture = Texture;
         RenderInfo.UVOffset = mUVOffsets[SectionIndex];
         RenderInfo.Model = ModelMatrix;
         RenderInfo.Color = Material ? FVector4(Material->GetDiffuseColor().x, Material->GetDiffuseColor().y, Material->GetDiffuseColor().z, Material->GetOpacity()) : Color;
