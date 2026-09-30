@@ -89,60 +89,48 @@ void UStaticMeshComponent::Render(FRenderCollector& RenderCollector)
         return;
     }
 
-	const FTransform& Transform = GetTransform();
+    if (!FShowFlags::Get().IsEnabled(EShowFlag::Primitive))
+    {
+        return;
+    }
 
+	const FTransform& Transform = GetTransform();
+	const FMatrix& ModelMatrix = Transform.MakeMatrix();
     const uint32 LOD = RenderCollector.Camera ? GetLODForView(RenderCollector.Camera->Transform.GetLocation()) : 0;
-    const auto& Sections = mMeshAsset->GetSections(LOD);
+	const uint32 MeshID = mMeshAsset->GetMeshID(LOD);
+	ID3D11Buffer* VertexBuffer = mMeshAsset->GetVertexBuffer(LOD);
+	ID3D11Buffer* IndexBuffer = mMeshAsset->GetIndexBuffer(LOD);
+    const TArray<FStaticMeshSection>& Sections = mMeshAsset->GetSections(LOD);
+
     for (int32 SectionIndex = 0; SectionIndex < Sections.Num(); ++SectionIndex)
     {
         const FStaticMeshSection& Section = Sections[SectionIndex];
         if (Section.IndexCount == 0) continue;
 
         const TSharedPtr<FMaterialAsset>& Material = mMaterialAssets[SectionIndex];
+		const TSharedPtr<FTexture2DAsset> Texture = Material ? Material->GetDiffuseTexture() : nullptr;
 
-		FRenderInfo& RenderInfo = RenderCollector.RenderInfos.Emplace();
-        if (Material)
-        {
-		    const FVector& DiffuseColor = Material->GetDiffuseColor();
-		    float Opacity = Material->GetOpacity();
+        uint16 PipelineID = Material ? Material->GetPipelineID() : 1;
+        uint32 MaterialID = Material ? Material->GetMaterialID() : 0;
 
-            uint16 PipelineID = Material->GetPipelineID();
-            uint32 MaterialID = Material->GetMaterialID();
-            // 같은 메시 에셋도 LOD마다 VB/IB가 다르므로 선택된 LOD의 식별자로 묶습니다.
-            uint32 MeshID = mMeshAsset->GetMeshID(LOD);
+        const uint64 SortKey = MakeRenderSortKey(PipelineID, MaterialID, MeshID);
+        FRenderInfo& RenderInfo = RenderCollector.AddRenderInfo(SortKey);
 
-            RenderInfo.SortKey = MakeRenderSortKey(PipelineID, MaterialID, MeshID);
-            RenderInfo.Pipeline = Material->GetPipeline();
-            RenderInfo.VertexBuffer = mMeshAsset->GetVertexBuffer(LOD);
-            RenderInfo.IndexBuffer = mMeshAsset->GetIndexBuffer(LOD);
-            RenderInfo.StartIndex = Section.FirstIndex;
-            RenderInfo.IndexCount = Section.IndexCount;
-            RenderInfo.Texture = Material->GetDiffuseTexture();
-            RenderInfo.UVOffset = mUVOffsets[SectionIndex];
-            RenderInfo.Model = Transform.MakeMatrix();
-            RenderInfo.Color = FVector4(DiffuseColor.x, DiffuseColor.y, DiffuseColor.z, Opacity);
-            RenderInfo.UseVertexColor = false;
-            RenderInfo.ObjectInternalIndex = mOwner->InternalIndex;
-        }
-        else
-        {
-			RenderInfo.SortKey = MakeRenderSortKey(1, 0, mMeshAsset->GetMeshID(LOD));
-			RenderInfo.Pipeline = nullptr;
-			RenderInfo.VertexBuffer = mMeshAsset->GetVertexBuffer(LOD);
-			RenderInfo.IndexBuffer = mMeshAsset->GetIndexBuffer(LOD);
-			RenderInfo.StartIndex = Section.FirstIndex;
-			RenderInfo.IndexCount = Section.IndexCount;
-			RenderInfo.Texture = nullptr;
-			RenderInfo.UVOffset = mUVOffsets[SectionIndex];
-			RenderInfo.Model = Transform.MakeMatrix();
-			RenderInfo.Color = Color;
-			RenderInfo.UseVertexColor = true;
-			RenderInfo.ObjectInternalIndex = mOwner->InternalIndex;
-        }
+        RenderInfo.Pipeline = Material ? Material->GetPipeline() : nullptr;
+        RenderInfo.VertexBuffer = VertexBuffer;
+        RenderInfo.IndexBuffer = IndexBuffer;
+        RenderInfo.StartIndex = Section.FirstIndex;
+        RenderInfo.IndexCount = Section.IndexCount;
+        RenderInfo.Texture = Texture.get();
+        RenderInfo.UVOffset = mUVOffsets[SectionIndex];
+        RenderInfo.Model = ModelMatrix;
+        RenderInfo.Color = Material ? FVector4(Material->GetDiffuseColor().x, Material->GetDiffuseColor().y, Material->GetDiffuseColor().z, Material->GetOpacity()) : Color;
+        RenderInfo.UseVertexColor = Material == nullptr;
+        RenderInfo.ObjectInternalIndex = mOwner->InternalIndex;
     }
 }
 
-bool UStaticMeshComponent::RayCastComponent(const FPickingRay& PickingRay, float& OutHitT) const
+bool UStaticMeshComponent::RayCastComponent(const FPickingRay& PickingRay, float& OutHitT, float MaxHitT) const
 {
     if (!mMeshAsset) return false;
 
@@ -156,8 +144,9 @@ bool UStaticMeshComponent::RayCastComponent(const FPickingRay& PickingRay, float
 
     // 전체 삼각형 순회 대신 공유 트리에서 후보를 찾고 해당 삼각형만 검사합니다.
     // 반환 T는 원래 Near~Far 구간의 비율(0~1)이므로 호출자의 최단 거리 비교에 그대로 사용합니다.
-    // 향후 외부 BVH가 최단 거리를 제공하면 네 번째 인자로 BestWorldDistance / PickingRay.Length를 전달합니다.
-    return mMeshAsset->RayCastLocal(LocalRay, OutHitT, nullptr, 1.0f, GetLODForView(PickingRay.ViewOrigin));
+    // 끝점을 줄이지 않고 T 상한만 전달합니다. 비균일 스케일에서도 같은 T가 같은 충돌점을 나타냅니다.
+    // 로컬 트리는 MaxHitT * LocalRay.Length를 사용해 먼 노드와 삼각형 AABB를 즉시 제외합니다.
+    return mMeshAsset->RayCastLocal(LocalRay, OutHitT, nullptr, MaxHitT, GetLODForView(PickingRay.ViewOrigin));
 }
 
 FAABB UStaticMeshComponent::GetBoundingBox() const

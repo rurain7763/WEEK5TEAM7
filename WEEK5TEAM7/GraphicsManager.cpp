@@ -206,42 +206,91 @@ void FGraphicsManager::RenderHighLight(const TArray<UPrimitiveComponent*>& Primi
 
 void FGraphicsManager::Render()
 {
-    PROFILE_SCOPE("Viewport/GraphicsRender");
-    {
-        PROFILE_SCOPE("Viewport/GraphicsRender/RenderLines");
-        mRenderer->RenderLines(mRenderCollector.LineInfos);
-    }
-
-    {
-        PROFILE_SCOPE("Viewport/GraphicsRender/sort");
-        std::sort(mRenderCollector.RenderInfos.begin(), mRenderCollector.RenderInfos.end());
-    }
-
+	PROFILE_SCOPE("Viewport/GraphicsRender");
+	{
+		PROFILE_SCOPE("Viewport/GraphicsRender/RenderLines");
+		mRenderer->RenderLines(mRenderCollector.LineInfos);
+	}
+	{
+		PROFILE_SCOPE("Viewport/GraphicsRender/sort");
+		std::sort(mRenderCollector.RenderInfos.begin(), mRenderCollector.RenderInfos.end());
+	}
 	{
 		PROFILE_SCOPE("Viewport/GraphicsRender/SubmitMeshes");
-		for (const FRenderInfo& Info : mRenderCollector.RenderInfos)
+        // 이전 trace와 비교할 수 있도록 메시 제출 계측 이름을 유지합니다.
+        PROFILE_SCOPE("Viewport/GraphicsRender/DrawMeshesLegacy");
+        FRenderPipeline* LastPipeline = nullptr;
+        uint32 LastPipelineVersion = 0;
+        FTexture2DAsset* LastTexture = nullptr;
+        for (const FRenderInfo& Info : mRenderCollector.RenderInfos)
+        {
+            const auto& Pipeline = Info.Pipeline ? Info.Pipeline : mMeshPipeline;
+            const bool bPipelineChanged = Pipeline.get() != LastPipeline;
+            const bool bBindingChanged = bPipelineChanged || Info.Texture != LastTexture;
+            if (bPipelineChanged)
+            {
+                Pipeline->UpdateConstantBuffer(1, mViewUnifiedProjectionMatrix);
+                Pipeline->SetSamplerState(0, D3D11_FILTER_MIN_MAG_MIP_LINEAR, D3D11_TEXTURE_ADDRESS_WRAP, D3D11_TEXTURE_ADDRESS_WRAP);
+            }
+            if (bBindingChanged)
+            {
+                if (Info.Texture) Pipeline->SetShaderResource(0, Info.Texture->GetSRV());
+                else Pipeline->ClearShaderResource();
+            }
+            // 개별 Draw의 상수는 기존 동적 상수 버퍼에 Map/Unmap으로 갱신합니다.
+            const FConstants Constants{ Info.Model, Info.Color, Info.UVOffset, Info.UseVertexColor, Info.Texture ? 1 : 0 };
+            Pipeline->UpdateConstantBuffer(0, Constants);
+            // SRV·Sampler 준비로 버전이 바뀔 수 있으므로 모든 설정 이후에 비교합니다.
+            // 뷰 모드·스텐실 참조는 루프 안에서 고정되며 외부 렌더 코드가 실행되지 않습니다.
+            // b0 내용만 갱신하는 것은 바인딩 대상의 변경이 아닙니다. VB/IB는 아래에서 매번 따로 비교합니다.
+            const uint32 CurrentPipelineVersion = Pipeline->GetBindingVersion();
+            const bool bCanReuse = !bBindingChanged && CurrentPipelineVersion == LastPipelineVersion;
+            const bool bShouldBindPipeline = !URenderer::bReuseMeshBindings || !bCanReuse;
+            mRenderer->RenderPrimitiveIndexed(Pipeline, Info, 0, bShouldBindPipeline);
+            LastPipeline = Pipeline.get();
+            LastPipelineVersion = CurrentPipelineVersion;
+            LastTexture = Info.Texture;
+        }
+	}
+	{
+		PROFILE_SCOPE("Viewport/GraphicsRender/RenderQuad");
+
+		for (const FRenderQuadInfo& QuadInfo : mRenderCollector.GetOpaqueQuadInfos())
 		{
-			const auto& Pipeline = Info.Pipeline ? Info.Pipeline : mMeshPipeline;
-			Pipeline->UpdateConstantBuffer(1, mViewUnifiedProjectionMatrix);
-			Pipeline->UpdateConstantBuffer(0, FConstants{ Info.Model, Info.Color, Info.UVOffset, Info.UseVertexColor, Info.Texture ? 1 : 0 });
-			Pipeline->SetSamplerState(0, D3D11_FILTER_MIN_MAG_MIP_LINEAR, D3D11_TEXTURE_ADDRESS_WRAP, D3D11_TEXTURE_ADDRESS_WRAP);
-			if (Info.Texture)
+			mRenderer->RenderQuad(QuadInfo);
+		}
+
+		if (FShowFlags::Get().IsEnabled(EShowFlag::Grid))
+		{
+			FMatrix GridWorldMatrix = FMatrix::Identity;
+
+			if (mViewportType == EViewportType::Front)
 			{
-				Pipeline->SetShaderResource(0, Info.Texture->GetSRV());
+				GridWorldMatrix = FMatrix::RotateY(90);
 			}
-			else
+			else if (mViewportType == EViewportType::Side)
 			{
-				Pipeline->ClearShaderResource();
+				GridWorldMatrix = FMatrix::RotateX(90);
 			}
 
-			if (Info.IndexBuffer)
-			{
-				mRenderer->RenderPrimitiveIndexed(Pipeline, Info);
-			}
-			else
-			{
-				mRenderer->RenderPrimitive(Pipeline, Info.VertexBuffer, Info.VertexCount);
-			}
+			// Match the grid's world-space half-width of 0.001.
+			mRenderer->RenderWorldAxis(mViewMatrix, mProjectionMatrix, FVector4(0.f, 0.f, 1.f, 1.f), FVector3(0.f, 0.f, 1.f), 0.002f);
+			mRenderer->RenderWorldGrid(GridWorldMatrix * mViewUnifiedProjectionMatrix, mCameraLocation, GridGap);
+		}
+
+		for (const FRenderQuadInfo& QuadInfo : mRenderCollector.GetTransparentQuadInfos())
+		{
+			mRenderer->RenderQuad(QuadInfo);
+		}
+
+		for (const FRenderQuadInfo& QuadInfo : mRenderCollector.GetOverlayQuadInfos())
+		{
+			mRenderer->RenderQuad(QuadInfo);
+		}
+
+		for (const FRenderQuad2DInfo& Quad2DInfo : mRenderCollector.GetQuad2DInfos())
+		{
+			mRenderer->RenderQuad2D(Quad2DInfo);
 		}
 	}
 

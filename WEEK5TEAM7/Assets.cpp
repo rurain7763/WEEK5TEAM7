@@ -139,8 +139,8 @@ bool FStaticMeshAsset::RayCastLocal(const FPickingRay& Ray, float& OutHitT, FMes
 ID3D11Buffer* FStaticMeshAsset::GetVertexBuffer(uint32 LOD) const
 {
 	const auto* G = GetGeneratedLOD(LOD);
-	const auto& Buffer = G ? G->VertexBuffer : VertexBuffer;
-	return Buffer ? Buffer->Buffer.Get() : nullptr;
+    const auto& Buffer = G ? G->VertexBuffer : VertexBuffer;
+    return Buffer ? Buffer->Buffer.Get() : nullptr;
 }
 
 uint32 FStaticMeshAsset::GetVertexCount(uint32 LOD) const
@@ -148,7 +148,7 @@ uint32 FStaticMeshAsset::GetVertexCount(uint32 LOD) const
 	return static_cast<uint32>(GetVertices(LOD).Num());
 }
 
-ID3D11Buffer * FStaticMeshAsset::GetIndexBuffer(uint32 LOD) const
+ID3D11Buffer* FStaticMeshAsset::GetIndexBuffer(uint32 LOD) const
 {
 	const auto* G = GetGeneratedLOD(LOD);
     const auto& Buffer = G ? G->IndexBuffer : IndexBuffer;
@@ -167,6 +167,7 @@ TSharedPtr<FAsset> FStaticMeshAssetLoader::LoadAsset(const FGuid& AssetID, const
 	FStaticMeshFileIO::Load(Ar, BuildData);
 
 	return MakeShared<FStaticMeshAsset>(AssetID, AssetName, Renderer, BuildData);
+	
 }
 
 void FStaticMeshAssetLoader::UnloadAsset(TSharedPtr<FAsset> Asset)

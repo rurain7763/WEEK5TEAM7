@@ -482,7 +482,10 @@ public:
 	void RenderPrimitive(ID3D11Buffer* Buffer, UINT NumVertices, const FMatrix& Model);
 	void RenderPrimitive(ID3D11Buffer* Buffer, UINT NumVertices, const FMatrix& Model, const FVector4& Color);
 	void RenderPrimitiveIndexed(const FRenderInfo& RenderInfo, uint32 StencilRef = 0);
-	void RenderPrimitiveIndexed(const TSharedPtr<FRenderPipeline>& Pipeline, const FRenderInfo& RenderInfo, uint32 StencilRef = 0);
+	// 기본 호출은 바인딩합니다. 동일한 상태가 유지되는 연속 Draw만 false를 전달합니다.
+    void RenderPrimitiveIndexed(const TSharedPtr<FRenderPipeline>& Pipeline, const FRenderInfo& RenderInfo, uint32 StencilRef = 0, bool bShouldBindPipeline = true);
+
+    inline static bool bReuseMeshBindings = true;
 
 	void RenderQuad2D(const FRenderQuad2DInfo& Info);
 	void RenderLine2D(const FVector2& Start, const FVector2& End, const FVector4& Color, float Thickness = 1.0f);

@@ -1,5 +1,4 @@
 #include "Actor.h"
-#include "World.h"
 #include "JsonUtil.h"
 #include "RenderInfo.h"
 #include "SceneComponent.h"
@@ -10,8 +9,10 @@
 
 AActor::~AActor()
 {
+    if (mWorld) mWorld->RemoveActor(UUID);
 	for (UActorComponent* removeComponent : mComponents)
 	{
+        removeComponent->mOwner = nullptr;
 		FObjectFactory::DestroyObject(removeComponent);
 	}
 }
@@ -137,7 +138,8 @@ bool AActor::RemoveComponent(uint32 componentUUID)
 		mWorld->UnregisterComponent(mComponents[componentIndex]);
 	}
 
-	mComponents[componentIndex]->SetOwner(nullptr);
+    if (mComponents[componentIndex] == mRootComponent) mRootComponent = nullptr;
+    mComponents[componentIndex]->mOwner = nullptr;
 	mComponents.RemoveAtSwap(componentIndex);
 
 	return true;
@@ -170,7 +172,7 @@ const FTransform& AActor::GetTransform() const
 
 void AActor::Tick(float deltaTime)
 {
-	// 컴포넌트 Tick은 World의 활성 목록에서 직접 실행합니다.
+    // 현재 월드의 갱신 단위는 컴포넌트입니다. 여기서 다시 순회하면 중복 Tick이 발생합니다.
 }
 
 void AActor::Render(FRenderCollector& RenderCollector)
@@ -191,7 +193,7 @@ void AActor::GetRenderInfos(TArray<FRenderInfo>* outRenderInfos) const
 	}
 }
 
-bool AActor::GetFirstRenderInfo(FRenderInfo& outRenderInfo) const
+bool AActor::GetFirstRenderInfo(FRenderInfo &outRenderInfo) const
 {
 	TArray<FRenderInfo> renderInfos;
 	GetRenderInfos(&renderInfos);

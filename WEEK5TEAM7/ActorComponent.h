@@ -10,7 +10,7 @@ enum EActorComponentFlags
 	EditorOnly = 1 << 0, // 에디터에서만 존재하는 컴포넌트. 게임에서는 제거된다.
 	DoNotSerialize = 1 << 1, // 직렬화하지 않는다. (에디터에서만 존재하는 컴포넌트는 기본적으로 직렬화하지 않는다.)
 	Renderable = 1 << 2, // 렌더링 가능한 컴포넌트. (UPrimitiveComponent 등)
-	Tickable = 1 << 3, // 매 프레임 갱신이 필요한 컴포넌트만 활성 목록에 등록합니다.
+    Tickable = 1 << 3, // 매 프레임 갱신할 컴포넌트. World의 Tick 목록에 직접 등록합니다.
 };
 
 class UActorComponent : public UObject
@@ -22,33 +22,34 @@ public:
 
 	void SetOwner(AActor* owner);
 	AActor* GetOwner() const;
-	void SetTickable(bool bTickable);
-	bool IsTickable() const { return (mComponentFlags & EActorComponentFlags::Tickable) != 0; }
 
 	// Todo: Make as pure class
 	virtual void Tick(float deltaTime);
+    // 생성자에서는 플래그만 지정하고, 월드에 등록된 뒤에는 활성 목록도 갱신합니다.
+    void SetTickable(bool bTickable);
+    bool IsTickable() const { return (mComponentFlags & EActorComponentFlags::Tickable) != 0; }
 	virtual void Render(FRenderCollector& RenderCollector);
 	virtual void GetRenderInfos(TArray<FRenderInfo>* outRenderInfos) const;
 
-	inline void SetEditorOnly(bool bEditorOnly)
-	{
+	inline void SetEditorOnly(bool bEditorOnly) 
+	{ 
 		if (bEditorOnly)
 		{
-			mComponentFlags |= EActorComponentFlags::EditorOnly;
+			mComponentFlags |= EActorComponentFlags::EditorOnly; 
 		}
 		else
 		{
 			mComponentFlags &= ~EActorComponentFlags::EditorOnly;
 		}
 	}
-
+	
 	inline bool IsEditorOnly() const { return (mComponentFlags & EActorComponentFlags::EditorOnly) != 0; }
 
-	inline void SetDoNotSerialize(bool bDoNotSerialize)
-	{
+	inline void SetDoNotSerialize(bool bDoNotSerialize) 
+	{ 
 		if (bDoNotSerialize)
 		{
-			mComponentFlags |= EActorComponentFlags::DoNotSerialize;
+			mComponentFlags |= EActorComponentFlags::DoNotSerialize; 
 		}
 		else
 		{
@@ -76,5 +77,7 @@ protected:
 	AActor* mOwner;
 
 private:
+    friend class AActor;
 	uint32 mComponentFlags = 0;
 };
+
