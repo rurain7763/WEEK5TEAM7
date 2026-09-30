@@ -8,19 +8,13 @@
 #include "ObjectFactory.h"
 #include "PrimitiveComponent.h"
 #include "FBVH.h"
-#include "FInstrumentor.h"
 #include "UTextComponent.h"
-
-UWorld::UWorld()
-    : bLastUUIDTextVisible(FShowFlags::Get().IsEnabled(EShowFlag::UUIDText))
-{
-}
 
 UWorld::~UWorld()
 {
 	for (AActor* removeActor : mActors)
 	{
-        removeActor->mWorld = nullptr;
+		removeActor->mWorld = nullptr;
 		FObjectFactory::DestroyObject(removeActor);
 	}
 }
@@ -114,7 +108,7 @@ bool UWorld::RemoveActor(uint32 uuid)
 
 void UWorld::RegisterComponent(UActorComponent* Component)
 {
-    if (ComponentRegistrations.Contains(Component)) return;
+	RefreshComponentTick(Component);
 	UPrimitiveComponent* PrimitiveComponent = Component->Cast<UPrimitiveComponent>();
     const bool bUUID = Component->IsA<UText3DComponent>();
     ComponentRegistrations.Add(Component, { PrimitiveComponent, Component->IsRenderable(), bUUID });
@@ -134,11 +128,9 @@ void UWorld::RegisterComponent(UActorComponent* Component)
 
 void UWorld::UnregisterComponent(UActorComponent* Component)
 {
-    const auto* Found = ComponentRegistrations.Find(Component);
-    if (!Found) return;
-    const FComponentRegistration Registration = *Found;
-    ComponentRegistrations.Remove(Component);
-	UPrimitiveComponent* PrimitiveComponent = Registration.Primitive;
+	mTickableComponents.Remove(Component);
+	mUUIDTickableComponents.Remove(Component);
+	UPrimitiveComponent* PrimitiveComponent = Component->Cast<UPrimitiveComponent>();
 	if (PrimitiveComponent)
 	{
 		int32 index = mPrimitiveComponents.Find(PrimitiveComponent);
@@ -159,11 +151,65 @@ void UWorld::UnregisterComponent(UActorComponent* Component)
 	}
 }
 
-void UWorld::RefreshTickRegistration(AActor* Actor)
+void UWorld::FComponentTickList::Add(UActorComponent* Component)
 {
-    if (Actor->GetWorld() != this) return;
-    if (Actor->HasTickableComponents()) ActiveActors.Add(Actor);
-    else ActiveActors.Remove(Actor);
+	if (!Indices.Contains(Component))
+		Indices.Add(Component, Components.Add(Component));
+}
+
+void UWorld::FComponentTickList::Remove(UActorComponent* Component)
+{
+	const uint32* Found = Indices.Find(Component);
+	if (!Found) return;
+	const uint32 Index = *Found;
+	Indices.Remove(Component);
+	if (bTicking)
+	{
+		// Tick 내부에서 제거되어도 뒤의 컴포넌트를 건너뛰거나 해제된 포인터를 호출하지 않습니다.
+		Components[Index] = nullptr;
+		bNeedsCompaction = true;
+		return;
+	}
+	Components.RemoveAtSwap(Index);
+	if (Index < static_cast<uint32>(Components.Num()))
+		*Indices.Find(Components[Index]) = Index;
+}
+
+void UWorld::FComponentTickList::Tick(float DeltaTime, int32 Count)
+{
+	bTicking = true;
+	for (int32 Index = 0; Index < Count; ++Index)
+	{
+		if (UActorComponent* Component = Components[Index])
+			Component->Tick(DeltaTime);
+	}
+	bTicking = false;
+	if (bNeedsCompaction)
+	{
+		// 순회 중 삭제가 발생한 프레임에만 빈 슬롯을 정리합니다.
+		for (int32 Index = Components.Num() - 1; Index >= 0; --Index)
+		{
+			if (Components[Index]) continue;
+			Components.RemoveAtSwap(Index);
+			if (Index < Components.Num())
+				*Indices.Find(Components[Index]) = static_cast<uint32>(Index);
+		}
+		bNeedsCompaction = false;
+	}
+}
+
+void UWorld::RefreshComponentTick(UActorComponent* Component)
+{
+	if (!Component->IsTickable())
+	{
+		mTickableComponents.Remove(Component);
+		mUUIDTickableComponents.Remove(Component);
+		return;
+	}
+	if (Component->Cast<UText3DComponent>())
+		mUUIDTickableComponents.Add(Component);
+	else
+		mTickableComponents.Add(Component);
 }
 
 void UWorld::MarkBoundsDirty(UActorComponent* Component)
@@ -190,11 +236,11 @@ void UWorld::RefreshUUIDTickVisibility()
 
 void UWorld::Tick(float deltaTime)
 {
-    RefreshUUIDTickVisibility();
-    {
-        PROFILE_SCOPE("World/ActiveTick");
-        ActiveActors.Tick(deltaTime);
-    }
+	// 전체 Actor/Component 목록을 훑지 않고 실제 갱신 대상만 순회합니다.
+	mTickableComponents.Tick(deltaTime, mTickableComponents.Components.Num());
+	// 숨긴 UUID는 컴포넌트별 조건 검사도 하지 않고 목록 전체를 건너뜁니다.
+	if (FShowFlags::Get().IsEnabled(EShowFlag::UUIDText))
+		mUUIDTickableComponents.Tick(deltaTime, mUUIDTickableComponents.Components.Num());
 
 	if (mbBVHDirty)
 	{

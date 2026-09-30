@@ -4,7 +4,7 @@
 #include "Actor.h"
 #include "RenderInfo.h"
 #include "FFrustum.h"
-#include "TActiveTickList.h"
+#include "TMap.h"
 
 class UWorld final : public UObject
 {
@@ -22,9 +22,8 @@ public:
 
 	void RegisterComponent(UActorComponent* Component);
 	void UnregisterComponent(UActorComponent* component);
-    // 실행 가능한 Tickable 컴포넌트가 있는 Actor만 목록에 등록합니다.
-    void RefreshTickRegistration(AActor* Actor);
-    uint32 GetActiveActorTickCount() const { return ActiveActors.Num(); }
+	// Tickable 변경 시에만 활성 목록을 갱신합니다.
+	void RefreshComponentTick(UActorComponent* Component);
 
 	void MarkBoundsDirty(UActorComponent* component);
 
@@ -38,6 +37,19 @@ private:
     // 표시 옵션이 바뀐 경우에만 UUID의 Tick 등록을 다시 계산합니다.
     void RefreshUUIDTickVisibility();
 
+	struct FComponentTickList
+	{
+		void Add(UActorComponent* Component);
+		void Remove(UActorComponent* Component);
+		void Tick(float DeltaTime, int32 Count);
+
+		TArray<UActorComponent*> Components;
+		// 등록/해제할 때만 사용하며 프레임 순회 중에는 조회하지 않습니다.
+		TMap<UActorComponent*, uint32> Indices;
+		bool bTicking = false;
+		bool bNeedsCompaction = false;
+	};
+
 private:
 	enum
 	{
@@ -46,6 +58,8 @@ private:
 	
 	// Todo: Must reserve
 	TArray<AActor*> mActors;
+	FComponentTickList mTickableComponents;
+	FComponentTickList mUUIDTickableComponents;
 	TArray<UPrimitiveComponent*> mPrimitiveComponents;
 	TArray<UActorComponent*> mNonPrimitiveRenderableComponents; // Primitive는 아닌데 렌더링 기능이 있는 컴포넌트.
     TArray<UActorComponent*> mUUIDRenderableComponents;

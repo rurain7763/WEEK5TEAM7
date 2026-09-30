@@ -19,7 +19,7 @@ class UPlaneComponent : public UPrimitiveComponent
 public:
 	UPlaneComponent()
 	{
-        SetTickable(true);
+		SetTickable(true); // 파생된 AtlasAnimation도 이 설정을 상속합니다.
 		mMeshAsset = FAssetManager::Get().GetAssetAs<FStaticMeshAsset>(FName("PlaneMesh"), true);
 	}
 
@@ -144,7 +144,7 @@ class USpotLightComponent : public USceneComponent
 	REFLECT_CLASS(USpotLightComponent, USceneComponent)
 
 public:
-    USpotLightComponent() { SetTickable(true); }
+	USpotLightComponent() { SetTickable(true); }
 
 	void Tick(float DeltaTime) override
 	{
@@ -242,7 +242,7 @@ public:
 	UText3DComponent()
 	{
 		SetRenderable(true);
-        SetTickable(true);
+		SetTickable(true);
 	}
 
     bool ShouldTick() const override
