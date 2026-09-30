@@ -20,7 +20,9 @@ cbuffer CullConstants : register(b0)
     uint NumObjects;
     uint MaxMipLevel;
     float DepthBias;
-    float3 Padding;
+    float NearZ;
+    float FarZ;
+    float Padding;
 };
 
 [numthreads(64, 1, 1)]
@@ -85,8 +87,9 @@ void CSMain(uint3 id : SV_DispatchThreadID)
     float2 sizeInPixels = float2(maxU - minU, maxV - minV) * HiZResolution;
     float maxDim = max(sizeInPixels.x, sizeInPixels.y);
 
-    // Mip level to sample: ceil(log2(maxDim))
-    float lod = clamp(ceil(log2(max(maxDim, 1.0f))), 0.0f, (float)MaxMipLevel);
+    // Mip level to sample:
+    // If footprint is 2 pixels or smaller, sampling at Mip 0 is exact and avoids bleeding into sky/background texels.
+    float lod = (maxDim <= 2.0f) ? 0.0f : clamp(floor(log2(maxDim)), 0.0f, (float)MaxMipLevel);
 
     // Sample the 4 corners of the bounding box at mip lod
     float d0 = HiZTexture.SampleLevel(PointClampSampler, float2(minU, minV), lod).r;
@@ -96,9 +99,25 @@ void CSMain(uint3 id : SV_DispatchThreadID)
 
     float maxDepth = max(max(d0, d1), max(d2, d3));
 
-    // In DX11 standard [0, 1] depth: minZ is closest point of the box.
-    // If closest point of the box is strictly farther than the furthest surface in that region (+ bias), the box is occluded!
-    if (minZ > maxDepth + DepthBias)
+    // If maxDepth is 1.0 (clear depth / background sky), nothing in front is occluding it!
+    if (maxDepth >= 0.99999f)
+    {
+        OutputVisibility[id.x] = 1;
+        return;
+    }
+
+    // Convert DX11 non-linear depth [0, 1] to linear eye depth (meters)
+    // Z_linear = (Near * Far) / (Far - Z_ndc * (Far - Near))
+    float rangeZ = FarZ - NearZ;
+    float denomBox = FarZ - minZ * rangeZ;
+    float minLinearZ = (denomBox > 0.0001f) ? (NearZ * FarZ) / denomBox : FarZ;
+
+    float denomHiZ = FarZ - maxDepth * rangeZ;
+    float maxLinearZ = (denomHiZ > 0.0001f) ? (NearZ * FarZ) / denomHiZ : FarZ;
+
+    // In linear eye space, DepthBias is in world units (e.g. 0.05 = 5cm).
+    // This gives uniform precision whether the camera is 5m or 500m away!
+    if (minLinearZ > maxLinearZ + DepthBias)
     {
         OutputVisibility[id.x] = 0; // Occluded
     }

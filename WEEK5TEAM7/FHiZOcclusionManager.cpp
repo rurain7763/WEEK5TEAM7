@@ -299,7 +299,9 @@ void FHiZOcclusionManager::BeginFrame(ID3D11DeviceContext* Context)
 void FHiZOcclusionManager::GenerateHiZAndDispatchCull(
 	URenderer* Renderer,
 	const TSharedPtr<FDepthStencil>& SceneDepthStencil,
-	const FMatrix& ViewProjectionMatrix
+	const FMatrix& ViewProjectionMatrix,
+	float NearZ,
+	float FarZ
 )
 {
 	if (!bEnabled || !Renderer || !SceneDepthStencil || !SceneDepthStencil->DepthSRV || mNumObjects == 0)
@@ -404,6 +406,9 @@ void FHiZOcclusionManager::GenerateHiZAndDispatchCull(
 			cb->NumObjects = mNumObjects;
 			cb->MaxMipLevel = mNumMips - 1;
 			cb->DepthBias = mDepthBias;
+			cb->NearZ = NearZ;
+			cb->FarZ = FarZ;
+			cb->Padding = 0.0f;
 			Context->Unmap(mCullConstantBuffer.Get(), 0);
 		}
 

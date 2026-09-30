@@ -114,6 +114,8 @@ void FGraphicsManager::Prepare(const FCamera* mCamera, float viewportWidth, floa
 	mCameraForward = mCamera->GetForwardVector();
 	mCameraFovDegree = mCamera->mFovDegree;
 	mCameraOrthoDistance = mCamera->mOrthoDistance;
+	mCameraNear = mCamera->mNear;
+	mCameraFar = mCamera->mFar;
 
 	// 그리는 순서가 중요하다: 가까운 것을 먼저, 먼 것을 나중에.
 	// 깊이 테스트가 켜져 있으면 나중에 그린 FarCube 가 깊이 비교에서 탈락해
@@ -261,7 +263,7 @@ void FGraphicsManager::Render()
 		TSharedPtr<FDepthStencil> CurrentDepthStencil = mRenderer->GetBindedDepthStencil();
 		if (CurrentDepthStencil)
 		{
-			FHiZOcclusionManager::Get().GenerateHiZAndDispatchCull(mRenderer, CurrentDepthStencil, mViewUnifiedProjectionMatrix);
+			FHiZOcclusionManager::Get().GenerateHiZAndDispatchCull(mRenderer, CurrentDepthStencil, mViewUnifiedProjectionMatrix, mCameraNear, mCameraFar);
 		}
 	}
 

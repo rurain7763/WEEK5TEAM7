@@ -35,7 +35,9 @@ public:
 	void GenerateHiZAndDispatchCull(
 		URenderer* Renderer,
 		const TSharedPtr<FDepthStencil>& SceneDepthStencil,
-		const FMatrix& ViewProjectionMatrix
+		const FMatrix& ViewProjectionMatrix,
+		float NearZ = 0.1f,
+		float FarZ = 1000.0f
 	);
 
 	// Called at beginning of UWorld::Render to read back visibility
@@ -71,7 +73,7 @@ private:
 	bool bEnabled = true;
 	bool bHasValidVisibility = false;
 
-	float mDepthBias = 0.0001f;
+	float mDepthBias = 0.05f; // Linear bias in world units (5cm)
 
 	uint32 mHiZWidth = 1024;
 	uint32 mHiZHeight = 512;
@@ -103,7 +105,9 @@ private:
 		uint32 NumObjects;
 		uint32 MaxMipLevel;
 		float DepthBias;
-		float Padding[3];
+		float NearZ;
+		float FarZ;
+		float Padding;
 	};
 	Microsoft::WRL::ComPtr<ID3D11Buffer> mCullConstantBuffer;
 
