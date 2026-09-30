@@ -8,6 +8,7 @@
 #include "Vector.h"
 #include "RenderInfo.h"
 #include "FRenderPipeline.h"
+#include "FConstantBufferBatch.h"
 
 struct FCameraConstants
 {

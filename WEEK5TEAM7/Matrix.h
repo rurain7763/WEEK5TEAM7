@@ -49,7 +49,7 @@ struct FMatrix {
 	FMatrix operator* (const FMatrix& Other) const
 	{
 		FMatrix result = {};
-		/*
+#if 0
 		for (int row = 0; row < 4;++row) {
 			for (int col = 0;col < 4;++col) {
 				for (int k = 0;k < 4;++k) {
@@ -77,7 +77,27 @@ struct FMatrix {
 
 			VectorSIMD::Store(result.M[Row], VectorSIMD::Add(XY, ZW));
 		}
+#else
+		const FVectorRegister B0 = VectorSIMD::Load(Other.M[0]);
+		const FVectorRegister B1 = VectorSIMD::Load(Other.M[1]);
+		const FVectorRegister B2 = VectorSIMD::Load(Other.M[2]);
+		const FVectorRegister B3 = VectorSIMD::Load(Other.M[3]);
 
+		for (uint32 Row = 0; Row < 4; ++Row)
+		{
+			const FVectorRegister A = VectorSIMD::Load(M[Row]);
+
+			const FVectorRegister AX = VectorSIMD::Shuffle<0, 0, 0, 0>(A, A);
+			const FVectorRegister AY = VectorSIMD::Shuffle<1, 1, 1, 1>(A, A);
+			const FVectorRegister AZ = VectorSIMD::Shuffle<2, 2, 2, 2>(A, A);
+			const FVectorRegister AW = VectorSIMD::Shuffle<3, 3, 3, 3>(A, A);
+		
+			const FVectorRegister XY = VectorSIMD::Add(VectorSIMD::Mul(AX, B0), VectorSIMD::Mul(AY, B1));
+			const FVectorRegister ZW = VectorSIMD::Add(VectorSIMD::Mul(AZ, B2), VectorSIMD::Mul(AW, B3));
+
+			VectorSIMD::Store(result.M[Row], VectorSIMD::Add(XY, ZW));
+		}
+#endif
 		return result;
 	}
 

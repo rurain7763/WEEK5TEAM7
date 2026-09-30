@@ -10,8 +10,10 @@
 
 AActor::~AActor()
 {
+    if (mWorld) mWorld->RemoveActor(UUID);
 	for (UActorComponent* removeComponent : mComponents)
 	{
+        removeComponent->mOwner = nullptr;
 		FObjectFactory::DestroyObject(removeComponent);
 	}
 }

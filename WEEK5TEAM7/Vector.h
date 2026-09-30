@@ -128,13 +128,25 @@ typedef struct FVector
 	//내적
     inline static float dot(const FVector& A, const FVector& B)
     {
-        return A.x * B.x + A.y * B.y + A.z * B.z;
+        //return A.x * B.x + A.y * B.y + A.z * B.z;
+
+		const FVectorRegister VA = VectorSIMD::SetVal(A.v[0], A.v[1], A.v[2], 0.0f);
+		const FVectorRegister VB = VectorSIMD::SetVal(B.v[0], B.v[1], B.v[2], 0.0f);
+
+		return VectorSIMD::Dot(VA, VB);
     }
 
 	//외적
 	inline static FVector cross(const FVector& A, const FVector& B)
 	{
-		return	FVector(A.y * B.z - A.z * B.y, A.z * B.x - A.x * B.z, A.x * B.y - A.y * B.x);
+		//return	FVector(A.y * B.z - A.z * B.y, A.z * B.x - A.x * B.z, A.x * B.y - A.y * B.x);
+		const FVectorRegister VA = VectorSIMD::SetVal(A.v[0], A.v[1], A.v[2], 0.0f);
+		const FVectorRegister VB = VectorSIMD::SetVal(B.v[0], B.v[1], B.v[2], 0.0f);
+
+		alignas(16) float Temp[4];
+		VectorSIMD::Store(Temp, VectorSIMD::Cross3(VA, VB));
+
+		return FVector(Temp[0], Temp[1], Temp[2]);
 	}
 
 	float Length() const { return FMath::Sqrt(x * x + y * y + z * z); }
@@ -230,7 +242,12 @@ typedef struct FVector4
 	//내적
 	inline static float dot(const FVector4& A, const FVector4& B)
 	{
-		return A.x * B.x + A.y * B.y + A.z * B.z + A.w * B.w;
+		//return A.x * B.x + A.y * B.y + A.z * B.z + A.w * B.w;
+		
+		FVectorRegister VA = VectorSIMD::Load(A.v);
+		FVectorRegister VB = VectorSIMD::Load(B.v);
+	
+		return VectorSIMD::Dot(VA, VB);
 	}
 
 	//4차원에는 외적이 없다.

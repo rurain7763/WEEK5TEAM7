@@ -2,6 +2,7 @@
 
 #include "Object.h"
 #include "ActorComponent.h"
+#include "TActiveTickList.h"
 
 class UWorld;
 struct FRenderInfo;

@@ -83,6 +83,7 @@ protected:
 	FRenderProxy* mRenderProxy = nullptr;
 
 private:
+    friend class AActor;
 	uint32 mComponentFlags = 0;
 	bool mRenderDirty = true;
 };

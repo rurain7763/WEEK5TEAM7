@@ -14,7 +14,7 @@ class UWorld final : public UObject
 	REFLECT_CLASS(UWorld, UObject)
 
 public:
-	UWorld() = default;
+	UWorld();
 	virtual ~UWorld();
 
 	virtual void SerializeClass(json::JSON& outJson) const override;
@@ -47,6 +47,21 @@ public:
 
 private:
 	int32 getActorIndex(uint32 actorUUID) const;
+	// 변경된 리프와 조상만 설정 요약을 갱신합니다. 설정 편집 시에는 전체 요약을 갱신합니다.
+	void RefreshBVHLODState(const FBVHNode* Node, uint64 SettingsRevision);
+
+	struct FComponentTickList
+	{
+		void Add(UActorComponent* Component);
+		void Remove(UActorComponent* Component);
+		void Tick(float DeltaTime, int32 Count);
+
+		TArray<UActorComponent*> Components;
+		// 등록/해제할 때만 사용하며 프레임 순회 중에는 조회하지 않습니다.
+		TMap<UActorComponent*, uint32> Indices;
+		bool bTicking = false;
+		bool bNeedsCompaction = false;
+	};
 
 	struct FComponentTickList
 	{

@@ -59,6 +59,7 @@ struct FRenderQuadInfo
 	FMatrix Model;
 	FVector4 Color = { 1.f, 1.f, 1.f, 1.f };
 	Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> TextureSRV;
+	DXGI_FORMAT TextureFormat = DXGI_FORMAT_UNKNOWN;
 	FVector4 SubUV = { 0.f, 0.f, 1.f, 1.f };
 	ERenderBlendMode BlendMode = ERenderBlendMode::Opaque;
 	bool EnableDepthTest = true;
@@ -71,6 +72,7 @@ struct FRenderQuad2DInfo
 	FVector2 Size;
 	FVector4 Color = { 1.f, 1.f, 1.f, 1.f };
 	Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> TextureSRV;
+	DXGI_FORMAT TextureFormat = DXGI_FORMAT_UNKNOWN;
 	FVector4 SubUV = { 0.f, 0.f, 1.f, 1.f };
 	float Rotation = 0.f;
 	ERenderBlendMode BlendMode = ERenderBlendMode::Opaque;
@@ -90,6 +92,10 @@ struct FRenderCollector
 {
 public:
 	enum { DEFAULT_RESERVE_MEM = 1024U };
+
+	bool bRenderInfosSorted = true;
+	bool bHasPreviousSortKey = false;
+	uint64 PreviousSortKey = 0;
 
 	FCamera* Camera = nullptr;
 	FFrustum Frustum;

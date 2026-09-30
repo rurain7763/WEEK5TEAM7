@@ -137,6 +137,8 @@ private:
 
 	FComponentVisualizerManager* mComponentVisualizerManager;
 
+	bool bBenchmarkMode = false;
+
 #if IS_OBJ_VIEWER
 	FObjViewer mObjViewer;
 #endif

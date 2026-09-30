@@ -263,7 +263,7 @@ void FGraphicsManager::Render()
 			{
 				mRenderer->RenderPrimitiveIndexed(Pipeline, Info, 0, bShouldBindPipeline);
 			}
-			else
+			else if (mViewportType == EViewportType::Side)
 			{
 				mRenderer->RenderPrimitive(Pipeline, Info.VertexBuffer, Info.VertexCount, bShouldBindPipeline);
 			}

@@ -113,6 +113,13 @@ bool UWorld::RemoveActor(uint32 uuid)
 	{
 		return false;
 	}
+	
+	AActor* ActorToRemove = mActors[ActorIndex];
+	for (UActorComponent* component : ActorToRemove->GetComponents())
+	{
+		UnregisterComponent(component);
+	}
+	ActorToRemove->mWorld = nullptr;
 
 	AActor* ActorToRemove = mActors[ActorIndex];
 	for (UActorComponent* component : ActorToRemove->GetComponents())
@@ -273,6 +280,21 @@ void UWorld::Tick(float deltaTime)
 	}
 }
 
+void UWorld::RefreshBVHLODState(const FBVHNode* Node, uint64 SettingsRevision)
+{
+	auto ReadSelection = [&](int32 EntryIndex, FMeshLODSelection& Selection)
+	{
+		const auto* MeshComponent = mBVH.GetPayload(EntryIndex)->Cast<UStaticMeshComponent>();
+		if (MeshComponent && MeshComponent->GetMesh())
+		{
+			Selection = MeshComponent->GetMesh()->GetLODSelection();
+			return true;
+		}
+		return false;
+	};
+	FBVHLODTraversal::Refresh(Node, mBVHLODStates, SettingsRevision, ReadSelection);
+}
+
 void UWorld::Render(float deltaTime, FRenderCollector& outCollector)
 {
 	for (UActorComponent* Component : mNonPrimitiveRenderableComponents)
@@ -328,6 +350,44 @@ void UWorld::Render(float deltaTime, FRenderCollector& outCollector)
 	outCollector.BVH = &mBVH;
 }
 
+	if (FShowFlags::Get().IsEnabled(EShowFlag::Primitive))
+	{
+		if (mBVH.IsValid())
+		{
+			PROFILE_SCOPE("Viewport/Collect/BVHVisibilityLOD");
+			const bool bUpdateLOD = bFirstView && outCollector.Camera;
+			if (bUpdateLOD)
+				RefreshBVHLODState(mBVH.GetRootNode(), FStaticMeshAsset::GetLODChangeVersion());
+			const FVector ViewOrigin = outCollector.Camera ? outCollector.Camera->Transform.GetLocation() : FVector();
+			auto SubmitRange = [&](const FBVHItemRange& Range, int32 LOD)
+			{
+				for (int32 Index = Range.Offset; Index < Range.Offset + Range.Count; ++Index)
+				{
+					UPrimitiveComponent* Object = mBVH.GetPayload(Index);
+					if (LOD >= 0)
+					{
+						if (auto* Mesh = Object->Cast<UStaticMeshComponent>(); Mesh && Mesh->GetMesh())
+						{
+							const uint32 ResolvedLOD = Mesh->GetMesh()->HasLOD(LOD) ? static_cast<uint32>(LOD) : 0;
+							if (Mesh->GetLODIndex() != ResolvedLOD)
+							{
+								Mesh->SetMesh(Mesh->GetMesh(), ResolvedLOD);
+								++mLODQueryStats.ChangedComponents;
+							}
+						}
+					}
+					Object->GetRenderProxy()->Submit();
+				}
+			};
+			mbSelectingBVHLOD = true;
+			FBVHLODTraversal::Query(mBVH.GetRootNode(), mBVHLODStates, outCollector.Frustum,
+				ViewOrigin, mLODQueryStats, SubmitRange, bUpdateLOD);
+			mbSelectingBVHLOD = false;
+		}
+	}
+
+	outCollector.BVH = &mBVH;
+}
 int32 UWorld::getActorIndex(uint32 actorUUID) const
 {
 	for (uint32 i = 0; i < mActors.Num(); ++i)

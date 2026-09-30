@@ -19,6 +19,11 @@
 #include "PrimitiveComponent.h"
 #include "RayCast.h"
 
+#include <queue>
+#include <vector>
+#include <functional>
+#include <cmath>
+
 FEditorViewportClient::FEditorViewportClient(URenderer& InRenderer)
 	: mCamera(FTransform({ -2.0f, 1.0f, 1.0f }, { 0, 30, 0 }, { 1, 1, 1 }))
 	, mGizmo(InRenderer)
@@ -190,6 +195,7 @@ AActor* FEditorViewportClient::PerformMousePicking(const FRect& ViewportRect, fl
 			}
 		}
 	}
+#endif
 
 	return NearestActor;
 }
