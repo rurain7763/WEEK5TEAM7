@@ -284,17 +284,17 @@ public:
 	const float& GetOpacity() const { return Opacity; }
 
 	inline bool HasDiffuseTexture() const { return DiffuseTexture.IsValid(); }
-	inline TSharedPtr<FTexture2DAsset> GetDiffuseTexture() const { return DiffuseTextureAsset; }
+	inline const TSharedPtr<FTexture2DAsset>& GetDiffuseTexture() const { return DiffuseTextureAsset; }
 
 	inline bool HasSpecularTexture() const { return SpecularTexture.IsValid(); }
-	inline TSharedPtr<FTexture2DAsset> GetSpecularTexture() const { return SpecularTextureAsset; }
+	inline const TSharedPtr<FTexture2DAsset>& GetSpecularTexture() const { return SpecularTextureAsset; }
 
 	inline bool HasNormalTexture() const { return NormalTexture.IsValid(); }
-	inline TSharedPtr<FTexture2DAsset> GetNormalTexture() const { return NormalTextureAsset; }
+	inline const TSharedPtr<FTexture2DAsset>& GetNormalTexture() const { return NormalTextureAsset; }
 
 	inline uint32 GetMaterialID() const { return MaterialID; }
 
-	inline TSharedPtr<FRenderPipeline> GetPipeline() const { return Pipeline; }
+	inline const TSharedPtr<FRenderPipeline>& GetPipeline() const { return Pipeline; }
 	inline void SetPipeline(const TSharedPtr<FRenderPipeline>& InPipeline) { Pipeline = InPipeline; }
 	uint16 GetPipelineID() const;
 

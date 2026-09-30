@@ -104,7 +104,7 @@ void UStaticMeshComponent::Render(FRenderCollector& RenderCollector)
         const FStaticMeshSection& Section = Sections[SectionIndex];
         if (Section.IndexCount == 0) continue;
 
-        const TSharedPtr<FMaterialAsset>& Material = mMaterialAssets[SectionIndex];
+        const FMaterialAsset* Material = mMaterialAssets[SectionIndex].get();
 
 		FRenderInfo& RenderInfo = mRenderProxy->GetRenderInfo(ActiveSectionCount++);
         if (Material)
@@ -118,12 +118,12 @@ void UStaticMeshComponent::Render(FRenderCollector& RenderCollector)
             uint32 MeshID = mMeshAsset->GetMeshID(LOD);
 
             RenderInfo.SortKey = MakeRenderSortKey(PipelineID, MaterialID, MeshID);
-            RenderInfo.Pipeline = Material->GetPipeline();
+            RenderInfo.Pipeline = Material->GetPipeline().get();
             RenderInfo.VertexBuffer = mMeshAsset->GetVertexBuffer(LOD);
             RenderInfo.IndexBuffer = mMeshAsset->GetIndexBuffer(LOD);
             RenderInfo.StartIndex = Section.FirstIndex;
             RenderInfo.IndexCount = Section.IndexCount;
-            RenderInfo.Texture = Material->GetDiffuseTexture();
+            RenderInfo.Texture = Material->GetDiffuseTexture().get();
             RenderInfo.UVOffset = mUVOffsets[SectionIndex];
             RenderInfo.Model = Transform.MakeMatrix();
             RenderInfo.Color = FVector4(DiffuseColor.x, DiffuseColor.y, DiffuseColor.z, Opacity);
